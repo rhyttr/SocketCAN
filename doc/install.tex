@@ -1,0 +1,373 @@
+% $Id: install.tex,v 2.0 2006/04/13 10:37:18 ethuerm Exp $
+
+\newpage
+\section{Installation}
+\label{install}
+
+\subsection{Übersicht über den Quellcode}
+
+Am Beispiel der Verzeichnisstruktur der \LL-Version v1.0.0-rc1 soll
+der Inhalt des tar-Files vorgestellt werden:
+
+\begin{code}
+llcf-v1/
+llcf-v1/doc/
+llcf-v1/install/
+llcf-v1/src/
+llcf-v1/src/drivers/
+llcf-v1/src/drivers/sja1000/
+llcf-v1/src/drivers/tricore/
+llcf-v1/src/test/
+\end{code}
+
+Die Verzeichnisse beinhalten im Einzelnen:
+
+\begin{description}
+\item[doc] Diese Dokumentation (als LaTeX Quelltext oder nur als PDF).
+\item[install] Scripts und Dateien zum automatischen Laden der Module.
+\item[src] Den Quellcode der \LL-Module.
+\item[src/drivers] Unterverzeichnis für CAN-Netzwerktreiber.
+\item[src/drivers/sja1000] Philips SJA1000 Netzwerktreiber.
+\item[src/drivers/tricore] Infineon TwinCAN TC1920 Netzwerktreiber.
+\item[src/test] Verschiedene Testrahmen und Beispielcode.
+\end{description}
+
+\subsection{Kompilieren des Quellcodes}
+
+\subsubsection{Systemvoraussetzungen}
+
+Die \LL-Module werden zur Laufzeit in den Linux-Kernel geladen. Dazu
+muss sichergestellt sein, dass die Module unter den selben
+Randbedingungen erzeugt wurden, wie der Kernel und die dazugehörigen
+Module, die bereits erstellt wurden.\\
+
+Insbesondere müssen übereinstimmen:
+
+\begin{itemize}
+\item Die Version des Linux Kernel (z.B. 2.4.31)
+\item Die Version des verwendeten Compilers (z.B. gcc 3.3)
+\end{itemize}
+
+Die Information, welcher Kernel auf dem System gerade läuft, lässt sich
+folgendermaßen ermitteln:
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/version 
+Linux version 2.4.26 (root@vwagwockfe40) (gcc version 2.95.4) #2 Mi Mär 30 14:13:59 CEST 2005
+\end{code}
+
+
+Beim Übersetzen des Kernel müssen die folgenden Randbedingungen
+gegeben sein:
+
+\begin{itemize}
+\item Linux Kernel Version 2.4 (Eine Anpassung für Kernel 2.6 ist in Arbeit)
+\item Der Kernel Module Loader muss konfiguriert sein (CONFIG\_KMOD)
+\item Das Dateisystem procfs muss konfiguriert sein (CONFIG\_PROC\_FS)
+\end{itemize}
+
+Bei einer Linux-Installation (z.B. Knoppix) sollten zumindest die
+\verb+include+-Dateien des laufenden Kernel (typischerweise unter
+\verb+/usr/src/linux+) vorhanden sein. Ist dieses nicht der Fall, muss
+ein aktueller Kernel 2.4 heruntergeladen (www.kernel.org), ausgepackt,
+compiliert und installiert werden.
+
+\subsubsection{Kompilieren der \LL-Module}  
+\label{compile}
+
+Das Kompilieren der \LL-Kernelmodule geschieht im Verzeichnis \verb+src+
+mit Aufruf des Befehles \verb+make+. Dabei wird als Compiler 'cc' und
+als Verzeichnis für den Kernel-Quellcode \verb+/usr/src/linux+
+angenommen.
+
+Soll ein anderer Compiler verwendet werden oder befinden sich die zu
+verwendenden Kernel-Quellen an einer anderen Stelle, so können diese
+Standard-Einstellungen geändert werden. Z.B. mit\\
+
+\verb+make CC=gcc-2.95 KERNELDIR=/usr/src/linux-2.4.26+\\
+
+Zusätzlich besteht die Möglichkeit, die \LL-Kernelmodule mit einer
+DEBUG-Option zu übersetzen. Mit dem Module-Parameter \verb+debug=1+
+kann zum Lade-Zeitpunkt des Moduls eine erweiterte Informationsausgabe
+im Kernel-Log (beispielweise in \verb+/var/log/kern.log+) erreicht
+werden. Siehe dazu auch der Hinweis in Kapitel \ref{modparms}. An
+einem realen Fahrzeug mit mehreren hundert CAN-Frames pro
+Sekunde sollte man auf diese Möglichkeit allerdings verzichten! Der
+Parameter, um die DEBUG-Funktionalität mit einzukompilieren lautet
+\verb+DEBUG=-DDEBUG+ - also wird \verb+make+ z.B. so aufgerufen:\\
+ 
+\verb+make CC=gcc-2.95 KERNELDIR=/usr/src/linux-2.4.26 DEBUG=-DDEBUG+\\
+
+Nach dem Aufruf von \verb+make+ sollten verschiedene Kernel-Module
+(Dateiendung \verb+.o+) im \verb+src+-Verzeichnis erzeugt worden
+sein. Darunter z.B. die Datei \verb+can.o+.
+
+\subsubsection{Kompilieren der CAN-Netzwerk-Module}  
+
+Analog zu den \LL-Modulen wird beispielsweise im Verzeichnis
+\verb+src/drivers/sja1000+ der Befehl \verb+make+ ausgeführt. Das
+Kernel-Modul für die PC104/ISA-Anbindung des SJA1000-Controllers heißt
+\verb+sja1000-isa.o+. Der Treiber für das iGate (Jaybrain GW2) heißt
+\verb+sja1000-gw2.o+.
+
+\subsubsection{Kompilieren der Testanwendungen}  
+
+Die Testanwendungen benötigen keinen konkreten Bezug zum Kernel und
+können einfach mit \verb+make+ im Verzeichnis \verb+src/test+
+übersetzt werden.
+
+\subsection{Installation der Module}
+
+Derzeit existiert noch keine Make-Umgebung, die durch ein einfaches
+\verb+make install+ die Installation der Module ausführen kann. Daher
+diese etwas ausführlichere Anleitung.
+
+\subsubsection{Kopieren der Module}
+
+Um die Module zu installieren muss, man sich als Benutzer 'root' im
+System anmelden. Die ladbaren Module werden unter Linux in einer
+Verzeichnisstruktur in \verb+/lib/modules/<kernelversion>+
+abgelegt. Für dieses Beispiel gehen wir von einer Kernelversion 2.4.31
+aus.
+
+\begin{itemize}
+\item Neues Verzeichnis für die \LL-Module anlegen: \mbox{\tt mkdir
+/lib/modules/2.4.31/llcf}
+\item \LL-Module kopieren (in \verb+src+):
+\mbox{\tt cp *.o /lib/modules/2.4.31/llcf}
+\item ggf. Treiber-Module kopieren z.B.: \mbox{\tt cp sja1000-isa.o
+/lib/modules/2.4.31/llcf}
+\item Modulabhängigkeiten aktualisieren: \mbox{\tt depmod -a}
+\end{itemize}
+
+Dieses Verfahren ist auch für CAN-Netzwerk-Treibermodule anzuwenden,
+die nicht im \LL-tar-File enthalten sind. Siehe Kapitel \ref{hardware}.
+
+\subsubsection{Automatisches Laden und Starten der Module}
+\label{autoload}
+
+Der Module-Loader unter Linux kann - bei entsprechender Konfiguration
+- Kernelmodule automatisch laden. D.h. beim Öffnen eines \LL-Sockets
+können die entsprechenden Kernelmodule geladen werden, ohne die
+\LL-Module fest in den Kernel einbinden zu müssen.\\
+
+Zudem können Modulen beim Ladevorgang Parameter übergeben
+werden. Diese Funktionalitäten werden durch die Konfigurationseinträge
+in der Datei \verb+/etc/modules.conf+ realisiert.\\
+
+Für das \LL\ wurde als Ausgangsbasis im Verzeichnis \verb+install+
+eine Datei \verb+llcf+ angelegt, die ..
+
+\begin{itemize}
+\item ... an die Datei \verb+/etc/modules.conf+ anzuhängen ist ODER
+\item ... z.B. bei Debian-System nach \verb+/etc/modutils+ zu kopieren
+ist
+\end{itemize}
+
+Bei Debian-Systemen muss nach dem Kopiervorgang oder bei Änderungen
+der Datei \verb+/etc/modutils/llcf+ das Script
+\verb+update-modules.modutils+ aufgerufen werden.\\
+
+Ein Ausschnitt aus der Datei \verb+llcf+ ohne die Modul-Parameter für
+die unterstütze CAN Hardware:
+
+\begin{code}
+# Low Level CAN Framework
+# Copyright (c) 2005 Volkswagen Group Electronic Research
+#
+# uncomment and edit lines for your specific hardware! 
+#
+# On debian systems copy this file to the directory
+# /etc/modutils and say 'update-modules.modutils'.
+# Other systems: Add this content to /etc/modules.conf
+
+# protocol family PF_CAN
+alias net-pf-30 can
+
+# protocols in PF_CAN
+alias can-proto-1 can-tp16
+alias can-proto-2 can-tp20
+alias can-proto-3 can-raw
+alias can-proto-4 can-bcm
+alias can-proto-5 can-mcnet
+alias can-proto-6 can-isotp
+alias can-proto-7 can-bap
+
+# protocol module options
+#option tp_gen printstats=1
+
+# virtual CAN devices
+alias vcan0 vcan
+alias vcan1 vcan
+alias vcan2 vcan
+alias vcan3 vcan
+
+(..)
+\end{code}
+
+Für die verwendete CAN-Hardware sind in der Datei \verb+llcf+ auch
+Modul-Parameter vorhanden. Dabei sind besonders die Einstellungen der
+Bit-Timing-Register (btr) zum Zeitpunkt des Modul-Ladens zu
+beachten. Entsprechend der verwendeten Hardware sind hier Änderungen
+durchzuführen.
+
+\begin{code}
+# CAN hardware (uncomment the currently used)
+
+##> Trajet GW2
+#alias can0 sja1000-gw2
+#alias can1 sja1000-gw2
+#alias can2 sja1000-gw2
+#alias can3 sja1000-gw2
+#options sja1000-gw2 speed=500,100,500,100
+#options sja1000-gw2 btr=0xC03D,0xC4F9,0xC03D,0xC4F9
+
+##> Peak System hardware (ISA/PCI/Parallelport Dongle)
+##> to set BTR-values to PCI-devices see Peak System documentation
+##> e.g. echo "i 0x4914 e" > /dev/pcan0
+#alias can0 pcan
+#alias can1 pcan
+#alias can2 pcan
+#options pcan type=isa,isa io=0x2C0,0x320 irq=10,5 btr=0x4914,0x4914
+#options pcan type=epp btr=0x4914
+#options parport_pc io=0x378 irq=7
+
+##> EMS Wuensche CPC-Card
+#options cpc-card btr=0x4914,0x4914
+#
+##> add the following lines to /etc/pcmcia/config.opts (!)
+## EMS Wuensche CPC-Card CAN Interface
+#device "cpc-card_cs"
+#  module "cpc-card", "cpc-card_cs"
+#  card "EMS Dr. Thomas Wuensche CPC-Card CAN Interface"
+#  version "EMS_T_W", "CPC-Card", "*", "*"
+#  bind "cpc-card_cs"
+\end{code}
+
+Für die häufig verwendeten Philips SJA1000 CAN-Controller ergeben sich
+bei einem Controller-Takt von 16 MHz beispielsweise folgende Werte für
+die Bit-Timing-Register (\verb+btr=<xx>+):
+\begin{description}
+\item[0x4914] 100 kBit
+\item[0x4114] 500 kBit
+\item[0x4014] 1000 kBit
+\end{description}
+
+\subsubsection{Automatisches Hochfahren der CAN-Netzwerk-Interfaces}
+
+Die CAN-Netzwerk-Interfaces können wie jedes andere Netzwerk-Interface
+auch mit dem Befehl \verb+ifconfig+ hoch- und heruntergefahren werden.
+\begin{code}
+hartko@pplinux1:~> ifconfig can0 up
+hartko@pplinux1:~> ifconfig can0 down
+\end{code}
+
+Für das automatische Hoch- und Herunterfahren der
+CAN-Netzwerk-Interfaces wurde im Verzeichnis \verb+install+
+eine Datei \verb+can_if+ angelegt, die in das Verzeichnis
+\verb+/etc/init.d+ zu kopieren ist. In dieser Datei sind drei Variable
+angelegt, die die zu bearbeitenden Interfaces bestimmen.
+
+\begin{code}
+CAN_IF="can0 can1"
+VCAN_IF="vcan0 vcan1"
+PROBE=""
+\end{code}
+
+In diesem Beispiel werden beim Starten des Systems die Interfaces
+'can0', 'can1', 'vcan0' und 'vcan1' hochgefahren.
+
+Mit \verb+/etc/init.d/can_if start+ kann man als Benutzer 'root' die
+Interfaces starten und mit \verb+/etc/init.d/can_if stop+ wieder
+herunterfahren (beispielsweise, wenn neue Kernel-Module installiert
+werden sollen und die alten mit \verb+rmmod <modulname>+ entfernt
+werden sollen).\\
+
+\label{probe}
+Die Variable \verb+PROBE+ ermöglicht es dem Anwender, zum
+Startzeitpunkt der CAN-Interfaces mit \verb+modprobe+ Kernelmodule zu
+laden, noch bevor die automatische Ladefunktionalität durch das
+Öffnen eines Socket ausgeführt wird. Hintergrund: Auf sehr langsamen
+Systemen kann ein zeitnahes Laden nicht immer in der Art gewährleistet
+werden, wie es manche Protokoll-Spezifikation verlangen. Durch das
+Setzen der Variable \verb+PROBE="can-tp20 can-tp16"+ werden beispielsweise
+diese Protokollmodule im Speicher vorgehalten.\\
+
+Soll das Script \verb+/etc/init.d/can_if+ beim Systemstart automatisch
+gestartet werden, müssen gemäß den Runleveln im SystemV Init
+symbolische Links gesetzt werden. Beispielsweise:\\
+
+\begin{code}
+root@pplinux1:/# ln -sf /etc/init.d/can_if /etc/rc0.d/S35can_if
+root@pplinux1:/# ln -sf /etc/init.d/can_if /etc/rc6.d/S35can_if
+root@pplinux1:/# ln -sf /etc/init.d/can_if /etc/rcS.d/S40can_if
+\end{code}
+
+\subsubsection{Modul Parameter der \LL-Module}
+\label{modparms}
+Bezugnehmend auf die in Kapitel \ref{autoload} vorgestellte Datei
+\verb+llcf+ wird hier auf die Modul-Parameter der \LL-Module
+eingegangen. Wurde beim Kompilieren (siehe Kapitel \ref{compile}) die
+Option \verb+DEBUG=-DDEBUG+ mit angegeben, kann beim Laden des Modules
+ein Parameter \verb+debug=<x>+ angegeben werden. Der Wert \verb+<x>+
+ist dabei binär kodiert und bedeutet:
+
+\begin{description}
+\item[Bit 0 gesetzt] Debug-Ausgabe des Moduls eingeschaltet
+\item[Bit 1 gesetzt] Ausgabe der Socket-Buffer-Daten eingeschaltet
+\end{description}
+
+Es ist möglich (wenn auch nicht empfehlenswert) in der Datei
+\verb+can+ zum Beispiel die Zeile\\
+
+\verb+option can debug=1+\\
+
+einzutragen. Besser ist es, mit \verb+insmod can debug=1+ das Modul
+einmalig zum Testen 'von Hand' zu laden. Ggf. muss es vorher allerdings
+mit \verb+rmmod can+ entfernt werden (siehe dazu Kapitel
+\ref{remove}).\\
+
+Der generische Transportprotokoll-Treiber \verb+can-tpgen+ bietet die
+Option, sich die Statistiken einer Transportprotokollverbindung
+(Anzahl der Pakete, Anzahl der Bytes, Anzahl der Retries) im
+Kernel-Log ausgeben zu lassen. Dazu muss die Option \verb+printstats=1+
+gesetzt sein. Da hier nicht viele Daten anfallen, kann dieses bei
+Bedarf auch in der Datei \verb+llcf+ eingetragen werden.\\
+
+\verb+option can-tpgen printstats=1+\\
+
+\subsubsection{Entfernen von geladenen \LL-Modulen}
+\label{remove}
+
+ACHTUNG! Zum Entfernen von geladenen \LL-Modulen müssen zunächst immer
+alle Applikationen, die auf das \LL\ aufsetzen, beendet und alle 
+CAN-Interfaces heruntergefahren werden (z.B. mit
+\verb+/etc/init.d/can_if stop+).\\
+
+In diesem Beispiel sind die CAN-Interfaces 'vcan0' und 'vcan1' noch
+hochgefahren, was beim Module 'vcan' zu einem Usage-Count von zwei führt.
+
+\begin{code}
+root@pplinux1:/# lsmod
+Module                  Size  Used by    Tainted: P  
+pcan                   29424   1 (autoclean)
+vcan                    2560   2 (autoclean)
+can-tp20                6692   0 (unused)
+can-tpgen               5368   0 [can-tp20]
+can-bcm                 7940   0 (unused)
+can-raw                 2564   0 (unused)
+can                    10432   0 [can-tp20 can-tpgen can-bcm can-raw]
+(..)
+\end{code}
+
+Nach dem Herunterfahren der CAN-Interfaces kann man entsprechend den
+Abhängigkeiten die Module entfernen. Im Beispiel hängt \verb+can-tp20+ von
+\verb+can-tpgen+ ab und \verb+can-tp20 can-tpgen can-raw vcan+
+hängen von \verb+can+ ab. D.h. die Reihenfolge zum Entladen der
+Module ist:\\
+
+\verb+rmmod can-tp20 can-tpgen can-raw vcan can+\\
+
+Das kann man auch mit einzelnen \verb+rmmod+-Aufrufen
+realisieren. Wenn ein Modul nicht entladen werden kann, gibt es eine
+Fehlermeldung.

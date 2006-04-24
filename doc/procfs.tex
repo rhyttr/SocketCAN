@@ -1,0 +1,291 @@
+% $Id: procfs.tex,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
+
+\newpage
+\section{\LL-Status im /proc-Filesystem}
+\label{procfs}
+
+Das \LLCF\ unterstützt das /proc-Filesystem und stellt darüber Statistiken
+und Informationen über interne Strukturen und Stati in lesbarer Form zur
+Verfügung. Die Informationen können vom Benutzer beispielsweise mit\\
+
+\verb+cat /proc/sys/net/can/stats+\\
+
+abgefragt werden. Im Folgenden werden die einzelnen Einträge erläutert.
+
+\subsection{Versionsinformation /proc/sys/net/can/version}
+
+Die \LL-Versionsinformationen können für eine Anwendung z.B. durch das
+Öffnen der Datei \verb+/proc/sys/net/can/version+ ausgelesen werden. Dazu werden
+die ersten 6 Zeichen in einen Puffer kopiert und mit 
+\verb+ llcf_version_code = strtoul(mybuffer, (char **)NULL, 16);+
+in den LLCF\_VERSION\_CODE überführt. Der LLCF\_VERSION\_CODE wird
+nach der Regel\\
+
+\verb-LLCF_VERSION_CODE = (((MAJORVERSION) << 16) + ((MINORVERSION) << 8) + (PATCHLEVEL))-\\
+
+berechnet.
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/sys/net/can/version 
+010000 [ Volkswagen AG - Low Level CAN Framework (LLCF) v1.0.0-rc1 ]
+\end{code}
+
+\subsection{Statistiken /proc/sys/net/can/stats}
+
+Über die angebotenen Statistiken kann man sich über das aktuelle
+Datenaufkommen informieren und wie beispielsweise der Anteil der von
+Applikationen benötigten (matched) CAN-Frames im Verhältnis aller vom CAN-Bus
+empfangener CAN-Frames ist.\\
+
+Die Informationen werden mit dem Start des \LL\ jede Sekunde aktualisiert.
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/sys/net/can/stats 
+
+      811 transmitted frames (TXF)
+   319427 received frames (RXF)
+    69504 matched frames (RXMF)
+
+       21 % total match ratio (RXMR)
+        0 frames/s total tx rate (TXR)
+        0 frames/s total rx rate (RXR)
+
+      100 % current match ratio (CRXMR)
+        2 frames/s current tx rate (CTXR)
+      166 frames/s current rx rate (CRXR)
+
+      100 % max match ratio (MRXMR)
+        2 frames/s max tx rate (MTXR)
+      167 frames/s max rx rate (MRXR)
+
+        6 current receive list entries (CRCV)
+        6 maximum receive list entries (MRCV)
+
+\end{code}
+\subsection{Zurücksetzen von Statistiken /proc/sys/net/can/reset\_stats}
+
+Das Zurücksetzen der statistischen Informationen kann durch interne
+Überläufe von Zählern oder vom Benutzer selbst initiiert werden. Über
+das Zurücksetzen der statistischen Informationen informiert eine
+zusätzliche Zeile (STR). An diesem Beispiel sind die Auswirkungen in
+einem laufenden System bezüglich der obigen Ausgabe der Statistiken
+gut zu erkennen.
+\begin{code}
+hartko@pplinux1:~> cat /proc/sys/net/can/reset_stats 
+LLCF statistic reset #1 done.
+hartko@pplinux1:~> cat /proc/sys/net/can/stats 
+
+       31 transmitted frames (TXF)
+     2585 received frames (RXF)
+     2585 matched frames (RXMF)
+
+      100 % total match ratio (RXMR)
+        1 frames/s total tx rate (TXR)
+      165 frames/s total rx rate (RXR)
+
+      100 % current match ratio (CRXMR)
+        2 frames/s current tx rate (CTXR)
+      165 frames/s current rx rate (CRXR)
+
+      100 % max match ratio (MRXMR)
+        2 frames/s max tx rate (MTXR)
+      167 frames/s max rx rate (MRXR)
+
+        6 current receive list entries (CRCV)
+        6 maximum receive list entries (MRCV)
+
+        1 statistic resets (STR)
+
+
+\end{code}
+
+\subsection{Interne Empfangslisten des RX-Dispatchers}
+
+\LL-Module können sich beim \LL-RX-Dispatcher für den Empfang von
+einzelnen CAN-IDs (oder Bereichen von CAN-IDs) von bestimmten 
+CAN-Netzwerk-Interfaces registrieren. Diese Registrierung führt zu
+einem Eintrag in einer zugehörigen Empfangsliste, bei der 
+zu jeder registrierten CAN-ID eine Funktion mit einem Parameter
+(z.B. eine modulspezifische Referenz wie 'userdata' oder 'sk')
+aufgerufen wird, wenn das entsprechende CAN-Frame empfangen 
+wurde. In der Spalte 'ident' trägt sich das
+registrierende Protokoll-Modul namentlich ein. Zusammen mit der
+Debug-Funktionalität (siehe Kapitel \ref{modparms}) kann man anhand
+dieser Informationen die Funktionsweise des \LL\ einfach nachvollziehen.\\
+
+Zur schnellen Verarbeitung empfangener CAN-Frames sind im
+RX-Dispatcher des \LL\ verschiedenartige Empfangslisten (für jedes
+CAN-Netzwerk-Interface) realisiert:
+
+\begin{description}
+\item[rcvlist\_all] In dieser Liste sind Registrierungen eingetragen,
+die von einem CAN-Bus alle empfangenen CAN-Frames
+benötigen. Typischerweise sind dieses die so genannten RAW-Sockets
+ohne aktiven Filter (siehe Kapitel \ref{rawsocket}). 
+\item[rcvlist\_fil] In dieser Liste sind Registrierungen eingetragen,
+die nur einen über Bitmasken definierten Bereich von CAN-Frames
+benötigen (z.B. 0x200 - 0x2FF).
+\item[rcvlist\_inv] In dieser Liste sind Registrierungen eingetragen,
+die einen über Bitmasken definierten Bereich von CAN-Frames ausblenden
+wollen - also die Umkehrung von 'rcvlist\_fil'.
+\item[rcvlist\_eff] In dieser Liste sind Registrierungen für einzelne
+CAN-Frames im Extended Frame Format (29 Bit Identifier) eingetragen.
+\item[rcvlist\_sff] In dieser Liste sind Registrierungen für einzelne
+CAN-Frames im Standard Frame Format (11 Bit Identifier) eingetragen.
+\end{description}
+
+Durch das Aufteilen der Empfangslisten, wird der Aufwand zum Suchen
+und Vergleichen des empfangenen CAN-Frames mit den registrierten
+Empfangsfiltern minimiert.\\
+
+So wurde z.B. die Liste 'rcvlist\_sff' als Array mit 2048 Einträgen (11 Bit
+CAN-ID) mit einer einfach verketteten Liste für die jeweiligen CAN-IDs
+realisiert. Auf eine Überprüfung von Filtern und Inhalten kann hier
+beim Empfang einer passenden Nachricht verzichtet werden.\\
+
+Derzeit
+wird die Funktionalität der Extended CAN-Frames in aktuellen Projekten
+nicht genutzt, weshalb die Registrierungen für einzelne EFF-Frames in
+eine einfach verkettete Liste eingetragen werden. Bei intensiverer
+Nutzung der Extended CAN-Frames sollte man als 'rcvlist\_eff' eine
+Hash-Tabelle (analog zur 'rcvlist\_sff') im \LL\ realisieren, um eine
+effiziente Verarbeitung zu gewährleisten.\\ 
+
+Möchte man alle Empfangslisten auf einmal ansehen, kann man zur
+Vereinfachung folgendes eingeben:
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/sys/net/can/rcvlist_*
+
+receive list 'rx_all':
+  device   can_id   can_mask  function  userdata   matches  ident
+   can1      000    00000000  f8c995ac  f0e59280     42726  raw
+  device   can_id   can_mask  function  userdata   matches  ident
+   can0      000    00000000  f8c995ac  f0e59800     55240  raw
+
+
+receive list 'rx_eff':
+  (can1: no entry)
+  (can0: no entry)
+
+
+receive list 'rx_fil':
+  device   can_id   can_mask  function  userdata   matches  ident
+   can1      200    00000700  f8c995ac  f0e5b380         0  raw
+  (can0: no entry)
+
+
+receive list 'rx_inv':
+  (can1: no entry)
+  (can0: no entry)
+
+
+receive list 'rx_sff':
+  (can1: no entry)
+  device   can_id   can_mask  function  userdata   matches  ident
+   can0      123    000007ff  f8c86bec  e2e14380        29  bcm
+   can0      456    000007ff  f8c86bec  ea954880         0  bcm
+   can0      789    000007ff  f8c86bec  e30e6200       130  bcm
+   can0      3FF    000007ff  f8c86bec  deaf2580        14  bcm
+   can0      740    000007ff  f8c93680  e48322c4       178  tp20
+
+\end{code}
+
+Es geht natürlich auch so:
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/sys/net/can/rcvlist_sff
+
+receive list 'rx_sff':
+  (can1: no entry)
+  device   can_id   can_mask  function  userdata   matches  ident
+   can0      123    000007ff  f8c86bec  e2e14380        29  bcm
+   can0      456    000007ff  f8c86bec  ea954880         0  bcm
+   can0      789    000007ff  f8c86bec  e30e6200       130  bcm
+   can0      3FF    000007ff  f8c86bec  deaf2580        14  bcm
+   can0      740    000007ff  f8c93680  e48322c4       178  tp20
+
+\end{code}
+
+\newpage
+\subsection{CAN Network-Devices im Verzeichnis /proc/net/drivers}
+
+In dieses Verzeichnis sollen sich CAN-Netzwerk-Treiber mit ihren
+Proc-Filesystem-Einträgen registrieren. Derzeit ist dieses nur für den
+mitgelieferten SJA1000-Treiber auf \verb+src/drivers/sja1000+
+realisiert, dessen Ausgaben kurz beschrieben werden.\\
+
+Im Beispiel wird der SJA1000-Netzwerk-Treiber auf dem iGate (Jaybrain
+GW2) gezeigt. Beim ISA-Treiber (sja1000-isa) sind die ausgelesenen
+Informationen analog.
+ 
+\subsubsection{Treiberstatus /proc/net/drivers/sja1000-xxx}
+
+Hier wird der Zustand der CAN-Controller und des jeweils zugehörigen
+CAN-Busses angezeigt (siehe dazu die Dokumentation zum Philips
+SJA1000).
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/net/drivers/sja1000-gw2
+CAN bus device statistics:
+       errwarn  overrun   wakeup   buserr   errpass  arbitr   restarts clock        baud
+can0:        0        0        0        0        0        0        0   20000000      500
+can0: bus status: OK, RXERR: 0, TXERR: 0
+can1:        0        0        0        0        0        0        0   20000000      100
+can1: bus status: OK, RXERR: 0, TXERR: 0
+can2:        0        0        0        0        0        0        0   20000000      100
+can2: bus status: OK, RXERR: 0, TXERR: 0
+can3:        0        0        0        0        0        0        0   20000000      500
+can3: bus status: OK, RXERR: 0, TXERR: 0
+\end{code}
+
+\subsubsection{Registeranzeige /proc/net/drivers/sja1000-xxx\_regs}
+
+Hier werden die 32 Register der SJA1000-CAN-Controller angezeigt
+(siehe dazu die Dokumentation zum Philips SJA1000).
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/net/drivers/sja1000-gw2_regs 
+SJA1000 registers:
+can0 SJA1000 registers:
+00: 02 00 0c 00 05 00 40 4d 1a 1a 00 00 00 60 00 00
+10: 65 ef d3 5f a2 08 01 05 fa ff 0e 7f 0c 00 00 cf
+can1 SJA1000 registers:
+00: 02 00 0c 00 05 00 43 ff 1a 1a 00 00 00 60 00 00
+10: 61 ff de 3d 80 00 10 45 d7 ef fb 4a 06 00 00 cf
+can2 SJA1000 registers:
+00: 02 00 0c 00 05 00 43 ff 1a 1a 00 00 00 60 00 00
+10: 61 fb ee 87 a0 4a 80 10 76 ff da bd 00 00 00 cf
+can3 SJA1000 registers:
+00: 02 00 0c 00 05 00 40 4d 1a 1a 00 00 00 60 00 00
+10: 61 ef 7f ff 21 1c 42 08 32 df 57 6f a1 00 00 cf
+\end{code}
+
+\subsubsection{Zurücksetzen des Treibers /proc/net/drivers/sja1000-xxx\_reset}
+
+Das Lesen dieses Eintrages führt einen Reset der SJA1000-CAN-Controller
+durch. Wie man im Beispiel sieht, ist die Anzahl der 'restarts' danach
+um 1 erhöht.
+
+\begin{code}
+hartko@pplinux1:~> cat /proc/net/drivers/sja1000-gw2_reset 
+resetting can0 can1 can2 can3 done
+hartko@pplinux1:~> cat /proc/net/drivers/sja1000-gw2
+CAN bus device statistics:
+       errwarn  overrun   wakeup   buserr   errpass  arbitr   restarts clock        baud
+can0:        0        0        0        0        0        0        1   20000000      500
+can0: bus status: OK, RXERR: 0, TXERR: 0
+can1:        0        0        0        0        0        0        1   20000000      100
+can1: bus status: OK, RXERR: 0, TXERR: 0
+can2:        0        0        0        0        0        0        1   20000000      100
+can2: bus status: OK, RXERR: 0, TXERR: 0
+can3:        0        0        0        0        0        0        1   20000000      500
+can3: bus status: OK, RXERR: 0, TXERR: 0
+\end{code}
+
+\subsubsection{Testprogramme}
+
+\begin{description}
+\item[tst-proc] Öffnet bis zu 800 RAW-Sockets, um einen Überlauf bei
+der Ausgabe von \verb+/proc/net/can/rcvlist_all+ zu provozieren.
+\end{description}

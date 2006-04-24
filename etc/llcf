@@ -1,0 +1,69 @@
+
+# Low Level CAN Framework
+# Copyright (c) 2005 Volkswagen Group Electronic Research
+#
+# $Id: llcf,v 1.10 2006/04/05 08:21:02 hartko Exp $
+#
+# uncomment and edit lines for your specific hardware! 
+#
+# On debian systems copy this file to the directory
+# /etc/modutils and say 'update-modules.modutils'.
+# Other systems: Add this content to /etc/modules.conf
+
+# protocol family PF_CAN
+alias net-pf-30 can
+
+# protocols in PF_CAN
+alias can-proto-1 can-tp16
+alias can-proto-2 can-tp20
+alias can-proto-3 can-raw
+alias can-proto-4 can-bcm
+alias can-proto-5 can-mcnet
+alias can-proto-6 can-isotp
+alias can-proto-7 can-bap
+
+# protocol module options
+#option can-tpgen printstats=1
+#option can       stats_timer=0
+
+# virtual CAN devices
+alias vcan0 vcan
+alias vcan1 vcan
+alias vcan2 vcan
+alias vcan3 vcan
+
+# CAN hardware (uncomment the currently used)
+
+##> Trajet GW2
+#alias can0 sja1000-gw2
+#alias can1 sja1000-gw2
+#alias can2 sja1000-gw2
+#alias can3 sja1000-gw2
+#options sja1000-gw2 speed=500,100,500,100
+#options sja1000-gw2 btr=0xC03D,0xC4F9,0xC03D,0xC4F9
+
+##> Peak System hardware (ISA/PCI/Parallelport Dongle)
+##> to set BTR-values to PCI-devices see Peak System documentation
+##> e.g. echo "i 0x4914 e" > /dev/pcan0
+#alias can0 pcan
+#alias can1 pcan
+#alias can2 pcan
+#options pcan type=isa,isa io=0x2C0,0x320 irq=10,5 btr=0x4914,0x4914
+#options pcan type=epp btr=0x4914
+#options parport_pc io=0x378 irq=7
+
+##> MPC5200 MSCAN
+#alias can0 mscan
+#alias can1 mscan
+#options mscan btr=0x054f,0x9d4f # 500kBit / 100kBit
+
+##> EMS Wuensche CPC-Card
+#options cpc-card btr=0x4914,0x4914
+#
+##> add the following lines to /etc/pcmcia/config.opts (!)
+## EMS Wuensche CPC-Card CAN Interface
+#device "cpc-card_cs"
+#  module "cpc-card", "cpc-card_cs"
+#  card "EMS Dr. Thomas Wuensche CPC-Card CAN Interface"
+#  version "EMS_T_W", "CPC-Card", "*", "*"
+#  bind "cpc-card_cs"

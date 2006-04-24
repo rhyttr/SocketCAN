@@ -1,0 +1,89 @@
+% $Id: llcf-api.tex,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
+
+\documentclass[a4paper]{article}
+
+\usepackage{german,umlaut}
+\usepackage{geometry}
+\usepackage{latexsym}
+\usepackage{verbatim}
+\usepackage{color}		% Need the color package
+\usepackage{epsfig}
+\geometry{body = {6in, 9in}}
+\sloppy
+
+\newif\iflogo
+\logofalse
+
+\parindent0pt
+
+%\includeonly{socket-api}
+
+\input{llcftexdefs}
+
+\begin{document}
+
+\iflogo
+\begin{figure}[htbp]
+\begin{center}
+\psfig{file=llcf-2003-10-22-final.eps}
+\end{center}
+\end{figure}
+\else
+\centerline{\Huge Low Level CAN Framework}
+\vspace{0.4cm}
+\fi
+
+\begin{center}
+{\LARGE Application Programmers Interface}
+\end{center}
+
+\vspace{0.7cm}
+\centerline{\large Version 1.0.0}
+\vspace{0.7cm}
+\centerline{\large 2006-02-20}
+\vspace{0.7cm}
+
+\newpage
+
+\tableofcontents
+
+\include{intro}
+
+\include{legal}
+
+\include{install}
+
+\include{socket-api}
+\include{rawsocket}
+\include{tpsocket}
+\include{bcmsocket}
+
+\include{procfs}
+
+\include{hardware}
+
+\newpage
+
+\section{Ansprechpartner}
+
+Dieses Dokument sollte zusammen mit den Test-Programmen in
+\verb+src/test+ einen umfassenden Einstieg in das \LLCF\
+ermöglichen.\\
+
+Für Rückfragen, Fehlermeldungen und Anregungen sind die Autoren
+dennoch immer offen und dankbar. Deshalb hat die Konzernforschung
+der Volkswagen AG eine besondere EMail-Adresse eingerichtet, auf der
+die Autoren erreichbar sind:\\
+
+{\Large \tt contact email: llcf@volkswagen.de}\\
+
+Postadresse:\\
+Volkswagen AG\\
+Oliver Hartkopp\\
+Brieffach 1776\\
+D-38426 Wolfsburg\\
+
+Oliver Hartkopp $<$oliver.hartkopp@volkswagen.de$>$\\
+Dr. Urs Thürmann $<$urs.thuermann@volkswagen.de$>$
+
+\end{document}

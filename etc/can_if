@@ -1,0 +1,95 @@
+#!/bin/sh
+
+# Low Level CAN Framework
+# Copyright (c) 2005 Volkswagen Group Electronic Research
+#
+# $Id: can_if,v 1.3 2006/02/08 15:24:04 hartko Exp $
+#
+# Simple script to start CAN and VCAN interfaces
+#
+# Exit if ifconfig is not installed
+test -x /sbin/ifconfig || exit 0
+
+# On some systems the automatic module loading via
+# /etc/modules.conf is quite slow. To ensure the immediately 
+# availability of specific modules you can define critical
+# modules in the PROBE variable. E.g. PROBE="can-tp20"
+
+# Exit if modprobe is not installed
+test -x /sbin/modprobe || exit 0
+
+CAN_IF="can0 can1"
+VCAN_IF="vcan0 vcan1"
+PROBE=""
+
+case "$1" in
+    start|force-reload)
+	if [ -n "$CAN_IF" ] ; then
+	    echo -n "Enabling CAN interfaces:"
+	    for IF in $CAN_IF; do
+		/sbin/ifconfig $IF up
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	if [ -n "$VCAN_IF" ] ; then
+	    echo -n "Enabling virtual CAN interfaces:"
+	    for IF in $VCAN_IF; do
+		/sbin/ifconfig $IF up
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	if [ -n "$PROBE" ] ; then
+	    echo -n "Extra probing LLCF modules:"
+	    for MODULE in $PROBE; do
+		/sbin/modprobe $MODULE
+		echo -n " "$MODULE
+	    done
+	    echo "."
+	fi
+	;;
+    restart|reload)
+	if [ -n "$CAN_IF" ] ; then
+	    echo -n "Restarting CAN interfaces:"
+	    for IF in $CAN_IF; do
+		/sbin/ifconfig $IF down
+		/sbin/ifconfig $IF up
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	if [ -n "$VCAN_IF" ] ; then
+	    echo -n "Restarting virtual CAN interfaces:"
+	    for IF in $VCAN_IF; do
+		/sbin/ifconfig $IF down
+		/sbin/ifconfig $IF up
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	;;
+    stop)
+	if [ -n "$CAN_IF" ] ; then
+	    echo -n "Shutting down CAN interfaces:"
+	    for IF in $CAN_IF; do
+		/sbin/ifconfig $IF down
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	if [ -n "$VCAN_IF" ] ; then
+	    echo -n "Shutting down virtual CAN interfaces:"
+	    for IF in $VCAN_IF; do
+		/sbin/ifconfig $IF down
+		echo -n " "$IF
+	    done
+	    echo "."
+	fi
+	;;
+    *)
+	echo "Usage: /etc/init.d/can_if {start|stop|restart|reload|force-reload}"
+	exit 1
+esac
+
+exit 0

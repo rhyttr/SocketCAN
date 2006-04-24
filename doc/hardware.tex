@@ -1,0 +1,102 @@
+% $Id: hardware.tex,v 2.0 2006/04/13 10:37:18 ethuerm Exp $
+
+\newpage
+\section{Unterstützte CAN-Hardware}
+\label{hardware}
+
+Bisherige Realisierungen von CAN-Treibern unter
+Linux und auch anderen Betriebssystemen sind nach dem
+Zeichen-Treibermodell (dem so genannten Character-Device) ausgeführt.\\
+
+Im Unterschied dazu setzt das \LLCF\ auf
+CAN-Treiber nach dem Netzwerk-Treibermodell auf (so genannte
+Network-Devices), die es ermöglichen, dass mehrere Anwendungen
+gleichzeitig auf einem CAN-Bus arbeiten können.\\
+
+Wenngleich ein Treiber nach dem Netzwerk-Treibermodell einfacher zu
+realisieren ist, sind die bei einer kommerziellen CAN-Hardware
+beigelegten Treiber für das \LL\ so nicht einsetzbar. Ist der
+Quellcode des beigelegten Treibers verfügbar, kann man diesen
+allerdings so modifizieren, dass er sich nicht als Character-Device
+sondern als Network-Device im Linux-Kernel registriert und entsprechend
+andere Schnittstellen des Kernel bedient.\\
+
+Der unter \verb+src/drivers/sja1000+ realisierte
+Philips-SJA1000-Treiber ist eine 
+komplette Neuentwicklung und kann als Beispiel für einen
+CAN-Netzwerktreiber genommen werden. Derzeit unterstützt das \LL\
+ausschließlich passive CAN-Karten, weil dieses für den Linux-Kernel im
+Gegensatz zu anderen Betriebssystemen problemlos möglich ist. Ein
+modifizierter Treiber für eine aktive PCMCIA-Karte ist in Arbeit.\\
+
+Derzeit werden folgende CAN-Hardware-Komponenten unterstützt:
+\subsection{PC104 / ISA / plain access}
+
+In diesen Karten liegen die SJA1000-Controller linear im Adressraum.\\
+Z.B. http://www.peak-system.com/db/de/pcanpc104.html\\
+
+Mögliche Treiber:
+\begin{itemize}
+\item \LL-SJA1000-Treiber in \verb+src/drivers/sja1000+ (empfohlen)
+\item Modifizierter Linux-Treiber v2.15 von PEAK-System (auf Anfrage)
+\end{itemize}
+
+\subsection{PCI}
+
+In diesen Karten liegen die SJA1000-Controller linear im
+PCI-Adressraum.\\
+Z.B. http://www.peak-system.com/db/de/pcanpci.html\\
+
+Mögliche Treiber:
+\begin{itemize}
+\item Modifizierter Linux-Treiber v2.15 von PEAK-System (auf Anfrage)
+\end{itemize}
+
+\subsection{Parallelport}
+
+Benötigt Linux-Parport-Unterstützung.\\
+Z.B. http://www.peak-system.com/db/de/pcandongle.html\\
+
+Mögliche Treiber:
+\begin{itemize}
+\item Modifizierter Linux-Treiber v2.15 von PEAK-System (auf Anfrage)
+\end{itemize}
+
+\subsection{USB}
+
+USB-CAN-Adapter.\\
+http://www.peak-system.com/db/de/pcanusb.html\\
+
+Mögliche Treiber:
+\begin{itemize}
+\item Modifizierter Linux-Treiber v2.15 von PEAK-System
+\end{itemize}
+
+\subsection{PCMCIA}
+
+Passive PCMCIA-Karte mit zwei SJA1000-Controllern.\\
+http://www.ems-wuensche.com/catalog/english/datasheet/htm/cpccard\_e.htm\\
+
+Mögliche Treiber:
+\begin{itemize}
+\item Modifizierter Linux-Treiber cdkl-1.12 von EMS Wünsche (auf Anfrage)
+\end{itemize}
+
+Aktive PCMCIA-Karte mit zwei SJA1000-Controllern.\\
+http://www.kvaser.com/prod/hardware/lapcan\_i.htm\\
+http://www.kvaser.com/prod/hardware/lapcan\_ii.htm\\
+
+Mögliche Treiber (in Arbeit!):
+\begin{itemize}
+\item Modifizierter Linux-Treiber v4.1beta von Kvaser
+\end{itemize}
+
+
+\subsection{Virtual CAN Bus (vcan)}
+
+Der virtuelle CAN-Bus-Treiber realisiert ein logisches
+CAN-Network-Device, über das Anwendungen auf einem System ohne real
+vorhandene CAN-Hardware kommunizieren können. Die Idee entspricht
+einem Loopback-Device, wobei die Loopback-Funktionalität (siehe
+Kapitel \ref{intro}) bereits im \LL-Rahmen realisiert ist. Der
+vcan-Treiber ist Bestandteil des \LLCF.

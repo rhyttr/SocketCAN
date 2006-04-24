@@ -1,0 +1,136 @@
+% $Id: intro.tex,v 2.0 2006/04/13 10:37:18 ethuerm Exp $
+
+\newpage
+\section{Einleitung}
+\label{intro}
+
+Im Rahmen verschiedener Projekte wurde in der Konzernforschung der
+Volkswagen AG
+ein so genanntes \LLCF\ (\LL) entwickelt, das den einfachen Zugriff
+auf die Kommunikationsschichten des {\it Controller Area Network}
+(CAN) für Anwendungen erlaubt.  Das \LLCF\ sollte dabei möglichst
+modular konzipiert werden, um eine möglichst große
+Wiederverwendbarkeit in weiteren Projekten zu erreichen.\\
+
+Wesentliche Komponenten des \LL\ sind die Netzwerk(!)-Treiber für die
+verschiedenen CAN-Controller und die darüberliegenden Protokolle wie
+TP1.6,
+TP2.0, MCNet, ISO-TP, etc.  Diese Komponenten sind im Linux-Kernel
+implementiert und  werden über die standardisierte
+Socket-Schnittstelle angesprochen. Das Ziel dieses Konzeptes liegt
+darin, die Kommunikation über 
+den CAN-Bus soweit wie möglich an die Benutzung gewöhnlicher
+TCP/IP-Sockets anzupassen.  Dies gelingt jedoch nur zum Teil, da der
+CAN-Bus eine Reihe von Unterschieden zur Kommunikation mit TCP/IP und
+Ethernet aufweist:
+
+\begin{itemize}
+\item CAN kennt keine Geräte-Adressen wie die MAC-Adressen beim Ethernet.
+  Das CAN-Frame enthält eine CAN-ID, die durch die übliche
+  Zuordnung von zu sendenen CAN-IDs zu realen Endgeräten am ehesten einer
+  Absender-Adresse entspricht.  Weil alle Nachrichten
+  Broadcast-Nachrichten sind, ist es auch nicht möglich, eine
+  CAN-Nachricht nur an ein Gerät zu senden. Geräte am CAN-Bus können
+  empfangene Nachrichten also nicht nach Zieladressen, sondern nur
+  nach der CAN-ID 'Absenderadresse' filtern. CAN-Frames können daher
+  nicht - wie beim Ethernet - explizit an ein bestimmtes Zielgerät
+  gerichtet werden.  
+
+\item Es gibt keinen Network Layer und damit auch keine
+  Network-Layer-Adressen wie IP-Adressen. Folglich gibt es auch kein
+  Routing (z.B. über verschiedene Netzwerk-Interfaces), wie es mit
+  IP-Adressen möglich ist. 
+\end{itemize}
+
+\begin{figure}[htbp]
+\begin{center}
+
+\psfig{file=frame_types.eps}
+
+\caption{Unterschiedliche Adressierungen bei Ethernet /  CAN}
+\label{figure:frame_types}
+\end{center}
+\end{figure}
+
+Diese Unterschiede führen dazu, dass die Struktur
+\verb|struct sockaddr_can| sich nicht ganz analog zu der bekannten
+\verb|struct sockaddr_in| für die TCP/IP-Protokollfamilie verhält.
+Der Ablauf eines Verbindungsaufbaus und die Benutzung geöffneter
+Sockets zum Datenaustausch sind jedoch stark an TCP/IP angelehnt.
+
+Neben diesem Dokument sind daher auch die Manual Pages
+\man{socket}{2}, \man{bind}{2}, \man{listen}{2},
+\man{accept}{2}, \man{connect}{2}, \man{read}{2},
+\man{write}{2}, \man{recv}{2}, \man{recvfrom}{2},
+\man{recvmsg}{2}, \man{send}{2}, \man{sendto}{2},
+\man{sendmsg}{2}, \man{socket}{7}, \man{packet}{7} eines
+aktuellen Linux-Systems für das \LL\ relevant.  Außerdem bieten die
+Manual Pages \man{ip}{7}, \man{udp}{7} und \man{tcp}{7} einen
+Einblick in Grundlagen, auf denen auch das \LL\ basiert.
+
+\newpage
+Das \LLCF\ ist neben den bekannten Protokollen, wie z.B. den
+Protokollen der Internetprotokollfamilie PF\_INET im Linux-Kernel
+integriert. Dazu wurde eine neue Protokollfamilie PF\_CAN
+eingeführt. Durch die Realisierung der verschiedenen CAN-Protokolle
+als Kernelmodule, können zeitliche Randbedingungen im Kernel-Kontext
+eingehalten werden, die auf der Anwenderschicht in dieser Form nicht
+realisierbar wären. Für verschiedene Anwendungen (was zu mehreren
+Socket-Instanzen führt) kommt immer derselbe Code zur Ausführung.\\ 
+
+\begin{figure}[htbp]
+\begin{center}
+
+\psfig{file=llcf_overview.eps}
+
+\caption{Das \LL\ im Linux-Kernel}
+\label{figure:llcf_overview}
+\end{center}
+\end{figure}
+
+Das \LL\ stellt für die verschiedenen Transportprotokolle und einen
+so genannten \BCM\ (\BC) eine Reihe verschiedener Socket-Typen
+zur Verfügung.  Außerdem ist ein RAW-Socket vorgesehen, der den
+direkten Zugriff auf den CAN-Bus ohne dazwischenliegende
+Protokollschichten erlaubt.
+
+\newpage
+Eine Besonderheit stellt der so genannte RX-Dispatcher des \LL\
+dar. Durch die Art der Adressierung der CAN-Frames kann es
+mehrere 'Interessenten' an einer empfangenen CAN-ID geben. Durch die
+\LL-Funktionen rx\_register() und rx\_unregister() können sich die
+Protokollmodule beim \LL-Kernmodul für ein oder mehrere CAN-IDs von
+definierten CAN-Netzwerkgeräten registrieren, die ihnen beim Empfang
+automatisch zugestellt werden. Das \LL-Kernmodul sorgt beim Senden auf
+den CAN-Bus auch für ein lokales Echo ('local loopback') der zu
+versendenden CAN-Frames, damit für alle Applikationen auf einem System
+die gleichen Informationen verfügbar sind.
+
+
+\begin{figure}[htbp]
+\begin{center}
+
+\psfig{file=llcf_module.eps}
+
+\caption{Das \LL-Kernmodul im Linux-Kernel}
+\label{figure:llcf_module}
+\end{center}
+\end{figure}
+
+Für die Anbindung der CAN-Netzwerktreiber wurde ein neuer
+'Ethernet-Protokoll-Typ' ETH\_P\_CAN eingeführt, der die Durchleitung
+der empfangenen CAN-Frames durch die Linux-Netzwerkschicht
+sicherstellt. Das \LL-Kernmodul meldet sich dazu als Empfänger von
+ETH\_P\_CAN-'Ethernetframes' beim Kernel an.\\
+
+Durch die konsequente Realisierung der Anbindung des CAN-Busses mit
+Schnittstellen aus der etablierten Standard-Informationstechnologie
+eröffnen sich für den Anwender (Programmierer) alle Möglichkeiten, die
+sich auch sonst bei der Verwendung von Sockets zur Kommunikation
+ergeben. D.h. es können beliebig viele Sockets (auch verschiedener
+Socket-Typen auf verschiedenen CAN-Bussen) von einer oder mehreren
+Applikationen gleichzeitig geöffnet werden. Bei der Kommunikation auf
+verschiedenen Sockets kann beispielsweise mit \man{select}{2} auf
+Daten aus den einzelnen asynchronen Kommunikationskanälen
+ressourcenschonend gewartet werden. 
+

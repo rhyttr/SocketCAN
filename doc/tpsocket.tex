@@ -1,0 +1,382 @@
+% $Id: tpsocket.tex,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
+
+\newpage
+\section{Sockets für Transport-Protokolle}
+\label{tpsocket}
+
+Die betrachteten CAN-Transport-Protokolle bilden auf dem CAN-Bus
+auf zwei CAN-IDs eine virtuelle Punkt-zu-Punkt-Verbindung ab. Dazu
+wird im Ersten der Acht in einem CAN-Frame vorhandenen Nutzbytes die
+protokollspezifische Information übertragen, die das korrekte
+Segmentieren von Nutzdaten gewährleistet. Die restlichen (maximal)
+sieben Nutzbytes des CAN-Frames enthalten die segmentierten Nutzdaten.\\
+
+Für die Transport-Protokolle TP1.6, TP2.0, etc. wird ein Socket vom
+Typ SEQPACKET geöffnet unter Angabe des zu verwendenden Protokolls:
+
+\begin{code}
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_TP16);
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_TP20);
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_MCNET);
+\end{code}
+
+   Protokollspezifische Parameter können nach dem Öffnen eines Sockets
+   mit \man{setsockopt}{2} und \man{getsockopt}{2} gesetzt bzw.
+   gelesen werden. Siehe dazu auch die protokollspezifischen Hinweise
+   am Ende dieses Kapitels ab Seite \pageref{tp20}.
+
+   Der Verbindungsaufbau erfolgt ähnlich wie mit TCP/IP-Sockets.  Der
+   wesentliche Unterschied besteht darin, dass ein Prozess, der auf
+   einen Verbindungsaufbau wartet, also die Rolle eines Servers
+   spielt, angeben muss, von welchem Client er Verbindungen annehmen
+   möchte, d.h. er muss die CAN-ID von CAN-Frames angeben, die er auf
+   diesem Socket empfangen möchte.  Zusätzlich muss er dem 
+   Socket-Layer gegenüber angeben, welche CAN-ID in den von ihm gesendeten
+   CAN-Frames zu verwenden ist.
+
+   Analog muss der Client beim Verbindungsaufbau nicht nur die CAN-ID
+   seines Kommunikationspartners, sondern auch seine eigene angeben.
+   Die bei \man{bind}{2} und \man{connect}{2} verwendeten
+   Strukturen vom Typ
+   \verb|struct sockaddr_can| enthalten daher im Gegensatz zu TCP/IP nicht
+   nur eine Adresse, sondern immer die "`Adressen"' beider
+   Kommunikationspartner.  Weil die CAN-Architektur kein Routing
+   anhand von netzweiten Adressen kennt, muss außerdem zusätzlich auch
+   immer das CAN-Interface angegeben werden, auf dem die Kommunikation
+   stattfinden soll.  Die Struktur ist daher folgendermaßen definiert:
+
+\begin{code}
+struct sockaddr_can {
+    sa_family_t   can_family;
+    int           can_ifindex;
+    union {
+        struct { canid_t rx_id, tx_id; } tp16;
+        struct { canid_t rx_id, tx_id; } tp20;
+        struct { canid_t rx_id, tx_id; } mcnet;
+    } can_addr;
+};
+\end{code}
+
+   Im Folgenden werden zwei kurze Code-Beispiele angegeben, die die
+   Verwendung von Sockets auf der Server- und der Client-Seite
+   verdeutlichen sollen.  Im Beispiel soll eine TP2.0-Verbindung
+   aufgebaut werden, wobei der Client die CAN-ID 0x740 und der Server
+   die CAN-ID 0x760 verwendet. Dieses Beispiel ist
+   dahingehend vereinfacht, dass auf eine Fehlerbehandlung verzichtet
+   wird. Eine mögliche Fehlerbehandlung ist aber in den
+   Beispielprogrammen in Kapitel \ref{tptestprogs} realisiert.
+
+\begin{code}
+/* This is the server code */
+
+int s, n, nbytes, sizeofpeer=sizeof(struct sockaddr_can);
+struct sockaddr_can addr, peer;
+struct ifreq ifr;
+
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_TP20);
+
+addr.can_family = AF_CAN;
+strcpy(ifr.ifr_name, "can0");
+ioctl(s, SIOCGIFINDEX, &ifr);
+addr.can_ifindex = ifr.ifr_ifindex;
+addr.can_addr.tp20.tx_id  = 0x760;
+addr.can_addr.tp20.rx_id  = 0x440;
+
+bind(s, (struct sockaddr *)&addr, sizeof(addr));
+listen(s, 1);
+
+n = accept(s, (struct sockaddr *)&peer, sizeof(peer));
+
+read(n, data, nbytes);
+write(n, data, nbytes);
+
+close(n);
+close(s);
+
+
+
+
+/* This is the client code */
+
+int s, nbytes;
+struct sockaddr_can addr;
+struct ifreq ifr;
+
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_TP20);
+
+addr.can_family = AF_CAN;
+strcpy(ifr.ifr_name, "can0");
+ioctl(s, SIOCGIFINDEX, &ifr);
+addr.can_ifindex = ifr.ifr_ifindex;
+addr.can_addr.tp20.tx_id  = 0x440;
+addr.can_addr.tp20.rx_id  = 0x760;
+
+connect(s, (struct sockaddr *)&addr, sizeof(addr));
+
+write(s, data, nbytes);
+read(s, data, nbytes);
+
+close(s);
+\end{code}
+
+\subsection{Tracemode}
+\label{tracemode}
+
+Wie schon beim RAW-Socket (Kapitel \ref{rawsocket}) besteht auch bei
+den Transport-Protokoll-Sockets (TP-Sockets) die Möglichkeit über
+\man{setsockopt}{2} die Eigenschaften des Sockets zu
+beeinflussen. Diese sind zumeist spezifisch für das jeweilige
+Protokoll. Beim \LL\ besteht die bisher in allen
+Transportprotokollen realisierte Möglichkeit, die TP-Sockets mit der
+Socketoption \verb+TRACE_MODE+ in einen Nur-Lese-Modus zu schalten,
+bei dem der empfangene, segmentierte Datenstrom zusammengesetzt wird,
+ohne dem Sender Bestätigungen zu senden. Für das Mitschneiden einer
+bi-direktionalen Verbindung müssen daher zwei Sockets mit 'verdrehten'
+CAN-IDs \verb+tx_id+ und \verb+rx_id+ geöffnet werden.\\
+
+Vereinfachtes Beispiel (ohne Fehlerbehandlung) aus einer älteren
+Version vom Testprogramm \verb+mcnet-sniffer.c+:
+
+\begin{code}
+int s, t;
+struct sockaddr_can addr1, addr2;
+struct can_mcnet_options opts;
+
+s = socket(PF_CAN, SOCK_SEQPACKET, CAN_MCNET);
+t = socket(PF_CAN, SOCK_SEQPACKET, CAN_MCNET);
+
+opts.blocksize = 15;
+opts.config = TRACE_MODE;
+setsockopt(s, SOL_CAN_MCNET, CAN_MCNET_OPT, &opts, sizeof(opts));
+setsockopt(t, SOL_CAN_MCNET, CAN_MCNET_OPT, &opts, sizeof(opts));
+
+addr1.can_family = AF_CAN;
+strcpy(ifr.ifr_name, "can0");
+ioctl(s, SIOCGIFINDEX, &ifr);
+addr1.can_ifindex = ifr.ifr_ifindex;
+addr1.can_tx_id  = 0x248;
+addr1.can_rx_id  = 0x448;
+
+addr2.can_family = AF_CAN;
+addr2.can_ifindex = ifr.ifr_ifindex; /* also can0 */
+addr2.can_tx_id  = 0x448;
+addr2.can_rx_id  = 0x248;
+
+connect(s, (struct sockaddr *)&addr1, sizeof(addr1));
+connect(t, (struct sockaddr *)&addr2, sizeof(addr2));
+
+(..)
+\end{code}
+
+Mit \man{select}{2} kann nun auf beiden Sockets auf eintreffende Daten
+ressourcenschonend gewartet werden.
+
+\subsection{Besonderheiten des VAG TP1.6}
+\label{tp16}
+
+Das VAG Transportprotokoll TP1.6 besitzt 6 konfigurierbare
+Parameter, die mit \man{setsockopt}{2} gesetzt werden können.
+Dazu gehören die Timer T1 bis T4, die Blocksize und ein
+Konfigurationswert, der z.B. angibt, ob ein Kommunikationskanal nach
+einer bestimmten Zeit automatisch geschlossen werden soll oder
+nicht. Diese Parameter können beispielsweise wie folgt gesetzt werden:
+
+\begin{code}
+struct can_tp16_options opts;
+
+opts.t1.tv_sec       = 0; /* ACK timeout 100ms */ 
+opts.t1.tv_usec      = 100000;
+opts.t2.tv_sec       = 0; /* unused */
+opts.t3.tv_sec       = 0; /* transmit delay 10ms */ 
+opts.t3.tv_usec      = 10000;
+opts.t4.tv_sec       = TP16_T4_DISABLED; /* disabled */
+opts.blocksize       = 11;
+
+opts.config = USE_DISCONNECT | HALF_DUPLEX | ENABLE_BREAK;
+
+setsockopt(s, SOL_CAN_TP16, CAN_TP16_OPT, &opts, sizeof(opts));
+\end{code}
+
+Die für das Transportprotokoll TP1.6 relevanten Optionen finden
+sich in den Dateien \verb+tp16.h+ und \verb+tp_conf.h+.\\
+
+Die Struktur \verb+can_tp16_options+ ist definiert als
+\begin{code}
+struct can_tp16_options {
+
+  struct timeval t1;       /* ACK timeout for DT TPDU. VAG: T1 */
+  struct timeval t2;       /* max. time between two DT TPDU's. VAG: T2 (NOT IMPLEMENTED!) */
+  struct timeval t3;       /* transmit delay for DT TPDU's. VAG: T3 */
+  struct timeval t4;       /* receive timeout for automatic disconnect. VAG: T4 */
+
+  unsigned char blocksize; /* max number of unacknowledged DT TPDU's (1 ..15) */
+  unsigned int  config;    /* analogue tp_user_data.conf see tp_gen.h */
+
+};
+\end{code}
+
+Die bei \man{setsockopt}{2} für VAG TP1.6 gesetzten Werte werden dem
+Kommunikationspartner im Rahmen des Channel-Setup (CS/CA) mitgeteilt
+und beeinflussen somit ausschließlich die Kommunikationsparameter des
+Kommunikationspartners.
+
+Eine weitere Besonderheit beim VAG TP1.6 ist der 'dynamische
+Kanalaufbau', bei dem vor der eigentlichen Kommunikation die
+CAN-Identifier für den Transportkanal ermittelt werden. Dabei
+existieren auch zeitliche Anforderungen, die eine maximale Zeitspanne
+zwischen dem Aushandeln der Identifier und der Eröffnung des
+Transportkanals festlegen. Siehe dazu auch die Hinweise zur Variablen
+\verb+PROBE+ in Kapitel \ref{probe}.\\
+
+Entgegen bisherigen Implementierungen unterstützt diese Realisierung für
+das \LLCF\ die dynamische Identifiervergabe nicht im Rahmen der
+TP2.0-Implementierung. Übertragen auf die IT-Welt entspräche eine
+solche Implementierung der Integration des Domain-Name-Service in das
+IP-Protokoll. Das o.g. Verfahren wird im \LL\ über Broadcastnachrichten
+auf der Benutzerebene realisiert. Siehe dazu die protokollspezifischen
+Testprogramme in Kapitel \ref{tptestprogs}.
+
+\subsection{Besonderheiten des VAG TP2.0}
+\label{tp20}
+
+Das VAG Transportprotokoll TP2.0 besitzt 6 konfigurierbare
+Parameter, die mit \man{setsockopt}{2} gesetzt werden können.
+Dazu gehören die Timer T1 bis T4, die Blocksize und ein
+Konfigurationswert, der z.B. angibt, ob ein regelmäßiger Connection Test durchgeführt
+werden soll oder nicht. Diese Parameter können beispielsweise wie folgt gesetzt
+werden:
+
+\begin{code}
+struct can_tp20_options opts;
+
+opts.t1.tv_sec       = 0; /* ACK timeout 100ms */ 
+opts.t1.tv_usec      = 100000;
+opts.t2.tv_sec       = 0; /* unused */
+opts.t3.tv_sec       = 0; /* transmit delay 10ms */ 
+opts.t3.tv_usec      = 10000;
+opts.t4.tv_sec       = 0; /* unused */
+opts.blocksize       = 11;
+opts.config = USE_CONNECTIONTEST | USE_DISCONNECT | ENABLE_BREAK;
+
+setsockopt(s, SOL_CAN_TP20, CAN_TP20_OPT, &opts, sizeof(opts));
+\end{code}
+
+Die für das Transportprotokoll TP2.0 relevanten Optionen finden
+sich in den Dateien \verb+tp20.h+ und \verb+tp_conf.h+.\\
+
+Die Struktur \verb+can_tp20_options+ ist definiert als
+\begin{code}
+struct can_tp20_options {
+
+  struct timeval t1;       /* ACK timeout for DT TPDU. VAG: T1 */
+  struct timeval t2;       /* unused */
+  struct timeval t3;       /* transmit delay for DT TPDU's. VAG: T3 */
+  struct timeval t4;       /* unused */
+
+  unsigned char blocksize; /* max number of unacknowledged DT TPDU's (1 ..15) */
+  unsigned int  config;    /* analogue tp_user_data.conf see tp_gen.h */
+
+};
+\end{code}
+
+Die bei \man{setsockopt}{2} für VAG TP2.0 gesetzten Werte werden dem
+Kommunikationspartner im Rahmen des Channel-Setup (CS/CA) mitgeteilt
+und beeinflussen somit ausschließlich die Kommunikationsparameter des
+Kommunikationspartners.
+
+Eine weitere Besonderheit beim VAG TP2.0 ist der 'dynamische
+Kanalaufbau', bei dem vor der eigentlichen Kommunikation die
+CAN-Identifier für den Transportkanal ermittelt werden. Dabei
+existieren auch zeitliche Anforderungen, die eine maximale Zeitspanne
+zwischen dem Aushandeln der Identifier und der Eröffnung des
+Transportkanals festlegen. Siehe dazu auch die Hinweise zur Variablen
+\verb+PROBE+ in Kapitel \ref{probe}.\\
+
+Entgegen bisherigen Implementierungen unterstützt diese Realisierung für
+das \LLCF\ die dynamische Identifiervergabe nicht im Rahmen der
+TP2.0-Implementierung. Übertragen auf die IT-Welt entspräche eine
+solche Implementierung der Integration des Domain-Name-Service in das
+IP-Protokoll. Das o.g. Verfahren wird im \LL\ über Broadcastnachrichten
+auf der Benutzerebene realisiert. Siehe dazu die protokollspezifischen
+Testprogramme in Kapitel \ref{tptestprogs}.
+
+\subsection{Besonderheiten des Bosch MCNet}
+\label{mcnet}
+
+Das Transportprotokoll MCNet besitzt 3 konfigurierbare
+Parameter, die mit \man{setsockopt}{2} gesetzt werden können.
+Dazu gehören die Blocksize und ein Konfigurationswert, der
+z.B. angibt, ob ein regelmäßiger Connection Test durchgeführt 
+werden soll oder nicht. Diese Parameter können beispielsweise wie folgt gesetzt
+werden:
+
+\begin{code}
+struct can_mcnet_options opts;
+
+opts.blocksize  = 11;
+opts.td.tv_sec  = 0; /* no transmit delay */
+opts.td.tv_usec = 0;
+opts.config     = USE_CONNECTIONTEST;
+
+setsockopt(s, SOL_CAN_MCNET, CAN_MCNET_OPT, &opts, sizeof(opts));
+\end{code}
+
+Die für das Transportprotokoll MCNet relevanten Optionen finden
+sich in den Dateien \verb+mcnet.h+ und \verb+tp_conf.h+.\\
+
+Die Struktur \verb+can_mcnet_options+ ist definiert als
+\begin{code}
+struct can_mcnet_options {
+
+  unsigned char blocksize; /* max number of unacknowledged DT TPDU's (1 ..15) */
+  struct timeval td;       /* transmit delay for DT TPDU's */
+  unsigned int  config;    /* analogue tp_user_data.conf see tp_gen.h */
+
+};
+\end{code}
+
+Die bei \man{setsockopt}{2} für MCNet gesetzten Werte beeinflussen die
+lokalen Kommunikationsparameter.
+
+\subsection{ISO-Transportprotokoll}
+\label{isotp}
+Eine Implementierung des CAN-Transportprotokolls nach ISO/DIS 15765
+ist in Arbeit und wird unter BSD/GPL-Lizenz von Volkswagen zur
+Verfügung gestellt werden.
+
+\subsection{Testprogramme}
+\label{tptestprogs}
+\begin{description}
+\item[tp16-client] ist ein Programm, dass aktiv eine TP1.6 Verbindung
+eröffnet und dann Daten sendet und empfängt. Es wird auch gezeigt wie
+man mit Hilfe des \BCM\ die dynamische Kanaleröffnung des TP1.6-Clients
+mit dem \LL\ realisiert.
+\item[tp16-server] ist ein Programm, dass passiv auf eine von einem
+\verb+tp16-client+ zu initiierende TP1.6 Verbindung wartet und dann
+Daten empfängt und zurücksendet. Es wird auch gezeigt wie
+man mit Hilfe des RAW-Sockets die dynamische
+Kanaleröffnung eines TP1.6-Servers mit dem \LL\ realisiert.
+\item[tp20-client] ist ein Programm, dass aktiv eine TP2.0 Verbindung
+eröffnet und dann Daten sendet und empfängt. Es wird auch gezeigt wie
+man mit Hilfe des \BCM\ die dynamische Kanaleröffnung des TP2.0-Clients
+mit dem \LL\ realisiert.
+\item[tp20-server] ist ein Programm, dass passiv auf eine von einem
+\verb+tp20-client+ zu initiierende TP2.0 Verbindung wartet und dann
+Daten empfängt und zurücksendet. Es wird auch gezeigt wie
+man mit Hilfe des RAW-Sockets die dynamische
+Kanaleröffnung eines TP2.0-Servers mit dem \LL\ realisiert.
+\item[tp20-sniffer] ist ein Programm, mit dem man eine
+TP2.0-Verbindung mitlesen kann (siehe Tracemode-Beschreibung in
+Kapitel \ref{tracemode}). Anhand der Kommandozeilen-Parameter kann man
+dabei konkrete CAN-IDs oder auch logische Gerätenummern zur Bestimmung
+der mitzulesenden TP-Kanals angeben.
+\item[mcnet-sniffer] ist ein Programm, mit dem man eine
+MCNet-Verbindung mitlesen kann (siehe Tracemode-Beschreibung in
+Kapitel \ref{tracemode}).
+\item[mcnet-vit-emu] ist ein Programm, mit dem ein MCNet-TV-Tuner
+emuliert werden kann. Angeschlossen an den CAN-Bus eines
+Volkswagen RNS MFD (altes 2DIN-Gerät) wird hier die Kommunikation
+nachgebildet, die ein TV-Tuner mit dem Bedienteil durchführt, wodurch
+die Tasteninformationen zur Bedienung des TV-Tuners ausgelesen werden
+können.
+\end{description}

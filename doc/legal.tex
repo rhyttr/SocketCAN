@@ -1,0 +1,141 @@
+% $Id: legal.tex,v 2.0 2006/04/13 10:37:18 ethuerm Exp $
+
+\newpage
+\section{Rechtliche Hinweise}
+\label{legal}
+
+Volkswagen geht davon aus, dass diese rechtlichen Hinweise vom
+Anwender gelesen, verstanden und akzeptiert worden sind.
+
+\medskip
+Im Quellcode des \LLCF\ findet man folgenden Hinweis:
+
+\begin{code}
+/*
+ * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, the following disclaimer and
+ *    the referenced file 'COPYING'.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of Volkswagen nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * Alternatively, provided that this notice is retained in full, this
+ * software may be distributed under the terms of the GNU General
+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
+ * file from the main directory of the linux kernel source.
+ *
+ * The provided data structures and external interfaces from this code
+ * are not restricted to be used by modules with a GPL compatible license.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ *
+ * Send feedback to <llcf@volkswagen.de>
+ *
+ */
+\end{code}
+
+
+\subsection{Erweiterter Haftungsausschluss}
+
+Im Geltungsbereich der deutschen Rechtsprechung besteht auch bei der
+kostenlosen Überlassung bei grob fahrlässigen oder 
+vorsätzlich verschwiegenen Mängeln die Möglichkeit, den Urheber für
+entstandene (Folge-)Schäden haftbar machen zu können.\\ 
+
+Wenngleich die Autoren bemüht sind, eine fehlerfreie Software zur
+ Verfügung zu stellen, lassen sich Fehler nicht generell
+ ausschließen. Aus
+ diesem Grunde erklärt sich der Anwender mit dem Einsatz des  
+\LLCF\ damit einverstanden, den Haftungsausschluss gegenüber den
+Autoren und der Volkswagen AG {\bf uneingeschränkt} anzuerkennen und
+auf jedwede rechtlichen Möglichkeiten/Forderungen beim Auftreten von
+Mängeln/Schäden/Folgeschäden durch den Einsatz des \LL\ zu
+verzichten.
+
+\subsection{Logo}
+
+Das Logo des \LLCF\ ( '/dev/$<$ beetle $>$' ) ist als zusammengesetzte
+Bildmarke Eigentum der Volkswagen AG. Es symbolisiert die Integration
+des Fahrzeugs in eine Umgebung der Standard-Informationstechnologie.
+
+\subsection{Linux Module License}
+
+Teile der vollständigen \LL-Distribution unterliegen nicht der GNU Public
+License sondern sind proprietärer Code der Volkswagen
+AG. Richtigerweise ist dieses auch im Quellcode der einzelnen
+Kernelmodule mit dem Makro {\mbox{\bf MODULE\_LICENSE(\grqq Volkswagen
+Group closed source\grqq)}} markiert. Beim Laden der \LL-Module in den
+Kernel kann daher beispielsweise folgende Fehlermeldung auftreten:
+
+\begin{code}
+Warning: loading can-tp20.o will taint the kernel: Volkswagen Group closed source
+See http://www.tux.org/lkml/#export-tainted for information about tainted modules
+Module tainted loaded, with warnings
+\end{code}
+
+Dieses ist eine Warnung, dass das geladene Modul nicht unter der GNU
+Public License steht, was die Funktionsfähigkeit des \LLCF\ jedoch nicht
+beeinflusst. Typischerweise werden jedoch Anfragen zu Fehlermeldungen,
+die von 'verschmutzten' tainted-Kernels erzeugt wurden, im Allgemeinen
+von der Linux-Community nicht kommentiert / beantwortet.\\ 
+
+Module, die unter der GNU Public License stehen, enthalten das Makro
+{\mbox{\bf MODULE\_LICENSE(\grqq GPL\grqq)}}.
+
+\subsection{Transportprotokolle}
+
+Die in der vollständigen \LL-Distribution enthaltenen Protokoll-Module für die
+Transport-Protokolle (derzeit VAG TP1.6, VAG TP2.0, Bosch MCNet)
+sind nur in Verbindung mit einem Non Disclosure Agreement (NDA)
+für Zulieferer der Volkswagen AG erhältlich. Diese Protokoll-Module
+sind keine Referenz-Treiber. Nach
+Auslauf des NDA gelten die im NDA vereinbarten Bedingungen zum
+Vernichten von Arbeitsergebnissen/Unterlagen/Quellcode.\\
+
+Der Quelltext für die bezeichneten CAN-Transport-Protokolle ist in
+klar separierten Modulen und existierte bereits vor einer Integration
+in den Linux Kernel:
+
+\begin{code}
+This TP code is in clearly seperate modules and had a life outside Linux
+from the beginning and does something self-contained that doesn't
+really have any impact on the rest of the kernel. The transport
+protocol drivers have been originally written for something else and
+do not need any but the standard UNIX read/write kind of interfaces.
+See <http://www.atnf.csiro.au/people/rgooch/linux/docs/licensing.txt>
+\end{code}
+
+MCNet ist ein CAN-Transport-Protokoll der Robert Bosch GmbH. Die
+Implementierung ist nach Maßgabe des MCNet-Disclaimers {\it
+ANFORDERUNG DER MCNet-SPEZIFIKATION} vom 13.07.1998
+erfolgt. Weitergehende Informationen zu MCNet sind erhältlich bei:\\
+
+Robert Bosch GmbH\\
+Abteilung K7/EFT62\\
+Postfach 77 77 77\\
+D-31132 Hildesheim\\
+
+Ansprechpartner:\\
+Dr. Uwe Zurmühl $<$uwe.zurmuehl@de.bosch.com$>$\\
+Detlef Rode $<$detlef.rode@de.bosch.com$>$
+

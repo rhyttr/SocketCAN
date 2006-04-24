@@ -1,0 +1,92 @@
+% $Id: socket-api.tex,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
+
+\newpage
+\section{Allgemeine Hinweise zur Socket-API beim \LL}
+\label{socket-api}
+
+Für die Kommunikation auf dem CAN-Bus wird eine neue Protokoll-Familie
+\verb+PF_CAN+ im Socket-Layer implementiert. Aus Anwender-
+bzw. Programmierersicht wird mit den \LL-Sockets analog zu
+Internet-Protokoll-Sockets (Protokoll-Familie \verb+PF_INET+) mit den
+üblichen Systemaufrufen \man{socket}{2}, \man{bind}{2}, \man{listen}{2},
+\man{accept}{2}, \man{connect}{2}, \man{read}{2},
+\man{write}{2} und \man{close}{2} genutzt. Siehe dazu auch die
+Einleitung in Kapitel \ref{intro}.\\
+
+Im Gegensatz zur Adressstruktur der Internet-Adressen
+(\verb+sockaddr_in+) benötigt die Adressierung der PF\_CAN-Sockets
+andere Inhalte. Die Adressstruktur \verb+sockaddr_can+ ist in der
+Include-Datei \verb+af_can.h+ definiert:
+
+\begin{code}
+struct sockaddr_can {
+    sa_family_t   can_family;
+    int           can_ifindex;
+    union {
+        struct { canid_t rx_id, tx_id; } tp16;
+        struct { canid_t rx_id, tx_id; } tp20;
+        struct { canid_t rx_id, tx_id; } mcnet;
+    } can_addr;
+};
+\end{code}
+
+Neben dem Interface-Index des CAN-Interfaces sind hierbei besonders
+für die jeweiligen Transport-Protokolle die CAN-IDs \verb+tx_id+ und
+\verb+rx_id+ relevant. Transport-Protokolle bilden auf dem CAN-Bus
+auf zwei CAN-IDs eine virtuelle Punkt-zu-Punkt-Verbindung ab.\\
+
+Eine weitere wichtige Struktur stellt das CAN-Frame dar, dass in
+der Include-Datei \verb+can.h+ definiert ist:
+
+\begin{code}
+typedef __u32 canid_t;
+
+struct can_frame {
+    canid_t can_id;      /* 32 bit CAN_ID + EFF/RTR flags */
+    __u8    can_dlc;     /* data length code: 0 .. 8 */
+    __u8    data[8] __attribute__ ((aligned(8)));
+};
+
+/* special address description flags for the CAN_ID */
+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
+#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
+
+/* valid bits in CAN ID for frame formats */
+#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
+#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
+\end{code}
+
+Die definierte Struktur \verb+can_frame+ enthält die Elemente eines
+CAN-Frame, wie es auf dem CAN-Bus definiert ist. Die Anordnung der
+Nutzdaten (Byte-Order, Word-Order, Little/Big Endian) ist auf dem
+CAN-Bus generell nicht definiert, weshalb die Datenelemente
+\verb+data[]+ als Array von 8 Byte ausgeführt sind. Da die
+Datenelemente allerdings auf einer 8 Byte Speichergrenze ausgerichtet,
+ist hier auch ein Zugriff bis zu einer Breite von 64 Bit möglich:
+
+\begin{code}
+#define U64_DATA(p) (*(unsigned long long*)(p)->data)
+
+U64_DATA(&myframe) = 0xFFFFFFFFFFFFFFFFULL;
+U64_DATA(&myframe) = 0;
+\end{code}
+
+Durch die Trennung der Informationen in die Include-Dateien
+\verb+af_can.h+ und \verb+can.h+ ist zum Erstellen eines
+CAN-Netzwerk-Treibers nur die Include-Datei \verb+can.h+ nötig.\\
+
+\subsection{Zeitstempel}
+
+Für die Anwendungen im CAN-Umfeld ist häufig ein genauer Zeitstempel
+von Interesse, der den Empfangszeitpunkt einer Nachricht vom CAN-Bus
+wiedergibt. Ein solcher zugehöriger Zeitstempel kann über ein
+\man{ioctl}{2} nach dem Lesen einer Nachricht vom Socket ausgelesen
+werden. Dieses gilt auch für die Sockets von Transportprotokollen,
+wobei hier der Zeitstempel der letzten zugehörigen TPDU ausgegeben
+wird. Der Aufruf - z.B. \verb+ioctl(s, SIOCGSTAMP, &tv)+ - wird in den
+jeweiligen Testprogrammen zur Veranschaulichung verwendet.\\
+
+Die Zeitstempel haben unter Linux eine Auflösung von einer Mikrosekunde
+und werden beim Empfang eines CAN-Frame im CAN-Networkdevice
+automatisch gesetzt.
+

@@ -1,0 +1,696 @@
+% $Id: bcmsocket.tex,v 2.0 2006/04/13 10:37:18 ethuerm Exp $
+
+\newpage
+\section{Sockets für den Broadcast-Manager}
+\label{bcsocket}
+
+Der \BCM\ stellt Funktionen zur Verfügung, um Nachrichten
+auf dem CAN-Bus einmalig oder periodisch zu senden, sowie um
+(inhaltliche) Änderungen von (zyklisch) empfangenen CAN-Frames mit
+einer bestimmten CAN-ID zu erkennen.\\
+
+Dabei muss der \BCM\ folgende Anforderungen erfüllen:
+
+\textbf{\\Sendeseitig:}
+
+\begin {itemize}
+\item Zyklisches Senden einer CAN-Botschaft mit einem gegebenen Intervall
+\item Verändern von Botschaftsinhalten und Intervallen zur Laufzeit
+  (z.B. Umschalten auf neues Intervall mit/ohne sofortigen Neustart
+  des Timers) 
+\item Zählen von Intervallen und automatisches Umschalten auf ein
+  zweites Intervall 
+\item Sofortige Ausgabe von veränderten Botschaften, ohne den
+  Intervallzyklus zu beeinflussen ('Bei Änderung sofort') 
+\item Einmalige Aussendung von CAN-Botschaften
+\end{itemize}
+
+\textbf{Empfangsseitig:}
+
+\begin {itemize}
+\item Empfangsfilter für die Veränderung relevanter Botschaftsinhalte
+\item Empfangsfilter ohne Betrachtung des Botschaftsinhalts (CAN-ID-Filter)
+\item Empfangsfilter für Multiplexbotschaften (z.B. mit Paketzählern
+  im Botschaftsinhalt)
+\item Empfangsfilter für die Veränderung vom Botschaftslängen
+\item Beantworten von RTR-Botschaften
+\item Timeoutüberwachung von Botschaften
+\item Reduzierung der Häufigkeit von Änderungsnachrichten (Throttle-Funktion)
+\end{itemize}
+
+
+\subsection{Kommunikation mit dem Broadcast-Manager}
+\label{bccomm}
+
+Im Gegensatz zum RAW-Socket (Kapitel \ref{rawsocket}) und den
+Transportprotokoll-Sockets (Kapitel \ref{tpsocket}) werden über den
+Socket des \BCM\ weder einzelne CAN-Frames noch längere - zu
+segmentierende - Nutzdaten übertragen.\\
+
+Der \BCM\ ist vielmehr ein programmierbares Werkzeug, dass über
+besondere Nachrichten vom Anwender gesteuert wird und auch Nachrichten
+an den Anwender über die Socket-Schnittstelle schicken kann.\\
+
+Für die Anwendung des \BCM\ muss die Include-Datei \verb+bcm.h+
+eingebunden werden.\\
+
+Ein Socket zum \BCM\ wird durch
+
+\begin{code}
+s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
+\end{code}
+
+geöffnet.\\
+
+Mit dem \textsf{connect()} wird dem Socket das CAN-Interface eindeutig
+zugewiesen. Möchte ein Prozess auf mehreren CAN-Bussen agieren, muss
+er folglich mehrere Sockets öffnen. Es ist allerdings auch möglich,
+dass ein Prozess mehrere Instanzen (Sockets) des \BCM\ auf einem
+CAN-Bus öffnet, wenn dieses für den Anwendungsprogrammierer zur
+Strukturierung verschiedener Datenströme sinnvoll ist. Jede einzelne
+Instanz des \BCM\ ist in der Lage beliebig viele Filter- und/oder
+Sendeaufträge zu realisieren.
+
+\begin{code}
+addr.can_family = AF_CAN;
+strcpy(ifr.ifr_name, "can0");
+ioctl(s, SIOCGIFINDEX, &ifr);
+addr1.can_ifindex = ifr.ifr_ifindex;
+
+connect(s, (struct sockaddr *)&addr, sizeof(addr));
+\end{code}
+
+Alle Nachrichten zwischen dem (Anwender-)Prozess und dem \BCM\
+besitzen die selbe Struktur. Sie besteht aus einem Nachrichtenkopf mit
+dem Steuerungskommando und der für diesen Socket/CAN-Bus eindeutigen
+CAN-ID: 
+
+\begin{code}
+struct bcm_msg_head {
+    int opcode;                   /* command */
+    int flags;                    /* special flags */
+    int count;                    /* run 'count' times ival1 then ival2 */
+    struct timeval ival1, ival2;  /* intervals */
+    canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
+    int nframes;                  /* number of following can_frame's */
+    struct can_frame frames[0];
+};
+\end{code}
+
+Der Wert \verb+nframes+ gibt an, wie viele Nutzdaten-Frames dem
+Nachrichtenkopf folgen. Die Nutzdaten-Frames beschreiben den
+eigentlichen Nachrichteninhalt einer CAN-Botschaft:
+
+\begin{code}
+struct can_frame {
+    canid_t can_id;      /* 32 bit CAN_ID + EFF/RTR flags */
+    __u8    can_dlc;     /* data length code: 0 .. 8 */
+    __u8    data[8] __attribute__ ((aligned(8)));
+};
+\end{code}
+
+Der \verb+opcode+ definiert, um was für eine Nachricht es sich
+handelt. Nachrichten vom Anwender an den \BCM\ steuern die Operationen
+des \BCM, Nachrichten vom \BCM\ an den Anwender signalisieren bestimmte
+Änderungen, Timeouts, etc.\\
+
+Der Sende- und Empfangszweig des \BCM\ sind dabei zwei eigenständige
+Funktionsblöcke.\\
+
+Für den Sendezweig existieren die Opcodes
+\begin{quote}
+\begin{description}
+\item[TX\_SETUP] zum Einrichten und Ändern von Sendeaufträgen
+\item[TX\_DELETE] zum Löschen von Sendeaufträgen
+\item[TX\_READ] zum Auslesen des aktuellen Sendeauftrags (zu Debug-Zwecken)
+\item[TX\_SEND] zum einmaligen Senden einer CAN-Botschaft
+\end{description}
+\end{quote}
+
+Für den Empfangszweig existieren die Opcodes
+\begin{quote}
+\begin{description}
+\item[RX\_SETUP] zum Einrichten und Ändern von Empfangsfiltern
+\item[RX\_DELETE] zum Löschen von Empfangsfiltern
+\item[RX\_READ] zum Auslesen des aktuellen Empfangsfilters (zu Debug-Zwecken)
+\end{description}
+\end{quote}
+
+Als Antwort schickt der \BCM\ Nachrichten in der gleichen Form, wie er
+selbst die Anforderungen erhält. Dabei sendet der \BCM\ die Opcodes 
+\begin{quote}
+\begin{description}
+\item[TX\_STATUS] als Antwort auf TX\_READ
+\item[TX\_EXPIRED] wenn der Zähler \verb+count+ für \verb+ival1+
+  abgelaufen ist (nur bei gesetztem Flag \verb+TX_COUNTEVT+, s.u.) 
+\item[RX\_STATUS] als Antwort auf RX\_READ
+\item[RX\_TIMEOUT] wenn der zeitlich überwachte Empfang einer
+  Botschaft ausgeblieben ist
+\item[RX\_CHANGED] wenn die erste bzw. eine geänderte CAN-Nachricht
+empfangen wurde 
+\end{description}
+\end{quote}
+
+Jede dieser durch einen \verb+opcode+ bestimmten Funktionen wird eindeutig
+mit Hilfe der \verb+can_id+ referenziert.\\
+
+Zusätzlich existieren noch optionale \verb+flags+, mit denen der \BCM\ in
+seinem Verhalten beeinflusst werden kann: 
+\begin{quote}
+\begin{description}
+\item[SETTIMER :] Die Werte \verb+ival1+, \verb+ival2+ und
+  \verb+count+ werden übernommen 
+\item[STARTTIMER :] Der Timer wird mit den aktuellen Werten von \verb+ival1+,
+  \verb+ival2+ und \verb+count+ gestartet. Das Starten des Timers
+  führt gleichzeitig zur Aussendung eines \verb+can_frame+'s.
+\item[TX\_COUNTEVT :] Erzeuge die Nachricht TX\_EXPIRED, wenn \verb+count+
+  abgelaufen ist 
+\item[TX\_ANNOUNCE :] Eine Änderung der Daten durch den Prozess wird zusätzlich
+  unmittelbar ausgesendet. (Anforderung aus 'Bei Änderung Sofort' -
+  BÄS)
+\item[TX\_CP\_CAN\_ID :] Kopiert die \verb+can_id+ aus dem
+  Nachrichtenkopf in jede der angehängten \verb+can_frame+'s. Dieses ist
+  lediglich als Vereinfachung der Benutzung gedacht.
+\item[TX\_RESET\_MULTI\_IDX :] Erzwingt das Rücksetzen des
+  Index-Zählers beim Update von zu sendenden von Multiplex-Nachrichten
+  auch wenn dieses aufgrund der gleichen Länge nicht nötig wäre. Siehe
+  Seite \pageref{txsendmux}.
+\item[RX\_FILTER\_ID :] Es wird keine Filterung der Nutzdaten
+ausgeführt. Eine Übereinstimmung mit der empfangenen \verb+can_id+
+führt automatisch zu einer Nachricht RX\_CHANGED. {\bf Vorsicht also bei
+zyklischen Nachrichten!} Bei gesetztem RX\_FILTER\_ID-Flag {\it kann}
+auf das CAN-Frame beim RX\_SETUP verzichtet werden (also \verb+nframes=0+).
+\item[RX\_RTR\_FRAME :] Die im Filter übergebene CAN-Nachricht wird
+beim Empfang eines RTR-Frames ausgesendet. Siehe Seite \pageref{rxrtrframe}.
+\item[RX\_CHECK\_DLC :] Eine Änderung des DLC führt zu einem RX\_CHANGED.
+\item[RX\_NO\_AUTOTIMER :] Ist der Timer ival1 beim RX\_SETUP ungleich
+Null gesetzt worden, wird beim Empfang der CAN-Nachricht automatisch
+der Timer für die Timeout-Überwachung gestartet. Das Setzen dieses
+Flags unterbindet das automatische Starten des Timers.
+\item[RX\_ANNOUNCE\_RESUME :] Bezieht sich ebenfalls auf die
+Timeout-Überwachung der Funktion RX\_SETUP. Ist der Fall des RX-Timeouts
+eingetreten, kann durch Setzen dieses Flags ein RX\_CHANGED erzwungen
+werden, wenn der (zyklische) Empfang wieder einsetzt. Dieses gilt
+besonders auch dann, wenn sich die Nutzdaten nicht geändert haben.
+\end{description}
+\end{quote}
+
+\subsection{TX\_SETUP}
+\label{txsetup}
+
+Mit TX\_SETUP  wird für eine bestimmte CAN-ID ein (zyklischer)
+Sendeauftrag eingerichtet oder geändert.\\ 
+
+Typischerweise wird dabei eine Variable angelegt,
+bei der die Komponenten \verb+can_id+, \verb+flags+
+(\verb+SETTIMER+,\verb+STARTTIMER+), \verb+count+=0, 
+\verb+ival2+=100ms, \verb+nframes+=1 gesetzt werden und die Nutzdaten in der
+Struktur \verb+can_frame+ entsprechend eingetragen werden. Diese Variable wird
+dann im Stück(!) mit einem \textsf{write()}-Systemcall auf dem Socket
+an den \BCM\ übertragen. Beispiel:
+
+\begin{code}
+    struct {
+      struct bcm_msg_head msg_head;
+      struct can_frame frame[4]; /* just an example */
+    } msg;
+
+    msg.msg_head.opcode  = TX_SETUP;
+    msg.msg_head.can_id  = 0x42;
+    msg.msg_head.flags   = SETTIMER|STARTTIMER|TX_CP_CAN_ID;
+    msg.msg_head.nframes = 1;
+    msg.msg_head.count = 0;
+    msg.msg_head.ival1.tv_sec = 0;
+    msg.msg_head.ival1.tv_usec = 0;
+    msg.msg_head.ival2.tv_sec = 0;
+    msg.msg_head.ival2.tv_usec = 100000;
+    msg.frame[0].can_id    = 0x42; /* obsolete when using TX_CP_CAN_ID */
+    msg.frame[0].can_dlc   = 3;
+    msg.frame[0].data[0]   = 0x123;
+    msg.frame[0].data[1]   = 0x312;
+    msg.frame[0].data[2]   = 0x231;
+
+    write(s, &msg, sizeof(msg));
+\end{code}
+
+Die Nachrichtenlänge für den Befehl TX\_SETUP ist also
+\mbox{\tt \{[bcm\_msg\_head] [can\_frame]+\} } d.h. ein Nachrichtenkopf und
+mindestens ein CAN-Frame.
+
+\subsubsection{Besonderheiten des Timers}
+
+Der Timer kann durch Setzen des Intervalls auf 0 ms (\verb+ival1+ und
+\verb+ival2+) 
+gestoppt werden. Dabei wird die o.g. Variable wieder
+mit dem gesetzten Flag SETTIMER an den \BCM\ übertragen.  
+Um eine zyklische Aussendung mit den übergebenen Timerwerten zu
+starten, müssen also die Flags \verb+SETTIMER+ und \verb+STARTTIMER+ im Element
+\verb+flags+ gesetzt sein.\\
+
+Als Ergänzung zum obigen Beispiel kann auch mit zwei Intervallen für
+die zyklische Aussendung der CAN-Botschaft gearbeitet werden. Dabei
+wird die CAN-Botschaft zunächst \verb+count+ mal im Intervall
+\verb+ival1+ gesendet 
+und danach bis zur expliziten Löschung durch TX\_DELETE oder durch
+Stoppen des Timers im Intervall \verb+ival2+. Das Intervall
+\verb+ival2+ darf auch 
+Null sein, in welchem Fall die Aussendung nach den ersten \verb+count+
+Aussendungen stoppt.  Falls \verb+count+ Null ist, spielt der Wert von
+\verb+ival1+ 
+keine Rolle und muss nicht angegeben zu werden.\\
+
+Ist das Flag \verb+STARTTIMER+ gesetzt, wird unmittelbar die erste
+CAN-Botschaft ausgesendet.\\
+
+Ist es für den Anwender wichtig zu erfahren, wann der \BCM\ vom
+Intervall \verb+ival1+ auf \verb+ival2+ umschaltet (und somit u.U. die
+Aussendung 
+einstellt), kann dieses dem \BCM\ durch das Flag \verb+TX_COUNTEVT+ angezeigt
+werden. Ist der Wert von \verb+count+ auf Null heruntergezählt und das  Flag
+\verb+TX_COUNTEVT+ gesetzt worden, erzeugt der \BCM\ eine Nachricht mit dem
+Opcode TX\_EXPIRED an den Prozess. Diese Nachricht
+besteht nur aus einem Nachrichtenkopf (\verb+nframes+ = 0).\\
+
+\subsubsection{Veränderung von Daten zur Laufzeit}
+
+Zur Laufzeit können auch die Daten in der CAN-Botschaft geändert
+werden. Dazu werden die Daten in der Variable
+geändert und mit dem Opcode TX\_SETUP an den \BCM\ übertragen. Dabei
+kann es folgende Sonderfälle geben:
+\begin{enumerate}
+\item Der Zyklus soll neu gestartet werden: Flag \verb+STARTTIMER+ setzen
+\item Der Zyklus soll beibehalten werden aber die geänderten/beigefügten Daten
+  sollen sofort einmal gesendet werden: Flag \verb+TX_ANNOUNCE+ setzen 
+\item Der Zyklus soll beibehalten werden und die geänderten Daten erst mit dem
+nächsten Mal gesendet werden: default Verhalten
+\end{enumerate}
+
+Hinweis: Beim Neustarten des Zyklus werden die zuletzt gesetzten
+Timerwerte (\verb+ival1+, \verb+ival2+) zugrunde gelegt, die vom \BCM\ nicht
+modifiziert werden. Sollte aber mit zwei Timern gearbeitet werden,
+wird der Wert \verb+count+ zur Laufzeit vom \BCM\ dekrementiert. 
+
+\subsubsection{Aussenden verschiedener Nutzdaten (Multiplex-Nachrichen)}
+\label{txsendmux}
+
+Mit dem \BCM\ können auch Multiplex-Nachrichten versendet
+werden. Dieses wird benötigt, wenn z.B. im ersten Byte der Nutzdaten
+ein Wert definiert, welche Informationen in den folgenden 7
+Bytes zu finden sind. Ein anderer Anwendungsfall ist das Umschalten /
+Toggeln von Dateninhalten. Dazu wird im Prozess eine Variable erzeugt,
+bei der hinter dem Nachrichtenkopf mehr als ein Nutzdaten-Frame
+vorhanden ist. Folglich werden an den \BCM\ für eine 
+CAN-ID nicht ein sondern mehrere \verb+can_frame+'s übermittelt. Die
+verschiedenen Nutzdaten werden nacheinander im Zyklus der Aussendung
+ausgegeben. D.h. bei zwei \verb+can_frame+'s werden diese abwechselnd im
+gewünschten Intervall gesendet. Bei einer Änderung der Daten zur
+Laufzeit, wird mit der Aussendung des ersten \verb+can_frame+
+neu begonnen, wenn sich die Anzahl der zu sendenden
+\verb+can_frame+'s beim Update verändert (also nframes$_{neu}$ $\neq$
+nframes$_{alt}$). Bei einer gleichbleibenden Anzahl zu sendender 
+\verb+can_frame+'s kann dieses Rücksetzen des ansonsten normal
+weiterlaufenden Index-Zählers durch Setzen des Flags
+\verb+TX_RESET_MULTI_IDX+ erzwungen werden.
+
+\subsection{TX\_DELETE}
+\label{txdelete}
+
+Diese Nachricht löscht den Eintrag zur Aussendung der CAN-Nachricht mit
+dem in \verb+can_id+ angegebenen CAN-Identifier.
+Die Nachrichtenlänge für den Befehl TX\_DELETE ist 
+\mbox{\tt \{[bcm\_msg\_head]\} } d.h. ein Nachrichtenkopf.
+
+\subsection{TX\_READ}
+\label{txread}
+
+Mit dieser Nachricht kann der aktuelle Zustand, also die zu sendende
+CAN-Nachricht, Zähler, Timer-Werte, etc. zu dem in \verb+can_id+
+angegebenen CAN-Identifier 
+ausgelesen werden.  Der \BCM\ antwortet mit einer Nachricht mit dem
+\verb+opcode+ TX\_STATUS, die das entsprechende Element enthält. Diese
+Antwort kann je nach Länge der Daten beim zugehörigen TX\_SETUP
+unterschiedlich lang sein.
+Die Nachrichtenlänge für den Befehl TX\_READ ist 
+\mbox{\tt \{[bcm\_msg\_head]\} } d.h. ein Nachrichtenkopf.
+
+\subsection{TX\_SEND}
+\label{txsend}
+
+Zum einmaligen Senden einer CAN-Nachricht, ohne eine besondere
+Funktionalität des \BCM\ zu nutzen, kann der \verb+opcode+ TX\_SEND genutzt
+werden. Dabei wird eine Variable erzeugt, in der die
+Komponenten \verb+can_id+, \verb+can_dlc+,
+\verb+data[]+ mit den entsprechenden Werten gefüllt werden. Der \BCM\
+sendet diese CAN-Botschaft unmittelbar auf dem durch den Socket
+definierten CAN-Bus. Die Nachrichtenlänge für den Befehl TX\_SEND ist
+\mbox{\tt \{[bcm\_msg\_head] [can\_frame]\} } d.h. ein Nachrichtenkopf und
+genau ein CAN-Frame.\\
+
+Anmerkung: Selbstverständlich können einzelne CAN-Botschaften auch mit
+dem RAW-Socket versendet werden. Allerdings muss man dazu einen
+RAW-Socket öffnen, was für eine einzelne CAN-Botschaft bei einem
+bereits geöffneten \BC-Socket ein unverhältnismäßig großer
+Programmieraufwand wäre.
+
+
+\subsection{RX\_SETUP}
+\label{rxsetup}
+
+Mit RX\_SETUP wird für eine bestimmte CAN-ID ein Empfangsauftrag
+eingerichtet oder geändert. Der \BCM\ kann bei der Filterung von
+CAN-Nachrichten dieser CAN-ID nach verschiedenen Kriterien arbeiten
+und bei Änderungen und/oder Timeouts eine entsprechende Nachricht an
+den Prozess senden.\\
+
+Analog zum \verb+opcode+ TX\_SETUP (siehe Seite \pageref{txsetup})
+wird auch hier typischerweise eine Variable angelegt die der
+Nachrichtenstruktur des \BCM\ entspricht.
+Die Nachrichtenlänge für den Befehl RX\_SETUP ist
+\mbox{\tt \{[bcm\_msg\_head] [can\_frame]+\} } d.h. ein Nachrichtenkopf und
+mindestens ein CAN-Frame.\\
+
+Im Unterschied zu TX\_SETUP haben die Komponenten der Struktur im
+Rahmen der Empfangsfunktionalität zum Teil andere Bedeutungen, wenn
+sie vom Prozess an den \BCM\ geschickt werden:
+
+\begin{quote}
+\begin{description}
+\item[count] keine Funktion
+\item[ival1] Timeout für CAN-Nachrichtenempfang
+\item[ival2] Drosselung von RX\_CHANGED Nachrichten
+\item[can\_data] enthält eine Maske zum Filtern von Nutzdaten
+\end{description}
+\end{quote}
+
+\subsubsection{Timeoutüberwachung}
+
+Wird vom \BCM\ eine CAN-Nachricht für einen längeren Zeitraum als
+\verb+ival1+ nicht vom CAN-Bus empfangen, wird eine Nachricht mit dem
+\verb+opcode+ RX\_TIMEOUT an den Prozess gesendet. Diese Nachricht
+besteht nur aus einem Nachrichtenkopf (\verb+nframes+ = Null). Eine
+Timeoutüberwachung wird in diesem Fall nicht neu gestartet.\\
+
+Typischerweise wird die Timeroutüberwachung mit dem Empfang einer
+CAN-Botschaft gestartet. Mit Setzen des Flags \verb+STARTTIMER+ kann
+aber auch sofort beim RX\_SETUP mit dem Timeout begonnen werden. Das
+Setzen des Flags \verb+RX_NO_AUTOTIMER+ unterbindet das automatische
+Starten der Timeoutüberwachung beim Empfang einer CAN-Nachricht.\\
+
+Hintergrund: Das automatische Starten der Timeoutüberwachung beim
+Empfang einer Nachricht macht jeden auftretenden zyklischen Ausfall
+einer CAN-Nachricht deutlich, ohne dass der Anwender aktiv werden muss.\\
+
+Um ein Wiedereinsetzen des Zyklus' bei gleich bleibenden Nutzdaten
+sicher zu erkennen kann das Flag \verb+RX_ANNOUNCE_RESUME+ gesetzt werden.
+
+\subsubsection{Drosselung von RX\_CHANGED Nachrichten}
+
+Auch bei einer aktivierten Filterung von Nutzdaten kann die
+Benutzerapplikation bei der Bearbeitung von RX\_CHANGED Nachrichten
+überfordert sein, wenn sich die Daten schnell ändern (z.B. Drehzahl).\\
+
+Dazu kann der Timer \verb+ival2+ gesetzt werden, der den minimalen
+Zeitraum beschreibt, in der aufeinanderfolgende RX\_CHANGED Nachrichten
+für die jeweilige \verb+can_id+ vom \BCM\ gesendet werden dürfen.\\
+
+Hinweis: Werden innerhalb der gesperrten Zeit weitere geänderte
+CAN-Nachrichten empfangen, wird die letzt gültige nach Ablauf der
+Sperrzeit mit einem RX\_CHANGED übertragen. Dabei können zwischenzeitliche
+(z.B. alternierende) Zustandsübergänge verloren gehen.\\
+
+Hinweis zu MUX-Nachrichten: Nach Ablauf der Sperrzeit werden alle
+aufgetretenen RX\_CHANGED Nachrichten hintereinander an den Prozess
+gesendet. D.h. für jeden MUX-Eintrag wird eine evtl. eingetretene
+Änderung angezeigt. 
+
+\subsubsection{Nachrichtenfilterung (Nutzdaten - simple)}
+
+Analog der Übertragung der Nutzdaten bei TX\_SETUP (siehe Seite
+\pageref{txsetup}) wird bei RX\_SETUP
+eine Maske zur Filterung der eintreffenden Nutzdaten an den \BCM\ 
+übergeben. Dabei wird vom \BCM\ zur Nachrichtenfilterung zunächst nur
+der Nutzdatenteil (\verb+data[]+) der Struktur \verb+can_frame+
+ausgewertet.\\
+
+Ein gesetztes Bit in der Maske bedeutet dabei, das dieses
+entsprechende Bit in der CAN-Nachricht auf eine Veränderung hin
+überwacht wird.\\
+
+Wenn in einer empfangenen CAN-Nachrichten eine Änderungen gegenüber der
+letzten empfangenen Nachricht in einem der durch die Maske
+spezifizierten Bits eintritt, wird die Nachricht RX\_CHANGED
+mit dem empfangenen CAN-Frame an den Prozess gesendet.\\
+Beim ersten Empfang einer Nachricht, wird das empfangene CAN-Frame
+grundsätzlich an den Prozess gesendet - erst danach kann schließlich
+auf eine {\it Änderung} geprüft werden. Tipp: Das Setzen der
+Filtermaske auf Null bewirkt somit das einmalige Empfangen einer sonst
+z.B. zyklischen Nachricht.
+
+\subsubsection{Nachrichtenfilterung (Nutzdaten - Multiplex)}
+
+Werden auf einer CAN-ID verschiedene, sich zyklisch wiederholende
+Inhalte übertragen, spricht man von einer Multiplex-Nachricht. Dazu
+wird beispielsweise im ersten Byte der Nutzdaten des CAN-Frames ein
+MUX-Identifier eingetragen, der dann die folgenden Bytes in ihrer
+Bedeutung definiert. Bsp.: Das erste Byte (Byte 0) hat den Wert \verb+0x02+
+$\Rightarrow$ in den Bytes 1-7 ist die Zahl der zurückgelegten
+Kilometer eingetragen.  Das erste Byte (Byte 0) hat den Wert \verb+0x04+
+$\Rightarrow$ in den Bytes 1-7 ist die Zahl der geleisteten
+Betriebsstunden eingetragen. Usw.\\
+
+Solche Multiplex-Nachrichten können mit dem \BCM\ gesendet werden, wenn
+für das Aussenden über eine CAN-ID mehr als ein Nutzdatenframe
+\verb+can_frame+ an den \BCM\ gesendet werden (siehe Seite
+\pageref{txsendmux}).\\
+
+Zur Filterung von Multiplex-Nachrichten werden mindestens zwei
+(\verb+nframes+ $\geq$ 2) \verb+can_frame+'s an den \BCM\ gesendet,
+wobei im ersten \verb+can_frame+ die MUX-Maske enthalten ist und in den
+folgenden \verb+can_frame+('s) die Nutzdaten-Maske(n), wie oben
+beschrieben. In die Nutzdaten-Masken sind an den Stellen, die die
+MUX-Maske definiert hat, die MUX-Identifier eingetragen, anhand derer die
+Nutzdaten unterschieden werden.\\
+
+Für das obige Beispiel würde also gelten:\\
+
+Das erste Byte im ersten \verb+can_frame+ (der MUX-Maske) wäre
+\verb+0xFF+ - die folgenden 7 Bytes wären \verb+0x00+  - damit ist die
+MUX-Maske definiert. Die beiden folgenden \verb+can_frame+'s enthalten
+wenigstens in den jeweils ersten Bytes die \verb+0x02+
+bzw. \verb+0x04+ wodurch die MUX-Identifier der
+Multiplex-Nachrichten definiert sind. Zusätzlich können
+(sinnvollerweise) in den Nutzdatenmasken noch weitere Bits gesetzt
+sein, mit denen z.B. eine Änderung der Betriebsstundenzahl überwacht
+wird.\\
+
+\begin{figure}[htbp]
+\begin{center}
+\psfig{file=bcm_mux_filter.eps}
+\caption{Beispiel für die Anwendung des Multiplexfilters}
+\label{figure:bcm_mux_filter}
+
+\end{center}
+\end{figure}
+
+Eine Änderung einer Multiplex-Nachricht mit einem bestimmten
+MUX-Identifier führt zu einer Nachricht RX\_CHANGED
+mit genau dem einen empfangenen CAN-Frame an den Prozess. D.h. der
+Prozess muss anhand des MUX-Identifiers die vom \BCM\ empfangene
+Nachricht bewerten.\\
+
+Im gezeigten Beispiel (Abbildung \ref{figure:bcm_mux_filter}) ist die
+MUX-Maske im Byte 0 auf \verb+0x5F+ 
+gesetzt. Beim Empfang von RX-Frame 1 wird keine Nachricht an den
+Anwender geschickt (MUX-Identifier ist nicht bekannt). Bei RX-Frame 2
+gibt es eine Nachricht (MUX-Identifier bekannt und relevante Daten
+haben sich - beim ersten Empfangsvorgang - geändert). Beim Empfang von
+RX-Frame 3 (Änderungen in den gelb markierten Bits) wird keine
+Nachricht an den Anwender geschickt, weil sich
+keine relevanten Daten für den eingetragenen MUX-Identifier geändert haben.
+
+\subsubsection{Nachrichtenfilterung (Länge der Nutzdaten - DLC)}
+
+Auf Anforderung kann der \BCM\ auch zusätzlich eine Veränderung der in den
+CAN-Nachrichten angegebenen Nutzdatenlänge überwachen. Dazu wird der
+empfangene Data Length Code (DLC) mit dem zu diesem CAN-Frame
+passenden, bereits empfangenen DLC verglichen. Ein Unterschied führt
+wie bei der Filterung der Nutzdaten zu einer Nachricht RX\_CHANGED an
+den Prozess. Zum Aktivieren dieser Funktionalität muss in der
+Komponente \verb+flags+ der Wert \verb+RX_CHECK_DLC+ gesetzt sein. 
+
+\subsubsection{Filterung nach CAN-ID}
+
+Im Gegensatz zu den oben beschriebenen Nachrichtenfiltern besteht auch
+die Möglichkeit nur nach der angegebenen CAN-ID zu filtern. Dazu wird
+in der Komponente \verb+flags+ der Wert \verb+RX_FILTER_ID+
+gesetzt. Die Komponente \verb+nframes+ kann dabei Null sein und
+so werden folglich auch keine Nutzdaten (\verb+can_frame+'s) an den
+\BCM\ geschickt. Angehängte Nutzdaten (d.h. \verb+nframes+ $>$ 0 und
+entsprechende \verb+can_frame+'s) werden ignoriert. Werden
+beim RX\_SETUP keine \verb+can_frames+ übertrags, ist also
+\verb+nframes+ = 0, wird im \BCM\ automatisch das Flag
+\verb+RX_FILTER_ID+ gesetzt.\\
+
+Hinweis: Die Filterung nach CAN-IDs sollte nur bei nicht zyklischen
+CAN-Nachrichten genutzt werden.
+
+\subsubsection{Automatisches Beantworten von RTR-Frames}
+\label{rxrtrframe}
+
+Grundsätzlich können Remote-Transmission-Requests (RTR) mit dem \BCM\
+ODER in einer Applikation im Userspace beantwortet werden. Im
+Userspace würde eine Anwendung über den \BCM-Socket oder einen
+RAW-Socket eine CAN-Nachricht empfangen, auf das gesetzte RTR-Bit
+prüfen und entsprechend eine Antwort senden. Das RX\_SETUP könnte in
+diesem Fall beispielsweise so aussehen:
+
+\begin{code}
+    /* normal receiption of RTR-frames in Userspace */
+    txmsg.msg_head.opcode  = RX_SETUP;
+    txmsg.msg_head.can_id  = 0x123 | CAN_RTR_FLAG;
+    txmsg.msg_head.flags   = RX_FILTER_ID;
+    txmsg.msg_head.ival1.tv_sec = 0;
+    txmsg.msg_head.ival1.tv_usec = 0;
+    txmsg.msg_head.ival2.tv_sec = 0;
+    txmsg.msg_head.ival2.tv_usec = 0;
+    txmsg.msg_head.nframes = 0;
+
+    if (write(s, &txmsg, sizeof(txmsg)) < 0)
+      perror("write");
+\end{code}
+
+Diese Aufgabe kann auch der \BCM\ übernehmen, indem man beim RX\_SETUP
+statt eines Filters die auszusendende Nachricht angibt und das Flag
+\verb+RX_RTR_FRAME+ setzt:
+
+\begin{code}
+    /* specify CAN-Frame to send as reply to a RTR-request */
+    txmsg.msg_head.opcode  = RX_SETUP;
+    txmsg.msg_head.can_id  = 0x123 | CAN_RTR_FLAG;
+    txmsg.msg_head.flags   = RX_RTR_FRAME; /* | TX_CP_CAN_ID */;
+    txmsg.msg_head.ival1.tv_sec  = 0; /* no timers in RTR-mode */
+    txmsg.msg_head.ival1.tv_usec = 0;
+    txmsg.msg_head.ival2.tv_sec  = 0;
+    txmsg.msg_head.ival2.tv_usec = 0;
+    txmsg.msg_head.nframes       = 1; /* exact 1 */
+
+    /* the frame to send as reply ... */
+    txmsg.frame.can_id    = 0x123; /* 'should' be the same */
+    txmsg.frame.can_dlc   = 4;
+    txmsg.frame.data[0]   = 0x12;
+    txmsg.frame.data[1]   = 0x34;
+    txmsg.frame.data[2]   = 0x56;
+    txmsg.frame.data[3]   = 0x78;
+
+    if (write(s, &txmsg, sizeof(txmsg)) < 0)
+      perror("write");
+\end{code}
+
+Beim Empfang einer CAN-Nachricht mit der CAN-ID 0x123 und gesetztem
+RTR-Bit wird das \verb+can_frame txmsg.frame+ ausgesendet. Bei
+gesetztem Flag \verb+TX_CP_CAN_ID+ wird die Zeile mit
+\verb+txmsg.frame.can_id+ obsolet. Der Wert \verb+txmsg.frame.can_id+
+ist nicht beschränkt, 
+d.h. der \BCM\ könnte auf ein RTR-Frame mit der CAN-ID 0x123 auch mit
+einer CAN-Nachricht mit einer anderen CAN-ID (z.B. 0x42)
+antworten. Achtung Denksportaufgabe: Bei gleicher CAN-ID und einem
+gesetzten RTR-Flag im \verb+can_frame txmsg.frame+ erfolgt ein
+Vollast-Test. Aus diesem Grunde wird bei Gleichheit von
+\verb+txmsg.msg_head.can_id+ und \verb+txmsg.frame.can_id+ (z.B. bei
+Anwendung der Option \verb+TX_CP_CAN_ID+) das RTR-Flag in
+\verb+txmsg.frame.can_id+ beim RX\_SETUP automatisch gelöscht.
+
+Die bei einem RTR-Frame auszusendende Nachricht kann durch ein erneutes
+RX\_SETUP mit der identischen CAN-ID (mit gesetztem Flag
+\verb+RX_RTR_FRAME+) jederzeit aktualisiert werden. Die
+Nachrichtenlänge für den Befehl RX\_SETUP mit gesetztem Flag
+\verb+RX_RTR_FRAME+ ist \mbox{\tt \{[bcm\_msg\_head] [can\_frame]\} }
+d.h. ein Nachrichtenkopf und genau ein CAN-Frame.\\
+
+\subsection{RX\_DELETE}
+\label{rxdelete}
+
+Mit RX\_DELETE wird für eine bestimmte CAN-ID ein Empfangsauftrag
+gelöscht. Die angegebene CAN-ID wird vom \BCM\ nicht mehr vom CAN-Bus
+empfangen. 
+Die Nachrichtenlänge für den Befehl RX\_DELETE ist 
+\mbox{\tt \{[bcm\_msg\_head]\} } d.h. ein Nachrichtenkopf.
+
+\subsection{RX\_READ}
+\label{rxread}
+
+Mit RX\_READ kann der aktuelle Zustand des Filters für
+CAN-Frames mit der angegebenen CAN-ID ausgelesen werden.  Der
+Broadcast-Manager antwortet mit der Nachricht RX\_STATUS
+an den Prozess. Diese
+Antwort kann je nach Länge der Daten beim zugehörigen RX\_SETUP
+unterschiedlich lang sein.
+Die Nachrichtenlänge für den Befehl RX\_READ ist 
+\mbox{\tt \{[bcm\_msg\_head]\} } d.h. ein Nachrichtenkopf.
+
+\subsection{Weitere Anmerkungen zum Broadcast-Manager}
+\label{bccomment}
+
+\begin{quote}
+\begin{itemize}
+\item Die Nachrichten TX\_EXPIRED, RX\_TIMEOUT vom \BCM\ an den Prozess
+enthalten keine Nutzdaten (\verb+nframes+ = 0)
+
+\item Die Nachrichten TX\_STATUS, RX\_STATUS vom \BCM\ an den Prozess
+enthalten genau so viele Nutzdaten, wie vom Prozess bei der
+Einrichtung des Sende-/Empfangsauftrags mit TX\_SETUP bzw. RX\_SETUP
+an den \BCM\ geschickt wurden.
+
+\item Die Nachricht RX\_CHANGED vom \BCM\ an den Prozess
+enthält genau das vom CAN empfangene, geänderte Nutzdaten-Frame
+ (\verb+nframes+ = 1)
+
+\item Beim Ändern von zu sendenden Multiplex-Nachrichten (TX\_SETUP)
+müssen immer alle Nutzdaten-Frames übertragen werden. Es wird generell
+mit der Aussendung der ersten MUX-Nachricht begonnen.
+
+\item Die Komponente \verb+can_id+ in der Struktur \verb+bcm_msg_head+
+kann {\it sendeseitig} auch als 'Handle' betrachtet werden, weil bei der
+Aussendung von CAN-Nachrichten die beim TX\_SETUP mit übertragenen
+\verb+can_frame+'s gesendet werden. Das Setzen jeder einzelnen
+\verb+can_id+ in den \verb+can_frame+'s kann durch das Flag
+\verb+TX_CP_CAN_ID+ vereinfacht werden.
+
+\item Beim Auslesen der Sende-/Empfangsaufträge mit TX\_READ
+bzw. RX\_READ können folgende Werte in den Antworten TX\_STATUS bzw.
+RX\_STATUS von der ursprünglich gesendeten Nachricht abweichen:
+\begin{quote}
+\begin{description}
+\item[count] Entspricht dem aktuellen Wert
+\item[SETTIMER] Wurde ausgeführt und damit konsumiert
+\item[STARTTIMER] Wurde ausgeführt und damit konsumiert
+\item[TX\_ANNOUNCE] Wurde ausgeführt und damit konsumiert
+\end{description}
+\end{quote}
+
+\item Das Schließen des \BC-Sockets mit \man{close}{2} bzw. das
+Terminieren des Anwenderprozesses löscht alle Konfigurationseinträge
+der zugehörigen \BC-Instanz. Zyklische Aussendungen dieser \BC-Instanz
+werden folglich sofort beendet.
+
+\end{itemize}
+\end{quote}
+
+\subsection{Testprogramme}
+
+\begin{description}
+\item[tst-bcm-single] führt eine einzelne TX\_SEND-Operation aus.
+\item[tst-bcm-cycle] Zyklisches Aussenden einer CAN-Botschaft mit
+TX\_SETUP und beenden der zyklischen Aussendung mit
+TX\_SETUP (ohne TX\_DELETE).
+\item[tst-bcm-tx\_read] Funktionsprüfung der Debug-Möglichkeit mit TX\_READ.
+\item[tst-bcm-rtr] Beispiel für die Anwendung des Flags \verb+RX_RTR_FRAME+.
+\item[tst-bcm-filter] diverse Filtertests inklusive Multiplex-Filter.
+\item[tst-bcm-throttle] Funktionsprüfung der Throttle-Funktionalität (Update-Bremse).
+\item[can-sniffer] ist ein Programm zur Beobachtung dynamischer
+Dateninhalte in zyklischen CAN-Nachrichten. Änderungen können in
+hexadezimaler, binärer oder in ASCII-Darstellung farblich
+hervorgehoben werden. Filter können zur Laufzeit verändert und
+gespeichert bzw. geladen werden.Wird \verb+can-sniffer+ ohne Parameter
+aufgerufen, erscheint ein Hilfetext.
+\end{description}

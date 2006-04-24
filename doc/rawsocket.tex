@@ -1,0 +1,220 @@
+% $Id: rawsocket.tex,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
+
+\newpage
+\section{RAW-Sockets}
+\label{rawsocket}
+
+RAW-Sockets erlauben, Nachrichten direkt auf einem CAN-Bus zu
+senden und alle Nachrichten, die auf einem CAN-Bus übertragen
+werden, zu lesen. Geöffnet wird ein RAW-Socket durch
+
+\begin{code}
+s = socket(PF_CAN, SOCK_RAW, 0);
+\end{code}
+
+Der geöffnete Socket muss zunächst mittels \man{bind}{2} an einen CAN-Bus
+gebunden werden.  Dabei spielen die für Transportprotokolle benötigten
+Adress-Elemente \verb|tx_id| und \verb|rx_id| in der Struktur
+\verb|struct sockaddr_can| keine Rolle. Der 
+folgende Code bindet den geöffneten Socket s an das CAN-Interface
+   \verb|can1|:
+
+\begin{code}
+struct sockaddr_can addr;
+struct ifreq ifr;
+
+addr.can_family = AF_CAN;
+strcpy(ifr.ifr_name, "can1");
+ioctl(s, SIOCGIFINDEX, &ifr);
+addr.can_ifindex = ifr.ifr_ifindex;
+bind(s, (struct sockaddr *)&addr, sizeof(addr));
+\end{code}
+
+Es können nun mit \man{read}{2} alle auf dem Bus empfangenen CAN-Frames
+gelesen und mit \man{write}{2} beliebige CAN-Frames gesendet werden.\\
+
+Die mit \man{read}{2} und \man{write}{2} übertragenen Daten haben die
+Struktur \verb|struct can_frame|. Jeder zu sendende CAN-Frame muss 
+mit \emph{einem} Aufruf von \man{write}{2} übergeben werden und
+empfangene CAN-Frame müssen mit \emph{einem} Aufruf von \man{read}{2}
+gelesen werden.\\
+
+Zum gleichzeitigen Empfang von Nachrichten \emph{aller}
+CAN-Netzwerk-Interfaces (z.B. mit 
+\man{recvfrom}{2}) ist als Interface-Index Null (im Beispiel:
+\verb+addr.can_ifindex = 0;+) einzutragen. Das Senden von CAN-Frames
+über einen solchen RAW-Socket muss dann über \man{sendmsg}{2} erfolgen.\\
+
+Der RAW-Socket bietet eine einfache Filterfunktion mit der Bereiche
+von CAN-IDs aus dem Datenstrom ausgefiltert werden können. Dazu kann
+noch vor dem Aufruf von \man{bind}{2} mit dem Systemaufruf
+\man{setsockopt}{2} ein Array einfacher Filter gesetzt werden. In diesem
+Beispiel sollen alle CAN-IDs von 0x200 - 0x2FF durchgelassen werden:
+
+\begin{code}
+struct can_filter rfilter;
+
+rfilter.can_id   = 0x200; /* SFF frame */
+rfilter.can_mask = 0xF00;
+
+setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
+\end{code}
+
+Der Filter läßt sich mit \verb+rfilter.can_id |= CAN_INV_FILTER;+ auch
+invertieren, wodurch in diesem Fall die CAN-IDs von 0x200 - 0x2FF
+nicht durchgelassen werden würden.\\
+
+\begin{code}
+struct can_filter rfilter[4];
+
+rfilter[0].can_id   = 0x80001234;   /* Exactly this EFF frame */
+rfilter[0].can_mask = CAN_EFF_MASK; /* 0x1FFFFFFFU all bits valid */
+rfilter[1].can_id   = 0x123;        /* Exactly this SFF frame */
+rfilter[1].can_mask = CAN_SFF_MASK; /* 0x7FFU all bits valid */
+rfilter[2].can_id   = 0x200 | CAN_INV_FILTER; /* all, but 0x200-0x2FF */
+rfilter[2].can_mask = 0xF00;        /* (CAN_INV_FILTER set in can_id) */
+rfilter[3].can_id   = 0;            /* don't care */
+rfilter[3].can_mask = 0;            /* ALL frames will pass this filter */
+
+setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
+\end{code}
+
+Für die Anwendung der Filterfunktion muss die Include-Datei \verb+raw.h+
+eingebunden werden. Eine Veränderung des Filters zur Laufzeit ist über
+weitere Aufrufe von \man{setsockopt}{2} möglich.
+
+\newpage
+\subsection{Testprogramme}
+\begin{description}
+\item[candump] ist ein Programm, das über den RAW-Socket CAN-Frames
+von einem oder mehreren CAN-Device(s) einliest und in lesbarer Form -
+ auf Wunsch mit Zeitstempeln - ausgibt. Die beschriebene
+ Filterfunktion der RAW-Sockets (s.o.) ist über Komandozeilenparameter
+ einstellbar. Ebenso wie eine Ausgabe im bekannten ASC-Format.
+
+Wird \verb+candump+ ohne Parameter aufgerufen, erscheint ein Hilfetext.
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > ./candump 
+Usage: candump [can-interfaces]
+Options: -m <mask>   (default 0x00000000)
+         -v <value>  (default 0x00000000)
+         -i <0|1>    (inv_filter)
+         -t <type>   (timestamp: Absolute/Delta/Zero)
+         -c          (color mode)
+         -s <level>  (silent mode - 1: animation 2: nothing)
+         -b <can>    (bridge mode - send received frames to <can>)
+         -a          (create ASC compatible output)
+         -1          (increment interface numbering in ASC mode)
+         -A          (enable ASCII output)
+
+When using more than one CAN interface the options
+m/v/i have comma seperated values e.g. '-m 0,7FF,0'
+\end{code}
+
+{\large Beispiele für die Benutzung von {\tt candump}:}\\
+\\
+Einfaches Anzeigen von zwei CAN-Bussen. Timestamps beginnen bei Null.
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > candump can0 can1 -t z
+(0.000000) can0  3FC  [1] 05 
+(0.001185) can0   64  [8] 20 14 3F 16 B8 0B 98 3A 
+(0.002396) can0   66  [8] 39 00 A1 45 00 00 00 00 
+(0.015395) can0   C9  [6] 13 01 00 00 10 27 
+(0.028665) can1  110  [3] 87 00 00 
+(0.049990) can0  3FC  [1] 05 
+(0.051176) can0   64  [8] 20 14 3F 16 B8 0B 98 3A 
+(0.052386) can0   66  [8] 39 00 A1 45 00 00 00 00 
+(0.065397) can0   C9  [6] 13 01 00 00 10 27 
+(0.099974) can0  3FC  [1] 05 
+(0.101159) can0   64  [8] 20 14 3F 16 B8 0B 98 3A 
+\end{code}
+
+Einfaches Anzeigen von zwei CAN-Bussen. Timestamps beginnen bei
+Null. Ausgabe im ASC-Format. Die Kanalnummern werden um 1 erhöht
+(\verb+can0+ $\Rightarrow$ 1, \verb+can1+ $\Rightarrow$ 2).
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > candump can0 can1 -t z -a -1
+date Tue Oct 18 09:39:57 2005
+base hex  timestamps absolute
+no internal events logged
+   0.0000 1  3FC             Rx   d 1 05 
+   0.0011 1  64              Rx   d 8 20 14 3F 14 B8 0B 98 3A 
+   0.0023 1  66              Rx   d 8 49 00 A1 45 00 00 00 00 
+   0.0154 1  C9              Rx   d 6 13 01 00 00 10 27 
+   0.0286 2  110             Rx   d 3 87 00 00 
+   0.0500 1  3FC             Rx   d 1 05 
+   0.0512 1  64              Rx   d 8 20 14 3F 14 B8 0B 98 3A 
+   0.0524 1  66              Rx   d 8 49 00 A1 45 00 00 00 00 
+   0.0654 1  C9              Rx   d 6 13 01 00 00 10 27 
+   0.0999 1  3FC             Rx   d 1 05 
+   0.1011 1  64              Rx   d 8 20 14 3F 14 B8 0B 98 3A 
+\end{code}
+
+Filtern von Nachrichten auf \verb+can0+ mit Bit-Maske 0x7FC und
+Vergleichswert 0x66. Zeitstempel mit Differenzzeit.
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > candump can0 -m 0x7FC -v 0x66 -t d 
+CAN ID filter[0] for can0 set to mask = 000007FC, value = 00000066 
+(0.000000) can0   64  [8] 1B 14 3F 21 B8 0B 98 3A 
+(0.001202) can0   66  [8] B9 DA A0 45 00 00 00 00 
+(0.048833) can0   64  [8] 1B 14 3F 21 B8 0B 98 3A 
+(0.001192) can0   66  [8] EB DA A0 45 00 00 00 00 
+(0.048790) can0   64  [8] 1B 14 3F 21 B8 0B 98 3A 
+\end{code}
+
+Filtern von Nachrichten auf \verb+can0+ mit Bit-Maske 0x7FC und
+Vergleichswert 0x66. Der CAN-Bus \verb+can1+ wird ohne Filterung angegeigt.
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > candump can0 can1 -m 0x7FC,0 -v 0x66,0 -t d 
+CAN ID filter[0] for can0 set to mask = 000007FC, value = 00000066 
+(0.000000) can0   64  [8] 20 14 3F 14 B8 0B 98 3A 
+(0.001202) can0   66  [8] 48 00 A1 45 00 00 00 00 
+(0.048794) can0   64  [8] 20 14 3F 14 B8 0B 98 3A 
+(0.001201) can0   66  [8] 48 00 A1 45 00 00 00 00 
+(0.026214) can1  110  [3] 87 00 00 
+(0.003006) can1  41B  [4] 1C 12 02 FF 
+(0.019612) can0   64  [8] 20 14 3F 14 B8 0B 98 3A 
+(0.001201) can0   66  [8] 48 00 A1 45 00 00 00 00 
+(0.048770) can0   64  [8] 20 14 3F 14 B8 0B 98 3A 
+\end{code}
+
+Invertiertes Filtern von Nachrichten auf \verb+can0+ mit Bit-Maske 0x7FC und
+Vergleichswert 0x66. Der CAN-Bus \verb+can1+ wird ohne Filterung
+angegeigt. Der Timestamp wird absolut ausgegeben, d.h. in Sekunden
+seit 01.01.1970. Analog \verb-'date +%s'- - siehe \man{date}{1}. 
+
+\begin{code}
+hartko@pplinux1:~/llcf/src/test > candump can0 can1 -m 0x7FC,0 -v 0x66,0 -i 1,0 -t a 
+CAN ID filter[0] for can0 set to mask = 000007FC, value = 00000066 (inv_filter)
+(1129625880.726372) can0   C9  [6] 13 01 00 00 10 27 
+(1129625880.739543) can1  110  [3] 87 00 00 
+(1129625880.760949) can0  3FC  [1] 05 
+(1129625880.776377) can0   C9  [6] 13 01 00 00 10 27 
+(1129625880.810983) can0  3FC  [1] 05 
+(1129625880.811580) can1  41C  [4] 1D 12 02 FF 
+(1129625880.826379) can0   C9  [6] 13 01 00 00 10 27 
+(1129625880.839544) can1  110  [3] 87 00 00 
+(1129625880.860955) can0  3FC  [1] 05 
+(1129625880.876380) can0   C9  [6] 13 01 00 00 10 27 
+(1129625880.910986) can0  3FC  [1] 05 
+\end{code}
+
+\item[tst-raw] ist ein Programm zum Testen des RAW-Sockets. Es nutzt
+den \man{read}{2} Systemcall. 
+\item[tst-raw-filter] ist ein Programm zum Testen der Filterfunktion
+des RAW-Sockets. Es nutzt den \man{recvfrom}{2} Systemcall.
+\item[tst-raw-sendto] ist ein Programm zum Senden eines CAN-Frame auf
+einem nicht an ein besonders Interface gebundenen RAW-Socket mit
+dem \man{sendto}{2} Systemcall.
+\item[canecho] ist ein Programm, dass nach dem Empfang eines
+CAN-Frames dieses mit einer um 1 erhöhten CAN-ID wieder aussendet. Es
+war für die ersten Versuche mit einem realen CAN-Bus implementiert
+worden. Seit dem \LL\ V0.6 ist jedoch die lokale Echofunktionalität
+realisiert, so dass \verb+canecho+ nur noch dazu geeignet ist, einen
+Volllast-Test auszuführen ...
+\end{description}
