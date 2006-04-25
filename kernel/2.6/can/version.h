@@ -50,10 +50,10 @@
 
 RCSID("$Id: version.h,v 2.0 2006/04/13 10:37:20 ethuerm Exp $");
 
-#define MAJORVERSION 1
-#define MINORVERSION 1
+#define MAJORVERSION 2
+#define MINORVERSION 0
 #define PATCHLEVEL   0
-#define EXTRAVERSION ""
+#define EXTRAVERSION "-pre2"
 
 #define LLCF_VERSION_CODE (((MAJORVERSION) << 16) + ((MINORVERSION) << 8) \
 				+ (PATCHLEVEL))
