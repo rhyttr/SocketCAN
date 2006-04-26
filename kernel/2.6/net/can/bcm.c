@@ -50,8 +50,8 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include "af_can.h"
-#include "version.h"
+#include <net/can/af_can.h>
+#include <net/can/version.h>
 #include "bcm.h"
 
 RCSID("$Id: bcm.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");

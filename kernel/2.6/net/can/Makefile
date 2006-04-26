@@ -1,5 +1,5 @@
 #
-#  $Id: Makefile,v 2.0 2006/04/13 10:37:21 ethuerm Exp $
+#  $Id: Makefile,v 2.0 2006/04/13 10:37:19 ethuerm Exp $
 #
 #  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
 #  All rights reserved.
@@ -40,22 +40,37 @@
 #
 #  Send feedback to <llcf@volkswagen.de>
 
+
+
+MOD_GPL = can.o can-raw.o can-bcm.o
+MOD_VW  = can-tpgen.o can-tp20.o can-tp16.o can-mcnet.o
+
 ifeq ($(KERNELRELEASE),)
 
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
 default:
-	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) clean
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
 
 else
 
-obj-m := sja1000-isa.o sja1000-gw2.o
+ifneq ($(KBUILD_EXTMOD),)
+EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
+endif
 
-sja1000-isa-objs := isa.o        sja1000.o proc.o
-sja1000-gw2-objs := trajet-gw2.o sja1000.o proc.o
+obj-m := $(MOD_GPL)
+
+can-objs       := af_can.o proc.o
+can-bcm-objs   := bcm.o
+can-raw-objs   := raw.o
+
+can-tpgen-objs := tp_gen.o
+can-tp20-objs  := tp20.o
+can-tp16-objs  := tp16.o
+can-mcnet-objs := mcnet.o
 
 endif

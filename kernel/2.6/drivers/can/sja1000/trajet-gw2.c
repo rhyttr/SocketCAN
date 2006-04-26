@@ -1,7 +1,10 @@
 /*
- * $Id: isa.c,v 2.0 2006/04/13 10:37:21 ethuerm Exp $
+ * $Id: trajet-gw2.c,v 2.0 2006/04/13 10:37:22 ethuerm Exp $
  *
- * isa.c - Philips SJA1000 network device driver for ISA CAN-Cards
+ * trajet-gw2.c - Philips SJA1000 network device driver for TRAJET.GW2
+ *
+ * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
+ * 38106 Braunschweig, GERMANY
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -61,34 +64,43 @@
 #include <linux/skbuff.h>
 #include <asm/io.h>
 
-#include "can.h"
-#include "can_ioctl.h" /* for struct can_device_stats */
+#include <net/can/can.h>
+#include <net/can/can_ioctl.h> /* for struct can_device_stats */
 #include "sja1000.h"
 
 #define MAX_CAN		8
 #define CAN_DEV_NAME	"can%d"
-#define DRV_NAME        "sja1000-isa"
+#define DRV_NAME        "sja1000-gw2"
 
-#define DEFAULT_KBIT_PER_SEC 100
-#define SJA1000_HW_CLOCK 16000000
+#define DEFAULT_KBIT_PER_SEC 500
+#define SJA1000_HW_CLOCK 20000000
+#define ADDR_GAP	1
+#define RSIZE		(SJA1000_IO_SIZE_PELICAN * (ADDR_GAP + 1))
 
 /* driver and version information */
 static const char *drv_name	= DRV_NAME;
-static const char *drv_version	= "0.0.10";
+static const char *drv_version	= "0.0.11";
 static const char *drv_reldate	= "2005-10-11";
 static const char *chip_name	= SJA1000_CHIP_NAME;
 
-MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+MODULE_AUTHOR("Matthias Brukner <M.Brukner@trajet.de>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("LLCF SJA1000 network device driver '" DRV_NAME "'");
 
 /* module parameters */
-static uint32_t base_addr[MAX_CAN] = { (uint32_t)0x2C0L, (uint32_t)0x320L, 0};
-
-static int irq[MAX_CAN] = { 10, 5, 0 };
-
-static int speed[MAX_CAN] = { DEFAULT_KBIT_PER_SEC, DEFAULT_KBIT_PER_SEC, 0};
-
+static uint32_t base_addr[MAX_CAN] = {
+	(uint32_t)0xf0100200L,
+	(uint32_t)0xf0100300L,
+	(uint32_t)0xf0100400L,
+	(uint32_t)0xf0100500L,
+	0
+};
+static int irq[MAX_CAN] = { 26, 26, 26, 26, 0 };
+static int speed[MAX_CAN] = {
+	DEFAULT_KBIT_PER_SEC, DEFAULT_KBIT_PER_SEC,
+	DEFAULT_KBIT_PER_SEC, DEFAULT_KBIT_PER_SEC,
+	0
+};
 static int btr[MAX_CAN] = { 0 };
 static int rx_probe[MAX_CAN] = { 0 };
 
@@ -103,12 +115,18 @@ static struct net_device	*can_dev[MAX_CAN];
 /* special functions to access the chips registers */
 static uint8_t reg_read(struct net_device *dev, int reg)
 {
-	return inb(dev->base_addr + reg);
+	static uint8_t val;
+
+	val = (uint8_t)readw(dev->base_addr + reg * (ADDR_GAP + 1) + ADDR_GAP);
+	rmb();
+
+	return val;
 }
 
 static void reg_write(struct net_device *dev, int reg, uint8_t val)
 {
-	outb(val, dev->base_addr + reg);
+	writew(val, dev->base_addr + reg * 2 + 1);
+	wmb();
 }
 
 MODULE_PARM(base_addr, "1-" __MODULE_STRING(MAX_CAN)"i");
@@ -120,7 +138,7 @@ MODULE_PARM(clk, "i");
 MODULE_PARM(debug, "i");
 MODULE_PARM(restart_ms, "i");
 
-static struct net_device* sja1000_isa_probe(uint32_t base, int irq, int speed,
+static struct net_device* sja1000_gw2_probe(uint32_t base, int irq, int speed,
 					    int btr, int rx_probe, int clk,
 					    int debug, int restart_ms)
 {
@@ -178,7 +196,7 @@ static struct net_device* sja1000_isa_probe(uint32_t base, int irq, int speed,
 	return NULL;
 }
 
-static __exit void sja1000_isa_cleanup_module(void)
+static __exit void sja1000_gw2_cleanup_module(void)
 {
 	int i;
 
@@ -187,17 +205,19 @@ static __exit void sja1000_isa_cleanup_module(void)
 			struct can_priv *priv = netdev_priv(can_dev[i]);
 			unregister_netdev(can_dev[i]);
 			del_timer(&priv->timer);
-			release_region(base_addr[i], SJA1000_IO_SIZE_ISA);
+			iounmap((void*)can_dev[i]->base_addr);
+			release_mem_region(base_addr[i], RSIZE);
 			free_netdev(can_dev[i]);
 		}
 	}
 	sja1000_proc_delete(drv_name);
 }
 
-static __init int sja1000_isa_init_module(void)
+static __init int sja1000_gw2_init_module(void)
 {
 	int i;
 	struct net_device *dev;
+	void *base;
 
 	if (clk < 1000 ) /* MHz command line value */
 		clk *= 1000000;
@@ -213,23 +233,24 @@ static __init int sja1000_isa_init_module(void)
 	for (i = 0; base_addr[i]; i++) {
 		printk(KERN_DEBUG "%s: checking for %s on address 0x%X ...\n",
 		       chip_name, chip_name, base_addr[i]);
-		if (!request_region(base_addr[i], SJA1000_IO_SIZE_ISA, chip_name)) {
+		if (!request_mem_region(base_addr[i], RSIZE, chip_name)) {
 			printk(KERN_ERR "%s: memory already in use\n", chip_name);
-			sja1000_isa_cleanup_module();
+			sja1000_gw2_cleanup_module();
 			return -EBUSY;
 		}
-		dev = sja1000_isa_probe(base_addr[i], irq[i], speed[i], btr[i], rx_probe[i], clk, debug, restart_ms);
-
+		base = ioremap(base_addr[i], RSIZE);
+		dev = sja1000_gw2_probe((uint32_t)base, irq[i], speed[i], btr[i], rx_probe[i], clk, debug, restart_ms);
 		if (dev != NULL) {
 			can_dev[i] = dev;
 			sja1000_proc_init(drv_name, can_dev, MAX_CAN);
 		} else {
 			can_dev[i] = NULL;
-			release_region(base_addr[i], SJA1000_IO_SIZE_ISA);
+			iounmap(base);
+			release_mem_region(base_addr[i], RSIZE);
 		}
 	}
 	return 0;
 }
 
-module_init(sja1000_isa_init_module);
-module_exit(sja1000_isa_cleanup_module);
+module_init(sja1000_gw2_init_module);
+module_exit(sja1000_gw2_cleanup_module);
