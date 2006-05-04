@@ -59,7 +59,9 @@ clean:
 else
 
 ifneq ($(KBUILD_EXTMOD),)
+EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
+EXTRA_CFLAGS += -Wno-parentheses
 endif
 
 obj-m := $(MOD_GPL)

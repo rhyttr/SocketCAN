@@ -50,7 +50,7 @@
 RCSID("$Id: raw.h,v 2.0 2006/04/13 10:37:20 ethuerm Exp $");
 #endif
 
-#include "af_can.h"
+#include <linux/can/af_can.h>
 
 
 #define SOL_CAN_RAW (SOL_CAN_BASE + CAN_RAW)

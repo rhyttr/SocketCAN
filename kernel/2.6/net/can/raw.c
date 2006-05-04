@@ -51,9 +51,10 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include <net/can/af_can.h>
-#include <net/can/version.h>
-#include "raw.h"
+#include <linux/can/af_can.h>
+#include <linux/can/raw.h>
+
+#include "version.h"
 
 RCSID("$Id: raw.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
 

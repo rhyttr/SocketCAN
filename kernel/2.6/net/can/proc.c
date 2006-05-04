@@ -45,8 +45,9 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 
-#include <net/can/af_can.h>
-#include <net/can/version.h>
+#include <linux/can/af_can.h>
+
+#include "version.h"
 
 RCSID("$Id: proc.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
 

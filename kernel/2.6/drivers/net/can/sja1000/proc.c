@@ -50,8 +50,8 @@
 #include <linux/proc_fs.h>
 #include <linux/netdevice.h>
 
-#include <net/can/can.h>
-#include <net/can/can_ioctl.h>
+#include <linux/can/can.h>
+#include <linux/can/can_ioctl.h>
 #include "sja1000.h"
 
 static struct proc_dir_entry *pde       = NULL;
