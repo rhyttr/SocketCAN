@@ -1,5 +1,5 @@
 /*
- * $Id: sja1000.h,v 1.14 2006/03/15 10:05:17 ethuerm Exp $
+ * $Id$
  *
  * sja1000.h -  Philips SJA1000 network device driver
  *

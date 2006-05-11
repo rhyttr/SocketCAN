@@ -50,7 +50,7 @@
 #include "af_can.h"
 #include "version.h"
 
-RCSID("$Id: vcan.c,v 1.34 2006/04/05 08:07:01 ethuerm Exp $");
+RCSID("$Id$");
 
 
 #define NAME "VCAN loopback interface for LLCF"

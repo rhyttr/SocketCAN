@@ -1,5 +1,5 @@
 /*
- * $Id: proc.c,v 1.3 2006/03/16 15:28:51 ethuerm Exp $
+ * $Id$
  *
  * proc.c -  proc file system functions for SJA1000 CAN driver.
  *

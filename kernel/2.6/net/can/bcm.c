@@ -55,7 +55,7 @@
 
 #include "version.h"
 
-RCSID("$Id: bcm.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
+RCSID("$Id$");
 
 #ifdef DEBUG
 static int debug = 0;

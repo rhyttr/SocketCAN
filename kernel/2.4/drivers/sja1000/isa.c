@@ -1,5 +1,5 @@
 /*
- * $Id: isa.c,v 1.5 2006/03/17 08:36:13 ethuerm Exp $
+ * $Id$
  *
  * isa.c - Philips SJA1000 network device driver for ISA CAN-Cards
  *

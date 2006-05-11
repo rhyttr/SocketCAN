@@ -1,5 +1,5 @@
 #
-#  $Id: Makefile,v 1.12 2006/03/15 10:05:17 ethuerm Exp $
+#  $Id$
 #
 #  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
 #  All rights reserved.

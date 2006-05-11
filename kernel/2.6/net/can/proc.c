@@ -49,7 +49,7 @@
 
 #include "version.h"
 
-RCSID("$Id: proc.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
+RCSID("$Id$");
 
 /* proc filenames */
 

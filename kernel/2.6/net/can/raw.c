@@ -56,7 +56,7 @@
 
 #include "version.h"
 
-RCSID("$Id: raw.c,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
+RCSID("$Id$");
 
 
 #define NAME "RAW sockets for LLCF"

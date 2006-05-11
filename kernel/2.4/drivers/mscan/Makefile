@@ -1,5 +1,5 @@
 #
-#  $Id: Makefile,v 1.1 2006/03/09 13:17:15 hartko Exp $
+#  $Id$
 #
 #  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
 #  All rights reserved.

@@ -47,7 +47,7 @@
 
 #ifdef __KERNEL__
 #include "version.h"
-RCSID("$Id: bcm.h,v 1.14 2005/12/15 07:39:02 ethuerm Exp $");
+RCSID("$Id$");
 #endif
 
 struct bcm_msg_head {

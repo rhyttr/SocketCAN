@@ -1,3 +1,8 @@
+#
+#  $Id$
+#
+
+
 ifeq ($(KERNELRELEASE),)
 
 KERNELDIR = /usr/src/linux

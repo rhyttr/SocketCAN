@@ -58,7 +58,7 @@
 #include "af_can.h"
 #include "version.h"
 
-RCSID("$Id: af_can.c,v 1.26 2006/04/10 09:37:39 ethuerm Exp $");
+RCSID("$Id$");
 
 #define NAME "Volkswagen AG - Low Level CAN Framework (LLCF)"
 #define IDENT "af_can"

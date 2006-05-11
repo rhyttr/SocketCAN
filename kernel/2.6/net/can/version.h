@@ -48,7 +48,7 @@
 #define RCSID(s) asm(".section .rodata.str1.1,\"aMS\",@progbits,1\n\t" \
 		     ".string \"" s "\"\n\t.previous\n")
 
-RCSID("$Id: version.h,v 2.0 2006/04/13 10:37:20 ethuerm Exp $");
+RCSID("$Id$");
 
 #define MAJORVERSION 2
 #define MINORVERSION 0

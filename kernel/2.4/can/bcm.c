@@ -54,7 +54,7 @@
 #include "version.h"
 #include "bcm.h"
 
-RCSID("$Id: bcm.c,v 1.82 2006/04/10 09:37:39 ethuerm Exp $");
+RCSID("$Id$");
 
 #ifdef DEBUG
 MODULE_PARM(debug, "1i");

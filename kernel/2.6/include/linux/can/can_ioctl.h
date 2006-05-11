@@ -47,7 +47,7 @@
 
 #ifdef __KERNEL__
 #include "version.h"
-RCSID("$Id: can_ioctl.h,v 2.0 2006/04/13 10:37:19 ethuerm Exp $");
+RCSID("$Id$");
 #endif
 
 #include <linux/sockios.h>

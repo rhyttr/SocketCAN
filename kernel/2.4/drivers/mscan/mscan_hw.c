@@ -1,5 +1,5 @@
 /*
- * $Id: mscan_hw.c,v 1.1 2006/03/09 13:17:16 hartko Exp $
+ * $Id$
  *
  * mscan_hw.c - Motorola MPC52xx MSCAN network device driver
  *

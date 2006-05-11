@@ -47,7 +47,7 @@
 
 #ifdef __KERNEL__
 #include "version.h"
-RCSID("$Id: af_can.h,v 1.11 2006/04/05 08:07:00 ethuerm Exp $");
+RCSID("$Id$");
 #endif
 
 #ifdef __KERNEL__

@@ -1,5 +1,5 @@
 /*
- * $Id: trajet-gw2.c,v 1.28 2006/03/17 08:36:13 ethuerm Exp $
+ * $Id$
  *
  * trajet-gw2.c - Philips SJA1000 network device driver for TRAJET.GW2
  *

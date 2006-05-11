@@ -48,7 +48,7 @@
 #include "af_can.h"
 #include "version.h"
 
-RCSID("$Id: proc.c,v 1.2 2006/02/09 13:03:20 hartko Exp $");
+RCSID("$Id$");
 
 /* proc filenames */
 

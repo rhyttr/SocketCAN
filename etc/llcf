@@ -2,7 +2,7 @@
 # Low Level CAN Framework
 # Copyright (c) 2005 Volkswagen Group Electronic Research
 #
-# $Id: llcf,v 1.10 2006/04/05 08:21:02 hartko Exp $
+# $Id$
 #
 # uncomment and edit lines for your specific hardware! 
 #

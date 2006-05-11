@@ -3,7 +3,7 @@
 # Low Level CAN Framework
 # Copyright (c) 2005 Volkswagen Group Electronic Research
 #
-# $Id: can_if,v 1.3 2006/02/08 15:24:04 hartko Exp $
+# $Id$
 #
 # Simple script to start CAN and VCAN interfaces
 #
