@@ -52,8 +52,9 @@ RCSID("$Id$");
 
 #include <linux/can/af_can.h>
 
-
 #define SOL_CAN_RAW (SOL_CAN_BASE + CAN_RAW)
-#define CAN_RAW_FILTER 1
+
+#define CAN_RAW_FILTER     1
+#define CAN_RAW_ERR_FILTER 2
 
 #endif

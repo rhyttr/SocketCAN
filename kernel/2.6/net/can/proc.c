@@ -61,6 +61,7 @@ RCSID("$Id$");
 #define CAN_PROC_RCVLIST_INV "rcvlist_inv"
 #define CAN_PROC_RCVLIST_SFF "rcvlist_sff"
 #define CAN_PROC_RCVLIST_EFF "rcvlist_eff"
+#define CAN_PROC_RCVLIST_ERR "rcvlist_err"
 
 static void can_init_stats(int caller);
 static void can_stat_update(unsigned long data);
@@ -77,6 +78,7 @@ static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off, int co
 static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off, int count, int *eof, void *data);
 static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int count, int *eof, void *data);
 static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, int *eof, void *data);
+static int can_proc_read_rcvlist_err(char *page, char **start, off_t off, int count, int *eof, void *data);
 
 static struct proc_dir_entry *can_dir         = NULL;
 static struct proc_dir_entry *pde_version     = NULL;
@@ -87,6 +89,7 @@ static struct proc_dir_entry *pde_rcvlist_fil = NULL;
 static struct proc_dir_entry *pde_rcvlist_inv = NULL;
 static struct proc_dir_entry *pde_rcvlist_sff = NULL;
 static struct proc_dir_entry *pde_rcvlist_eff = NULL;
+static struct proc_dir_entry *pde_rcvlist_err = NULL;
 
 struct timer_list stattimer; /* timer for statistics update */
 
@@ -121,6 +124,7 @@ void can_init_proc(void)
 	pde_rcvlist_inv = can_create_proc_read_entry(CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
 	pde_rcvlist_sff = can_create_proc_read_entry(CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
 	pde_rcvlist_eff = can_create_proc_read_entry(CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
+	pde_rcvlist_err = can_create_proc_read_entry(CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
 
 	if (stats_timer) {
 	    /* the statistics are updated every second (timer triggered) */
@@ -166,6 +170,10 @@ void can_remove_proc(void)
 
     if (pde_rcvlist_eff) {
 	can_remove_proc_entry(CAN_PROC_RCVLIST_EFF);
+    }
+
+    if (pde_rcvlist_err) {
+	can_remove_proc_entry(CAN_PROC_RCVLIST_ERR);
     }
 
     if (can_dir) {
@@ -416,6 +424,31 @@ int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, in
 	if (p->rx_eff) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_eff, p->dev);
+	} else
+	    if (p->dev)
+		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+    }
+
+    len += snprintf(page + len, PAGE_SIZE - len, "\n");
+
+    *eof = 1;
+    return len;
+}
+
+int can_proc_read_rcvlist_err(char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+    int len = 0;
+    struct rcv_dev_list *p;
+
+    /* RX_ERR */
+    len += snprintf(page + len, PAGE_SIZE - len, "\nreceive list 'rx_err':\n");
+
+    /* find receive list for this device */
+    for (p = rx_dev_list; p; p = p->next) {
+
+	if (p->rx_err) {
+	    len = can_print_recv_banner(page, len);
+	    len = can_print_recv_list(page, len, p->rx_err, p->dev);
 	} else
 	    if (p->dev)
 		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);

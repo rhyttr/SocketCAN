@@ -85,6 +85,8 @@ struct sockaddr_can {
     } can_addr;
 };
 
+typedef canid_t can_err_mask_t;
+
 struct can_filter {
     canid_t can_id;
     canid_t can_mask;
@@ -128,6 +130,7 @@ struct rcv_list {
 struct rcv_dev_list {
     struct rcv_dev_list *next;
     struct net_device *dev;
+    struct rcv_list *rx_err;
     struct rcv_list *rx_all;
     struct rcv_list *rx_fil;
     struct rcv_list *rx_inv;

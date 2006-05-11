@@ -51,6 +51,7 @@
 #include <net/sock.h>
 
 #include "af_can.h"
+#include "can_error.h"
 #include "version.h"
 #include "raw.h"
 
@@ -106,10 +107,12 @@ struct canraw_opt {
     int ifindex;
     int count;
     struct can_filter *filter;
+    can_err_mask_t err_mask;
 };
 
 #define canraw_sk(sk) ((struct canraw_opt *)&(sk)->tp_pinfo)
 
+#define MASK_ALL 0
 
 static struct proto_ops raw_ops = {
     .family        = PF_CAN,
@@ -160,7 +163,11 @@ static int raw_release(struct socket *sock)
 	    raw_remove_filters(dev, sk);
 	kfree(canraw_sk(sk)->filter);
     } else if (canraw_sk(sk)->bound)
-	can_rx_unregister(dev, 0, 0, raw_rcv, sk);
+	can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
+
+    /* remove current error mask */
+    if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
+	can_rx_unregister(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk);
 
     if (dev) {
 	can_dev_unregister(dev, raw_notifier, sk);
@@ -196,7 +203,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	if (canraw_sk(sk)->count > 0) {
 	    raw_remove_filters(sk);
 	} else {
-	    can_rx_unregister(dev, 0, 0, raw_rcv, sk);
+	    can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
 	}
 	if (dev)
 	    dev_put(dev);
@@ -224,7 +231,10 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
     if (canraw_sk(sk)->count > 0)   /* filters set by setsockopt */
 	raw_add_filters(dev, sk);
     else
-	can_rx_register(dev, 0, 0, raw_rcv, sk, IDENT);
+	can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
+
+    if (canraw_sk(sk)->err_mask) /* error frame filter set by setsockopt */
+	can_rx_register(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk, IDENT);
 
     canraw_sk(sk)->bound = 1;
 
@@ -268,6 +278,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
     struct sock *sk = sock->sk;
     struct can_filter *filter = NULL;
     struct net_device *dev = NULL;
+    can_err_mask_t err_mask = 0;
     int count = 0;
     int err;
 
@@ -301,7 +312,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	    canraw_sk(sk)->count = 0;
 	    canraw_sk(sk)->filter = NULL;
 	} else if (canraw_sk(sk)->bound)
-	    can_rx_unregister(dev, 0, 0, raw_rcv, sk);
+	    can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
 
 	/* add new filters & register */
 	if (optlen) {
@@ -310,7 +321,37 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	    if (canraw_sk(sk)->bound)
 		raw_add_filters(dev, sk);
 	} else if (canraw_sk(sk)->bound)
-	    can_rx_register(dev, 0, 0, raw_rcv, sk, IDENT);
+	    can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
+
+	if (dev)
+	    dev_put(dev);
+
+	break;
+
+    case CAN_RAW_ERR_FILTER:
+	if (optlen) {
+	    if (optlen != sizeof(err_mask))
+		return -EINVAL;
+	    if (err = copy_from_user(&err_mask, optval, optlen)) {
+		return err;
+	    }
+	}
+
+	err_mask &= CAN_ERR_MASK;
+
+	if (canraw_sk(sk)->bound && canraw_sk(sk)->ifindex)
+	    dev = dev_get_by_index(canraw_sk(sk)->ifindex);
+
+	/* remove current error mask */
+	if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
+	    can_rx_unregister(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk);
+
+	/* add new error mask */
+	if (optlen) {
+	    canraw_sk(sk)->err_mask = err_mask;
+	    if (canraw_sk(sk)->err_mask & canraw_sk(sk)->bound)
+		can_rx_register(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk, IDENT);
+	}
 
 	if (dev)
 	    dev_put(dev);
@@ -348,6 +389,23 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 		return -EFAULT;
 	} else
 	    len = 0;
+	if (put_user(len, optlen))
+	    return -EFAULT;
+	break;
+
+    case CAN_RAW_ERR_FILTER:
+	if (get_user(len, optlen))
+	    return -EFAULT;
+
+	if (len < sizeof(can_err_mask_t))
+	    return -EINVAL;
+
+	if (len > sizeof(can_err_mask_t))
+	    len = sizeof(can_err_mask_t);
+
+	if (copy_to_user(optval, &canraw_sk(sk)->err_mask, len))
+	    return -EFAULT;
+
 	if (put_user(len, optlen))
 	    return -EFAULT;
 	break;

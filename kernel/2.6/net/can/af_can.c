@@ -582,11 +582,23 @@ static int can_rcv_filter(struct rcv_dev_list *q, struct sk_buff *skb)
     if (q->entries == 0)
 	return 0;
 
+    if (can_id & CAN_ERR_FLAG) {
+	/* check for error frame entries only */
+	for (p = q->rx_err; p; p = p->next) {
+	    if (can_id & p->mask) {
+		DBG("match on rx_err skbuff %p\n", skb);
+		deliver(skb, p);
+		matches++;
+	    }
+	}
+	goto out;
+    }
+
     /* check for unfiltered entries */
     for (p = q->rx_all; p; p = p->next) {
-       DBG("match on rx_all skbuff %p\n", skb);
-       deliver(skb, p);
-       matches++;
+	DBG("match on rx_all skbuff %p\n", skb);
+	deliver(skb, p);
+	matches++;
     }
 
     /* check for can_id/mask entries */
@@ -624,6 +636,7 @@ static int can_rcv_filter(struct rcv_dev_list *q, struct sk_buff *skb)
 	}
     }
 
+out:
     return matches;
 }
 
@@ -632,6 +645,8 @@ static struct rcv_list **find_rcv_list(canid_t *can_id, canid_t *mask, struct ne
     canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
     canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
     canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
+    canid_t err = *mask & CAN_ERR_FLAG; /* mask for error frames only */
+
     struct rcv_dev_list *p;
 
     /* make some paranoic operations */
@@ -674,6 +689,9 @@ static struct rcv_list **find_rcv_list(canid_t *can_id, canid_t *mask, struct ne
 	    rx_dev_list = p;
 	}
     }
+
+    if (err) /* error frames */
+	return &p->rx_err;
 
     if (inv) /* inverse can_id/can_mask filter and RTR */
 	return &p->rx_inv;
