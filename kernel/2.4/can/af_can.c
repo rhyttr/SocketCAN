@@ -282,6 +282,8 @@ static int can_create(struct socket *sock, int protocol)
     case SOCK_RAW:
 	switch (protocol) {
 	case CAN_RAW:
+	    if (!capable(CAP_NET_RAW))
+		return -EPERM;
 	    break;
 	default:
 	    return -EPROTONOSUPPORT;

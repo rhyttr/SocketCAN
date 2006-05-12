@@ -551,6 +551,7 @@ static void can_rx(struct net_device *dev)
 		id |= CAN_RTR_FLAG;
 
 	cf = (struct can_frame*)skb_put(skb, sizeof(struct can_frame));
+	memset(cf, 0, sizeof(struct can_frame));
 	cf->can_id    = id;
 	cf->can_dlc   = dlc;
 	for (i = 0; i < dlc; i++) {
