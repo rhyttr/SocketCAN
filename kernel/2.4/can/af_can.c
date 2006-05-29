@@ -396,7 +396,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
     DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
 	dev, can_id, mask, func, data, ident);
 
-    write_lock(&rcv_lists_lock);
+    write_lock_bh(&rcv_lists_lock);
 
     q = find_rcv_list(&can_id, &mask, dev);
 
@@ -433,7 +433,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	pstats.rcv_entries_max = pstats.rcv_entries;
 
 out:
-    write_unlock(&rcv_lists_lock);
+    write_unlock_bh(&rcv_lists_lock);
 }
 
 void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
@@ -445,7 +445,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
     DBG("dev %p, id %03X, mask %03X, callback %p, data %p\n",
 	dev, can_id, mask, func, data);
 
-    write_lock(&rcv_lists_lock);
+    write_lock_bh(&rcv_lists_lock);
 
     q = find_rcv_list(&can_id, &mask, dev);
 
@@ -485,7 +485,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	d->dev = NULL; /* mark unused */
 
 out:
-    write_unlock(&rcv_lists_lock);
+    write_unlock_bh(&rcv_lists_lock);
 }
 
 static int can_rcv(struct sk_buff *skb, struct net_device *dev,
@@ -504,6 +504,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
     stats.rx_frames++;
     stats.rx_frames_delta++;
 
+    read_lock(&rcv_lists_lock);
+
     matches = can_rcv_filter(&rx_alldev_list, skb);
 
     /* find receive list for this device */
@@ -513,6 +515,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 
     if (q)
 	matches += can_rcv_filter(q, skb);
+
+    read_unlock(&rcv_lists_lock);
 
     DBG("freeing skbuff %p\n", skb);
     kfree_skb(skb);
