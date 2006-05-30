@@ -1,0 +1,47 @@
+#
+# CAN device configuration
+#
+
+menuconfig CAN
+	depends on NET
+	tristate "CAN bus subsystem support"
+	---help---
+	  Controller Area Network (CAN) is a slow (up to 1Mbit/s) serial
+	  communications protocol was developed by Bosch at 1991 mainly for
+	  automotive, but now widely used in marine (NMEA2000), industrial and
+	  medical applications.
+	  More information is contained in the directory <file:Documentation/can/>.
+
+	  If you want CAN support, you should say Y here and also to the
+	  specific driver for your controller(s) below.
+
+	  This CAN support can also be built as a module.  If so, the module
+	  will be called can-core.
+
+config CAN_RAW
+	tristate "Raw CAN Protocol"
+	depends on CAN
+	default N
+	---help---
+	  The Raw CAN protocol option offers access to the CAN bus via
+	  the BSD socket API. You probably want to use the raw socket in
+	  most cases where no higher level protocol is being used. To
+	  send raw CAN packets, use AF_CAN and CAN_PROTO_RAW.
+
+config CAN_BCM
+	tristate "Broadcast Manager (BCM) for LLCF"
+	depends on CAN
+	default N
+
+
+config CAN_DEBUG_CORE
+       bool "CAN Core debugging messages"
+       depends on CAN
+       help
+         Say Y here if you want the CAN core to produce a bunch of debug
+         messages to the system log.  Select this if you are having a
+         problem with CAN support and want to see more of what is going on.
+
+
+source "drivers/net/can/Kconfig"
+
