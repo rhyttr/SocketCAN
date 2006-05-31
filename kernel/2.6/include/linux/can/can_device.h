@@ -1,5 +1,5 @@
 /*
- * $Id:$
+ * $Id$
  *
  * DESCRIPTION:
  *	Contains defenition of can_device type and all kernel-only
@@ -42,27 +42,24 @@ struct can_device {
 	   BE CAREFUL! SOME CONTROLLERS (LIKE SJA1000)
 	   FOOLISH ABOUT THIS FRQ (for sja1000 as ex. this
 	   clock must be xtal clock divided by 2). */
-	uint8_t					can_sys_clock;
+	u8	can_sys_clock;
 
 	/* by default max_brp is equal 64,
 	   but for a Freescale TouCAN, as ex., it can be 255*/
-	uint32_t				max_brp;
+	u32	max_brp;
 	/* For the mostly all controllers, max_sjw is equal 4, but
 	   some, hmm, CAN implementations hardwared it to 1 */
-	uint8_t					max_sjw;
+	u8	max_sjw;
 
-	uint32_t				baudrate;	/* in bauds */
-	struct can_bittime 		bit_time;
+	u32		baudrate;	/* in bauds */
+	struct can_bittime	bit_time;
 
-	spinlock_t				irq_lock;
+	spinlock_t	irq_lock;
 
-	int 					(*do_set_bit_time)(struct can_device *dev,
-											   struct can_bittime *br);
-	int 					(*do_get_state)(struct can_device *dev,
-											enum CAN_STATE *state);
-	int 					(*do_set_mode)(struct can_device *dev,
-										   enum CAN_MODE mode);
-	void   					*priv;
+	int	(*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
+	int (*do_get_state)(struct can_device *dev,	enum CAN_STATE *state);
+	int (*do_set_mode)(struct can_device *dev, enum CAN_MODE mode);
+	void *priv;
 };
 
 #define ND2D(_ndev)		(_ndev->class_dev.dev)
