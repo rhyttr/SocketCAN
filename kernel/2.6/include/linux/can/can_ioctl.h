@@ -50,77 +50,110 @@
 
 /* max. 16 private ioctls */
 
-#define SIOCSRATE      (SIOCDEVPRIVATE+0)
-#define SIOCGRATE      (SIOCDEVPRIVATE+1)
+#define SIOCSCANBAUDRATE	(SIOCDEVPRIVATE+0)
+#define SIOCGCANBAUDRATE	(SIOCDEVPRIVATE+1)
 
-#define SIOCSMODE      (SIOCDEVPRIVATE+2)
-#define SIOCGMODE      (SIOCDEVPRIVATE+3)
+#define SIOCSCANCUSTOMBITTIME   (SIOCDEVPRIVATE+2)
+#define SIOCGCANCUSTOMBITTIME   (SIOCDEVPRIVATE+3)
 
-#define SIOCSFILTER    (SIOCDEVPRIVATE+4)
-#define SIOCGFILTER    (SIOCDEVPRIVATE+5)
+#define SIOCSCANMODE		(SIOCDEVPRIVATE+4)
+#define SIOCGCANMODE		(SIOCDEVPRIVATE+5)
 
-#define SIOCSTRX       (SIOCDEVPRIVATE+6)
-#define SIOCGTRX       (SIOCDEVPRIVATE+7)
+#define SIOCSCANCTRLMODE	(SIOCDEVPRIVATE+6)
+#define SIOCGCANCTRLMODE	(SIOCDEVPRIVATE+7)
 
-#define SIOCGSTATUS    (SIOCDEVPRIVATE+8)
-#define SIOCGTRXSTATUS (SIOCDEVPRIVATE+9)
+#define SIOCSCANFILTER		(SIOCDEVPRIVATE+8)
+#define SIOCGCANFILTER		(SIOCDEVPRIVATE+9)
 
-#define SIOCGSTATS     (SIOCDEVPRIVATE+10)
+#define SIOCGCANSTATE		(SIOCDEVPRIVATE+10)
+#define SIOCGCANSTATS		(SIOCDEVPRIVATE+11)
 
 /* parameters for ioctls */
 
-/* baudrate for CAN-controller */
-#define RATE_SPEED 0 /* parameter is in bits/second (speed 0: autoprobe) */
-#define RATE_BTREG 1 /* parameter is controller specific bit-timing register */
+/* SIOC[SG]CANBAUDRATE */
+/* baudrate for CAN-controller in bits per second. */
+/* 0 = Scan for baudrate (Autobaud) */
 
-/* operation modes for CAN-controller */
-#define MODE_OFFLINE 0
-#define MODE_RX      1
-#define MODE_TX      2
-#define MODE_TRX     (MODE_TX | MODE_RX)
-#define MODE_LISTEN  4 /* no acknowledge on CAN layer */
+typedef __u32 can_baudrate_t;
+
+
+/* SIOC[SG]CANCUSTOMBITTIME */
+
+typedef enum CAN_BITTIME_TYPE {
+	CAN_BITTIME_STD,
+	CAN_BITTIME_BTR
+} can_bittime_type_t;
+
+/* TSEG1 of controllers usually is a sum of synch_seg (always 1),
+ * prop_seg and phase_seg1, TSEG2 = phase_seg2 */
+
+struct can_bittime_std {
+	__u32 brp;        /* baud rate prescaler */
+	__u8  prop_seg;   /* from 1 to 8 */
+	__u8  phase_seg1; /* from 1 to 8 */
+	__u8  phase_seg2; /* from 1 to 8 */
+	__u8  sjw:7;      /* from 1 to 4 */
+	__u8  sam:1;      /* 1 - enable triple sampling */
+};
+
+struct can_bittime_btr {
+	__u8  btr0;
+	__u8  btr1;
+};
+
+struct can_bittime {
+	can_bittime_type_t type;
+	union {
+		struct can_bittime_std std;
+		struct can_bittime_btr btr;
+	};
+};
+
+
+/* SIOC[SG]CANMODE */
+
+typedef __u32 can_mode_t;
+
+#define CAN_MODE_STOP	0
+#define CAN_MODE_START	1
+#define CAN_MODE_SLEEP	2
+
+
+/* SIOC[SG]CANCTRLMODE */
+
+typedef __u32 can_ctrlmode_t;
+
+#define CAN_CTRLMODE_LOOPBACK   0x1
+#define CAN_CTRLMODE_LISTENONLY 0x2
+
+
+/* SIOCGCANFILTER */
+
+typedef __u32 can_filter_t;
 
 /* filter modes (may vary due to controller specific capabilities) */
-#define FILTER_CAPAB       0  /* get filter type capabilities (32 Bit value) */
-#define FILTER_MASK_VALUE  1  /* easy bit filter (see struct can_filter) */  
-#define FILTER_SFF_BITMASK 2  /* bitfield with 2048 bit SFF filter */
+#define CAN_FILTER_CAPAB       0  /* get filter type capabilities (32 Bit value) */
+#define CAN_FILTER_MASK_VALUE  1  /* easy bit filter (see struct can_filter) */  
+#define CAN_FILTER_SFF_BITMASK 2  /* bitfield with 2048 bit SFF filter */
+				  /* filters 3 - 31 currently undefined */
 
-                              /* filters 3 - 31 currently undefined */
+#define CAN_FILTER_MAX         31 /* max. filter type value */
 
-#define FILTER_MAX         31 /* max. filter type value */
 
-/* operation modes for CAN-transceiver */
-#define TRX_OPERATE 0 /* normal operation */
-#define TRX_STANDBY 1 /* standby */
-#define TRX_SLEEP   2 /* goto sleep */
+/* SIOCGCANSTATE */
 
-/* operating status of CAN-controller */
-#define STATUS_OK            0
-#define STATUS_WARNING       1 /* see parameter for additional info */
-#define STATUS_ERROR         2 /* see parameter for additional info */
-#define STATUS_ERROR_PASSIVE 3
-#define STATUS_BUS_OFF       4
+typedef __u32 can_state_t;
 
-/* additional info for STATUS_ERROR */
-#define STATUS_ERR_BIT   0x00
-#define STATUS_ERR_FORM  0x01
-#define STATUS_ERR_STUFF 0x02
-#define STATUS_ERR_CRC   0x04
-#define STATUS_ERR_ACK   0x08
-#define STATUS_ERR_OTHER 0x10
+#define CAN_STATE_ACTIVE		0
+#define CAN_STATE_BUS_WARNING		1
+#define CAN_STATE_BUS_PASSIVE		2
+#define CAN_STATE_BUS_OFF		3
+#define CAN_STATE_SCANNING_BAUDRATE	4
+#define CAN_STATE_STOPPED		5
+#define CAN_STATE_SLEEPING		6
 
-/* operating status of CAN-transceiver */
-#define TRXSTATUS_OK                 0x000
-#define TRXSTATUS_SLEEP              0x001
-#define TRXSTATUS_CANH_NO_WIRE       0x002
-#define TRXSTATUS_CANH_SHORT_TO_BAT  0x004
-#define TRXSTATUS_CANH_SHORT_TO_VCC  0x008
-#define TRXSTATUS_CANH_SHORT_TO_GND  0x010
-#define TRXSTATUS_CANL_NO_WIRE       0x020
-#define TRXSTATUS_CANL_SHORT_TO_BAT  0x040
-#define TRXSTATUS_CANL_SHORT_TO_VCC  0x080
-#define TRXSTATUS_CANL_SHORT_TO_GND  0x100
-#define TRXSTATUS_CANL_SHORT_TO_CANH 0x200
+
+/* SIOCGCANSTATS */
 
 struct can_device_stats {
 

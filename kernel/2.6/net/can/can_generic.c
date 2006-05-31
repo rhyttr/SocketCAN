@@ -1,5 +1,5 @@
 /*
- * $Id:$
+ * $Id$
  *
  * Copyright (C) 2005 Marc Kleine-Budde, Pengutronix
  * Copyright (C) 2006 Andrey Volkov, Varma Electronics
@@ -197,7 +197,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 
 static void can_setup(struct net_device *dev)
 {
-	dev->type = ARPHRD_CAN;
+	dev->type = ARPHRD_NONE; /* CAN has no ARP */
 
 	dev->change_mtu			= NULL;
 	dev->hard_header		= NULL;
