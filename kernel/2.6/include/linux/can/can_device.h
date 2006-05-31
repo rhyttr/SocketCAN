@@ -1,5 +1,5 @@
 /*
- *	$Id: $
+ * $Id:$
  *
  * DESCRIPTION:
  *	Contains defenition of can_device type and all kernel-only

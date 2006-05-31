@@ -1,5 +1,5 @@
 /*
- *	$Id: $
+ * $Id:$
  *
  * Copyright (C) 2005 Marc Kleine-Budde, Pengutronix
  * Copyright (C) 2006 Andrey Volkov, Varma Electronics
