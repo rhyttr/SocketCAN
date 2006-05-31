@@ -1,5 +1,5 @@
 /*
- * bcm.h
+ * $Id$
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -44,11 +44,6 @@
 
 #ifndef BCM_H
 #define BCM_H
-
-#ifdef __KERNEL__
-#include "version.h"
-RCSID("$Id$");
-#endif
 
 struct bcm_msg_head {
     int opcode;                   /* command */

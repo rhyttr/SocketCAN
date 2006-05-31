@@ -1,5 +1,5 @@
 /*
- * can_error_h
+ * $Id$
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -44,11 +44,6 @@
 
 #ifndef CAN_ERROR_H
 #define CAN_ERROR_H
-
-#ifdef __KERNEL__
-#include "version.h"
-RCSID("$Id$");
-#endif
 
 #define CAN_ERR_DLC 8 /* dlc for error frames */
 

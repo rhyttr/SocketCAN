@@ -1,5 +1,5 @@
 /*
- * can_ioctl_h
+ * $Id$
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -44,11 +44,6 @@
 
 #ifndef CAN_IOCTL_H
 #define CAN_IOCTL_H
-
-#ifdef __KERNEL__
-#include "version.h"
-RCSID("$Id$");
-#endif
 
 #include <linux/sockios.h>
 

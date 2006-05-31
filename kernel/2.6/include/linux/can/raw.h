@@ -1,5 +1,5 @@
 /*
- * raw.h
+ * $Id$
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -44,11 +44,6 @@
 
 #ifndef RAW_H
 #define RAW_H
-
-#ifdef __KERNEL__
-#include "version.h"
-RCSID("$Id$");
-#endif
 
 #include <linux/can/af_can.h>
 
