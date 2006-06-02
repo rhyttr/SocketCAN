@@ -824,13 +824,14 @@ void sja1000_setup(struct net_device *dev)
 	dev->header_cache_update	= NULL;
 	dev->hard_header_parse		= NULL;
 
-	//	dev->type			= ARPHRD_CAN;
+	dev->type			= ARPHRD_CAN;
 	dev->hard_header_len		= 0;
 	dev->mtu			= sizeof(struct can_frame);
 	dev->addr_len			= 0;
 	dev->tx_queue_len		= 10;
 
 	dev->flags			= IFF_NOARP;
+	dev->features			= NETIF_F_NO_CSUM;
 
 	dev->open		= can_open;
 	dev->stop		= can_close;

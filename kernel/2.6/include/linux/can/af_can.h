@@ -57,17 +57,20 @@
 
 #include <linux/can/can.h>
 
-#define PF_CAN       30
-#define AF_CAN       PF_CAN
+/* CAN socket protocol family definition */
+/* to be moved to include/linux/socket.h */
+#define PF_CAN		29	/* Controller Area Network      */
+#define AF_CAN		PF_CAN
 
-#define CAN_TP16     1
-#define CAN_TP20     2
-#define CAN_RAW      3
-#define CAN_BCM      4
-#define CAN_MCNET    5
-#define CAN_ISOTP    6
-#define CAN_BAP      7
-#define CAN_MAX      8
+/* particular protocols of the protocol family PF_CAN */
+#define CAN_TP16	1 /* VAG Transport Protocol v1.6 */
+#define CAN_TP20	2 /* VAG Transport Protocol v2.0 */
+#define CAN_RAW		3 /* RAW sockets */
+#define CAN_BCM		4 /* Broadcast Manager */
+#define CAN_MCNET	5 /* Bosch MCNet */
+#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
+#define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
+#define CAN_MAX		8
 
 #define SOL_CAN_BASE 100
 
