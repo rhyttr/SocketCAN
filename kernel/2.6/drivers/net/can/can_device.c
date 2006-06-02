@@ -22,7 +22,7 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/can/can.h>
-#include <linux/can/can_device.h>
+#include <can/can_device.h>
 
 /*
  Abstract:
@@ -52,20 +52,23 @@
 #define MAX_PHASE_SEG1	8U
 #define MAX_PHASE_SEG2	8U
 
-int can_calc_bit_time(struct can_device *can, u32 bit_time_nsec,
+int can_calc_bit_time(struct can_device *can, u32 baudrate,
 					  struct can_bittime_std *bit_time)
 {
-	unsigned best_error = UINT_MAX; /* Ariphmetic error */
+	int best_error = -1; /* Ariphmetic error */
 	int df, best_df = -1; /* oscillator's tolerance range, greater is better*/
 	u32 quanta;	/*in tq units*/
 	u32 brp, phase_seg1, phase_seg2, sjw, prop_seg;
 	u32 brp_min, brp_max, brp_expected;
+	u64 tmp;
 
-	/* bit time range [1KHz,1MHz] */
-	if (bit_time_nsec > 1000000UL || bit_time_nsec < 1000)
+	/* baudrate range [1Kbaud,1Mbaud] */
+	if (baudrate < 1000 || baudrate > 1000000UL)
 		return -EINVAL;
 
-	brp_expected = can->can_sys_clock * bit_time_nsec;
+	tmp = (u64)can->can_sys_clock*1000;
+	do_div(tmp, baudrate);
+	brp_expected = (u32)tmp;
 
 	brp_min = brp_expected/(1000*MAX_BIT_TIME);
 	if(brp_min == 0)
@@ -113,7 +116,7 @@ int can_calc_bit_time(struct can_device *can, u32 bit_time_nsec,
 					unsigned error = abs(brp_expected*10/
 							   (brp*(1+prop_seg+phase_seg1+phase_seg2))-10000);
 
-					if( error > best_error )
+					if( error > 10 || error > best_error )
 						continue;
 
 					if( error == best_error && prop_seg < bit_time->prop_seg )
@@ -133,7 +136,7 @@ int can_calc_bit_time(struct can_device *can, u32 bit_time_nsec,
 	next_brp:	;
 	}
 
-	if(best_error>=10)
+	if( best_error < 0 )
 		return -EDOM;
 	return 0;
 }
@@ -156,27 +159,35 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 
 	switch (cmd) {
 	case SIOCSCANCUSTOMBITTIME:
-		if (can->do_set_bit_time)
-			return can->do_set_bit_time(can, bt);
-		break;
-	case SIOCSCANBAUDRATE:
-	   if (!can->do_set_bit_time)
-			break;
-	   if ( *baudrate >= 1000UL && *baudrate <= 1000000UL)
-	   {
-			struct can_bittime bit_time;
-			u32 bit_time_nsec = (2000000000UL+(*baudrate))/(2*(*baudrate));
-			ret = can_calc_bit_time(can, bit_time_nsec, &bit_time.std);
-			if (ret != 0)
-				break;
-			bit_time.type = CAN_BITTIME_STD;
-			return can->do_set_bit_time(can, &bit_time);
+		if (can->do_set_bit_time) {
+			ret = can->do_set_bit_time(can, bt);
+			if ( !ret ) {
+				can->bit_time = *bt;
+				if (bt->type == CAN_BITTIME_STD && bt->std.brp) {
+				  can->baudrate = can->can_sys_clock/(bt->std.brp*
+				  (1+bt->std.prop_seg+bt->std.phase_seg1+bt->std.phase_seg2));
+				}
+				else
+					can->baudrate = CAN_BAUDRATE_UNKNOWN;
+			}
 		}
-		else
-			ret = -EINVAL;
 		break;
 	case SIOCGCANCUSTOMBITTIME:
 		*bt = can->bit_time;
+		break;
+	case SIOCSCANBAUDRATE:
+	   if (can->do_set_bit_time) {
+			struct can_bittime bit_time;
+			ret = can_calc_bit_time(can, *baudrate, &bit_time.std);
+			if (ret != 0)
+				break;
+			bit_time.type = CAN_BITTIME_STD;
+			ret = can->do_set_bit_time(can, &bit_time);
+			if ( !ret ) {
+				can->baudrate = *baudrate;
+				can->bit_time = bit_time;
+			}
+		}
 		break;
 	case SIOCGCANBAUDRATE:
 	    *baudrate = can->baudrate;

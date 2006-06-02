@@ -38,11 +38,11 @@ struct can_device {
 	struct net_device_stats stats;
 	struct net_device 		*net_dev;
 
-	/* can-bus oscillator frequency, in MHz,
+	/* can-bus oscillator frequency, in Hz,
 	   BE CAREFUL! SOME CONTROLLERS (LIKE SJA1000)
 	   FOOLISH ABOUT THIS FRQ (for sja1000 as ex. this
 	   clock must be xtal clock divided by 2). */
-	u8	can_sys_clock;
+	u32	can_sys_clock;
 
 	/* by default max_brp is equal 64,
 	   but for a Freescale TouCAN, as ex., it can be 255*/
@@ -51,10 +51,13 @@ struct can_device {
 	   some, hmm, CAN implementations hardwared it to 1 */
 	u8	max_sjw;
 
-	u32		baudrate;	/* in bauds */
+	u32	baudrate;	/* in bauds */
 	struct can_bittime	bit_time;
 
-	spinlock_t	irq_lock;
+	spinlock_t irq_lock;
+
+	can_state_t state;
+	can_mode_t  mode;
 
 	int	(*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
 	int (*do_get_state)(struct can_device *dev,	enum CAN_STATE *state);
@@ -69,7 +72,7 @@ struct can_device {
 struct can_device *alloc_candev(int sizeof_priv);
 void free_candev(struct can_device *);
 
-int can_calc_bit_time(struct can_device *can, u32 bit_time_nsec,
+int can_calc_bit_time(struct can_device *can, u32 baudrate,
 					  struct can_bittime_std *bit_time);
 
 #endif /* __CAN_DEVICE_H__ */

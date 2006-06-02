@@ -108,7 +108,7 @@ struct can_bittime {
 		struct can_bittime_btr btr;
 	};
 };
-
+#define CAN_BAUDRATE_UNKNOWN 0
 
 /* SIOC[SG]CANMODE */
 
@@ -133,7 +133,7 @@ typedef __u32 can_filter_t;
 
 /* filter modes (may vary due to controller specific capabilities) */
 #define CAN_FILTER_CAPAB       0  /* get filter type capabilities (32 Bit value) */
-#define CAN_FILTER_MASK_VALUE  1  /* easy bit filter (see struct can_filter) */  
+#define CAN_FILTER_MASK_VALUE  1  /* easy bit filter (see struct can_filter) */
 #define CAN_FILTER_SFF_BITMASK 2  /* bitfield with 2048 bit SFF filter */
 				  /* filters 3 - 31 currently undefined */
 
