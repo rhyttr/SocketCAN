@@ -16,7 +16,7 @@ menuconfig CAN
 	  specific driver for your controller(s) below.
 
 	  This CAN support can also be built as a module.  If so, the module
-	  will be called can-core.
+	  will be called can.ko.
 
 config CAN_RAW
 	tristate "Raw CAN Protocol"
@@ -25,14 +25,22 @@ config CAN_RAW
 	---help---
 	  The Raw CAN protocol option offers access to the CAN bus via
 	  the BSD socket API. You probably want to use the raw socket in
-	  most cases where no higher level protocol is being used. To
-	  send raw CAN packets, use AF_CAN and CAN_PROTO_RAW.
+	  most cases where no higher level protocol is being used. The raw 
+	  socket has several filter options e.g. ID-Masking / Errorframes.
+	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 
 config CAN_BCM
-	tristate "Broadcast Manager (BCM) for LLCF"
+	tristate "Broadcast Manager (BCM)"
 	depends on CAN
 	default N
-
+	---help---
+	  The Broadcast Manager offers content filtering, timeout monitoring,
+	  sending of RTR-frames and cyclic CAN messages without permanent user
+	  interaction. The BCM can be 'programmed' via the BSD socket API and
+	  informs you on demand e.g. only on content updates / timeouts.
+	  You probably want to use the bcm socket in most cases where cyclic
+	  CAN messages are used on the bus (e.g. in automotive environments).
+	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
 
 config CAN_DEBUG_CORE
        bool "CAN Core debugging messages"

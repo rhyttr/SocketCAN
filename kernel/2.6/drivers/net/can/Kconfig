@@ -2,11 +2,11 @@ menu "CAN Device Drivers"
 	depends on CAN
 
 config CAN_VCAN
-       tristate "Virtual Local Interface (vcan)"
+       tristate "Virtual Local CAN Interface (vcan)"
        depends on CAN
        default N
        ---help---
-         Similar to the network loopback devices, loopcan offers a
+         Similar to the network loopback devices, vcan offers a
          virtual local CAN interface.
 
 config CAN_DEBUG_DEVICES

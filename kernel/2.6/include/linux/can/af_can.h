@@ -63,10 +63,10 @@
 #define AF_CAN		PF_CAN
 
 /* particular protocols of the protocol family PF_CAN */
-#define CAN_TP16	1 /* VAG Transport Protocol v1.6 */
-#define CAN_TP20	2 /* VAG Transport Protocol v2.0 */
-#define CAN_RAW		3 /* RAW sockets */
-#define CAN_BCM		4 /* Broadcast Manager */
+#define CAN_RAW		1 /* RAW sockets */
+#define CAN_BCM		2 /* Broadcast Manager */
+#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
+#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
 #define CAN_MCNET	5 /* Bosch MCNet */
 #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
 #define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
