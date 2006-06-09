@@ -46,18 +46,20 @@
 #define BCM_H
 
 struct bcm_msg_head {
-    int opcode;                   /* command */
-    int flags;                    /* special flags */
-    int count;                    /* run 'count' times ival1 then ival2 */
-    struct timeval ival1, ival2;  /* intervals */
-    canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
-    int nframes;                  /* number of following can_frame's */
-    struct can_frame frames[0];
+	int opcode;                   /* command */
+	int flags;                    /* special flags */
+	int count;                    /* run 'count' times ival1 then ival2 */
+	struct timeval ival1, ival2;  /* intervals */
+	canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
+	int nframes;                  /* number of following can_frame's */
+	struct can_frame frames[0];
 };
 
-enum {NO_OP,
-      TX_SETUP, TX_DELETE, TX_READ, TX_SEND, RX_SETUP, RX_DELETE, RX_READ,
-      TX_STATUS, TX_EXPIRED, RX_STATUS, RX_TIMEOUT, RX_CHANGED};
+enum {
+	NO_OP,
+	TX_SETUP, TX_DELETE, TX_READ, TX_SEND, RX_SETUP, RX_DELETE, RX_READ,
+	TX_STATUS, TX_EXPIRED, RX_STATUS, RX_TIMEOUT, RX_CHANGED
+};
 
 #define SETTIMER            0x0001
 #define STARTTIMER          0x0002

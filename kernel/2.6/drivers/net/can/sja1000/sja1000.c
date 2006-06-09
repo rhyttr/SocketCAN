@@ -219,7 +219,7 @@ int set_reset_mode(struct net_device *dev)
 		if (status & MOD_RM) {
 			if (i > 1) {
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
-					dev->name, __FUNCTION__, i);
+				     dev->name, __FUNCTION__, i);
 			}
 			priv->state = STATE_RESET_MODE;
 			return 0;
@@ -246,7 +246,7 @@ static int set_normal_mode(struct net_device *dev)
 		if ((status & MOD_RM) == 0) {
 			if (i > 1) {
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
-					dev->name, __FUNCTION__, i);
+				     dev->name, __FUNCTION__, i);
 			}
 			return 0;
 		}
@@ -271,7 +271,7 @@ static int set_listen_mode(struct net_device *dev)
 		if ((status & MOD_RM) == 0) {
 			if (i > 1) {
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
-					dev->name, __FUNCTION__, i);
+				     dev->name, __FUNCTION__, i);
 			}
 			return 0;
 		}
@@ -481,7 +481,7 @@ static void can_restart_dev(unsigned long data)
 	struct can_priv *priv = netdev_priv(dev);
 
 	DBG(KERN_INFO "%s: can_restart_dev (%ld)\n",
-	      dev->name, jiffies);
+	    dev->name, jiffies);
 
 	/* mark inactive timer */
 	priv->timer.expires = 0;
@@ -645,7 +645,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if (isrc & IRQ_DOI) {
 			/* data overrun interrupt */
 			iiDBG(KERN_INFO "%s: data overrun isrc=0x%02X status=0x%02X\n",
-					dev->name, isrc, status);
+			      dev->name, isrc, status);
 			iDBG(KERN_INFO "%s: DOI #%d#\n", dev->name, n);
 			priv->can_stats.data_overrun++;
 			REG_WRITE(REG_CMR, CMD_CDO); /* clear bit */
@@ -653,7 +653,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if (isrc & IRQ_EI) {
 			/* error warning interrupt */
 			iiDBG(KERN_INFO "%s: error warning isrc=0x%02X status=0x%02X\n",
-					dev->name, isrc, status);
+			      dev->name, isrc, status);
 			iDBG(KERN_INFO "%s: EI #%d#\n", dev->name, n);
 			priv->can_stats.error_warning++;
 			if (status & SR_BS) {
@@ -667,7 +667,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if (isrc & IRQ_BEI) {
 			/* bus error interrupt */
 			iiDBG(KERN_INFO "%s: bus error isrc=0x%02X status=0x%02X\n",
-					dev->name, isrc, status);
+			      dev->name, isrc, status);
 			iDBG(KERN_INFO "%s: BEI #%d# [%d]\n", dev->name, n,
 			     priv->can_stats.bus_error - priv->can_stats.bus_error_at_init);
 			priv->can_stats.bus_error++;
@@ -696,7 +696,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if (isrc & IRQ_EPI) {
 			/* error passive interrupt */
 			iiDBG(KERN_INFO "%s: error passive isrc=0x%02X status=0x%02X\n",
-					dev->name, isrc, status);
+			      dev->name, isrc, status);
 			iDBG(KERN_INFO "%s: EPI #%d#\n", dev->name, n);
 			priv->can_stats.error_passive++;
 			if (status & SR_ES) {
@@ -710,7 +710,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if (isrc & IRQ_ALI) {
 			/* arbitration lost interrupt */
 			iiDBG(KERN_INFO "%s: error arbitration lost isrc=0x%02X status=0x%02X\n",
-					dev->name, isrc, status);
+			      dev->name, isrc, status);
 			iDBG(KERN_INFO "%s: ALI #%d#\n", dev->name, n);
 			priv->can_stats.arbitration_lost++;
 			alc = REG_READ(REG_ALC);

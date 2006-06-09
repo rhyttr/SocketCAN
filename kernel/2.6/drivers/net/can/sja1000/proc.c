@@ -61,7 +61,8 @@ static struct proc_dir_entry *pde_reset = NULL;
 static struct net_device **can_dev;
 static int max_devices;
 
-static int sja1000_proc_read(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int sja1000_proc_read(char *page, char **start, off_t off,
+			     int count, int *eof, void *data)
 {
 	int len = 0;
 	struct net_device *dev;
@@ -86,15 +87,21 @@ static int sja1000_proc_read(char *page, char **start, off_t off, int count, int
 					priv->can_stats.restarts,
 					priv->clock,
 					priv->speed
-					);
+				);
 			if (stat & 0x80) {
-				len += snprintf(page + len, PAGE_SIZE - len, "can%d: bus status: BUS OFF, ", i);
+				len += snprintf(page + len, PAGE_SIZE - len,
+					"can%d: bus status: BUS OFF, ", i);
 			} else if (stat & 0x40) {
-				len += snprintf(page + len, PAGE_SIZE - len, "can%d: bus status: ERROR PASSIVE, ", i);
+				len += snprintf(page + len, PAGE_SIZE - len,
+					"can%d: bus status: ERROR PASSIVE, ", i);
 			} else {
-				len += snprintf(page + len, PAGE_SIZE - len, "can%d: bus status: OK, ", i);
+				len += snprintf(page + len, PAGE_SIZE - len,
+					"can%d: bus status: OK, ", i);
 			}
-			len += snprintf(page + len, PAGE_SIZE - len, "RXERR: %d, TXERR: %d\n", REG_READ(REG_RXERR), REG_READ(REG_TXERR));
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"RXERR: %d, TXERR: %d\n",
+					REG_READ(REG_RXERR),
+					REG_READ(REG_TXERR));
 		}
 	}
 
@@ -102,7 +109,8 @@ static int sja1000_proc_read(char *page, char **start, off_t off, int count, int
 	return len;
 }
 
-static int sja1000_proc_read_regs(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int sja1000_proc_read_regs(char *page, char **start, off_t off,
+				  int count, int *eof, void *data)
 {
 	int len = 0;
 	struct net_device *dev;
@@ -113,45 +121,46 @@ static int sja1000_proc_read_regs(char *page, char **start, off_t off, int count
 	for (i = 0; (i < max_devices) && (len < PAGE_SIZE - 200); i++) {
 		if (can_dev[i]) {
 			dev = can_dev[i];
-			len += snprintf(page + len, PAGE_SIZE - len, "can%d SJA1000 registers:\n", i);
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"can%d SJA1000 registers:\n", i);
 
 			priv = netdev_priv(can_dev[i]);
 			len += snprintf(page + len, PAGE_SIZE - len, "00: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-				       REG_READ(0x00),
-				       REG_READ(0x01),
-				       REG_READ(0x02),
-				       REG_READ(0x03),
-				       REG_READ(0x04),
-				       REG_READ(0x05),
-				       REG_READ(0x06),
-				       REG_READ(0x07),
-				       REG_READ(0x08),
-				       REG_READ(0x09),
-				       REG_READ(0x0a),
-				       REG_READ(0x0b),
-				       REG_READ(0x0c),
-				       REG_READ(0x0d),
-				       REG_READ(0x0e),
-				       REG_READ(0x0f)
-				       );
+					REG_READ(0x00),
+					REG_READ(0x01),
+					REG_READ(0x02),
+					REG_READ(0x03),
+					REG_READ(0x04),
+					REG_READ(0x05),
+					REG_READ(0x06),
+					REG_READ(0x07),
+					REG_READ(0x08),
+					REG_READ(0x09),
+					REG_READ(0x0a),
+					REG_READ(0x0b),
+					REG_READ(0x0c),
+					REG_READ(0x0d),
+					REG_READ(0x0e),
+					REG_READ(0x0f)
+				);
 			len += snprintf(page + len, PAGE_SIZE - len, "10: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-				       REG_READ(0x10),
-				       REG_READ(0x11),
-				       REG_READ(0x12),
-				       REG_READ(0x13),
-				       REG_READ(0x14),
-				       REG_READ(0x15),
-				       REG_READ(0x16),
-				       REG_READ(0x17),
-				       REG_READ(0x18),
-				       REG_READ(0x19),
-				       REG_READ(0x1a),
-				       REG_READ(0x1b),
-				       REG_READ(0x1c),
-				       REG_READ(0x1d),
-				       REG_READ(0x1e),
-				       REG_READ(0x1f)
-				       );
+					REG_READ(0x10),
+					REG_READ(0x11),
+					REG_READ(0x12),
+					REG_READ(0x13),
+					REG_READ(0x14),
+					REG_READ(0x15),
+					REG_READ(0x16),
+					REG_READ(0x17),
+					REG_READ(0x18),
+					REG_READ(0x19),
+					REG_READ(0x1a),
+					REG_READ(0x1b),
+					REG_READ(0x1c),
+					REG_READ(0x1d),
+					REG_READ(0x1e),
+					REG_READ(0x1f)
+				);
 		}
 	}
 
@@ -159,7 +168,8 @@ static int sja1000_proc_read_regs(char *page, char **start, off_t off, int count
 	return len;
 }
 
-static int sja1000_proc_read_reset(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int sja1000_proc_read_reset(char *page, char **start, off_t off,
+				   int count, int *eof, void *data)
 {
 	int len = 0;
 	struct net_device *dev;
@@ -171,15 +181,19 @@ static int sja1000_proc_read_reset(char *page, char **start, off_t off, int coun
 		if (can_dev[i]) {
 			dev = can_dev[i];
 			priv = netdev_priv(can_dev[i]);
-			if ((priv->state != STATE_UNINITIALIZED) && (priv->state != STATE_RESET_MODE)) {
-				len += snprintf(page + len, PAGE_SIZE - len, "%s ", dev->name);
+			if ((priv->state != STATE_UNINITIALIZED)
+			    && (priv->state != STATE_RESET_MODE)) {
+				len += snprintf(page + len, PAGE_SIZE - len,
+						"%s ", dev->name);
                                 dev->stop(dev);
                                 dev->open(dev);
 				/* count number of restarts */
 				priv->can_stats.restarts++;
 
 			} else {
-			  len += snprintf(page + len, PAGE_SIZE - len, "(%s|%d) ", dev->name, priv->state);
+				len += snprintf(page + len, PAGE_SIZE - len,
+						"(%s|%d) ", dev->name,
+						priv->state);
 			}
 		}
 	}
@@ -205,12 +219,12 @@ void sja1000_proc_init(const char *drv_name, struct net_device **dev, int max)
 	if (pde_regs == NULL) {
 		sprintf(fname, PROCBASE "/%s_regs", drv_name);
 		pde_regs = create_proc_read_entry(fname, 0644, NULL,
-					     sja1000_proc_read_regs, NULL);
+						sja1000_proc_read_regs, NULL);
 	}
 	if (pde_reset == NULL) {
 		sprintf(fname, PROCBASE "/%s_reset", drv_name);
 		pde_reset = create_proc_read_entry(fname, 0644, NULL,
-					     sja1000_proc_read_reset, NULL);
+						sja1000_proc_read_reset, NULL);
 	}
 }
 
