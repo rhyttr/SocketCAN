@@ -444,7 +444,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/* insert   (dev,canid,mask) -> (func,data) */
 	if (!(p = kmalloc(sizeof(struct rcv_list), GFP_KERNEL)))
-		return;
+		goto out;
 
 	p->can_id  = can_id;
 	p->mask    = mask;
