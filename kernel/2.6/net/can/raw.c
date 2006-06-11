@@ -87,9 +87,9 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
 static unsigned int raw_poll(struct file *file, struct socket *sock,
 			     poll_table *wait);
 static int raw_setsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int optlen);
+			  char __user *optval, int optlen);
 static int raw_getsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int *optlen);
+			  char __user *optval, int __user *optlen);
 static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		       struct msghdr *msg, size_t size);
 static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
@@ -304,7 +304,7 @@ static unsigned int raw_poll(struct file *file, struct socket *sock,
 }
 
 static int raw_setsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int optlen)
+			  char __user *optval, int optlen)
 {
 	struct sock *sk = sock->sk;
 	struct can_filter *filter = NULL;
@@ -396,7 +396,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 }
 
 static int raw_getsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int *optlen)
+			  char __user *optval, int __user *optlen)
 {
 	struct sock *sk = sock->sk;
 	struct can_filter *filter = canraw_sk(sk)->filter;
