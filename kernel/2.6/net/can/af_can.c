@@ -386,7 +386,7 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 		return -ENOIOCTLCMD;
 #else
-		return dev_ioctl(cmd, (void *)arg);
+		return dev_ioctl(cmd, (void __user *)arg);
 #endif
 	}
 	return 0;
