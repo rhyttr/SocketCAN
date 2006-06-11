@@ -208,7 +208,7 @@ void can_proto_unregister(int proto)
 void can_dev_register(struct net_device *dev,
 		      void (*func)(unsigned long msg, void *), void *data)
 {
-    struct notifier_list *p = kmalloc(GFP_KERNEL, sizeof(*p));
+    struct notifier_list *p = kmalloc(sizeof(*p), GFP_KERNEL);
 
     DBG("called for %s\n", dev->name);
 
@@ -409,7 +409,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
     /* insert   (dev,canid,mask) -> (func,data) */
     if (!(p = kmalloc(sizeof(struct rcv_list), GFP_KERNEL)))
-	return;
+	goto out;
 
     p->can_id  = can_id;
     p->mask    = mask;
