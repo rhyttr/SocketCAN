@@ -744,8 +744,10 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 				/* for the throttle functionality */
 
 				/* create array for received can_frames */
-				if (!(op->last_frames = kmalloc(sizeof(struct can_frame), GFP_KERNEL)))
+				if (!(op->last_frames = kmalloc(sizeof(struct can_frame), GFP_KERNEL))) {
+					kfree(op);
 					return -ENOMEM;
+				}
 
 				/* clear received can_frames to indicate 'nothing received' */
 				memset(op->last_frames, 0, sizeof(struct can_frame));
