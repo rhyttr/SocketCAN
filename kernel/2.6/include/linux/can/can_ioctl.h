@@ -108,7 +108,8 @@ struct can_bittime {
 		struct can_bittime_btr btr;
 	};
 };
-#define CAN_BAUDRATE_UNKNOWN 0
+#define CAN_BAUDRATE_UNCONFIGURED	((__u32)-1)
+#define CAN_BAUDRATE_UNKNOWN		0
 
 /* SIOC[SG]CANMODE */
 

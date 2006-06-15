@@ -282,7 +282,7 @@ struct can_device *alloc_candev(int sizeof_priv)
   if(sizeof_priv)
 	  can->priv = &can[1];
 
-  can->baudrate = CAN_BAUD_UNCONFIGURED;
+  can->baudrate = CAN_BAUDRATE_UNCONFIGURED;
   can->max_brp = DEFAULT_MAX_BRP;
   can->max_sjw = DEFAULT_MAX_SJW;
   spin_lock_init(&can->irq_lock);
