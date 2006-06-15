@@ -197,7 +197,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		if (can->do_set_mode) {
 			can_mode_t mode = *((can_mode_t *)(&ifr->ifr_ifru));
 			if ( mode == CAN_MODE_START &&
-				can->baudrate == CAN_BAUD_UNCONFIGURED) {
+				can->baudrate == CAN_BAUDRATE_UNCONFIGURED) {
 				dev_info(ND2D(ndev), "Impossible to start on UNKNOWN speed\n");
 				ret = EINVAL;
 			}
