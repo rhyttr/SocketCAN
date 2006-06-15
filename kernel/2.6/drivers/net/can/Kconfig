@@ -30,7 +30,7 @@ config CAN_SJA1000
 	  which handles how to access your chip registers.
 
 config CAN_MSCAN
-       depends on CAN
+       depends on CAN && (PPC || M68K || M68KNOMMU)
        tristate "Support for a Freescale MSCAN based chips"
        ---help---
         The Motorola Scalable Controller Area Network (MSCAN) definition
@@ -40,7 +40,7 @@ config CAN_MSCAN
 
 config CAN_MPC52XX
        tristate "Freescale MPC5200 onboard CAN controller"
-       depends on CAN_MSCAN && PPC_MPC52xx
+       depends on CAN_MSCAN && (PPC_MPC52xx || PPC_52xx)
        default LITE5200
        ---help---
         If you say yes here you get support for Freescale MPC5200
