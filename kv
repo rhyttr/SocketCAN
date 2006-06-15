@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+#
+# $Id$ 
+#
+# Eliminate CPP condional compilation for different kernel version, i.e.
+# eliminate all occurences of #if LINUX_VERSION_CODE >= KERNEL_VERSION(...)
+#
+# Call as kv <version> <file> where <version> is the kernel version you
+# want to code to be generated for.  The result will be output on stdout.
+
+
+$re = "^\\#if LINUX_VERSION_CODE >= KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
+
+$version = shift;
+$level   = 0;
+$state   = -1;
+
+while (<>) {
+    if ($state == -1) {
+	if (/$re/) {
+	    $state = compare($version, $1, $2, $3);
+	} else {
+	    print;
+	}
+    } else {
+	if ($level == 0 && /^\#else/) {
+	    $state = !$state;
+	} elsif ($level == 0 && /^\#endif/) {
+	    $state = -1;
+	} elsif (/^\#if/) {
+	    $level++;
+	} elsif (/^\#endif/) {
+	    $level--;
+	} elsif ($state == 1) {
+	    print;
+	}
+    }
+}
+
+sub compare() {
+    ($version, $major, $minor, $patchlevel) = @_;
+
+    ($mj, $mn, $pl) = split(/\./, $version);
+
+    if ($mj > $major ||
+	$mj == $major && ($mn > $minor || 
+			  $mn == $minor && $pl >= $patchlevel)) {
+	return 1;
+    } else {
+	return 0;
+    }
+}
