@@ -35,8 +35,10 @@
 #include <linux/can/can_ioctl.h>
 
 struct can_device {
-	struct net_device_stats stats;
+	struct net_device_stats net_stats;
 	struct net_device 		*net_dev;
+
+	struct can_device_stats can_stats;
 
 	/* can-bus oscillator frequency, in Hz,
 	   BE CAREFUL! SOME CONTROLLERS (LIKE SJA1000)
@@ -55,13 +57,19 @@ struct can_device {
 	struct can_bittime	bit_time;
 
 	spinlock_t irq_lock;
+	/* Please hold this lock when touching net_stats/can_stats*/
+	spinlock_t stats_lock;
 
 	can_state_t state;
 	can_mode_t  mode;
+	can_ctrlmode_t ctrlmode;
 
 	int	(*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
-	int (*do_get_state)(struct can_device *dev,	enum CAN_STATE *state);
-	int (*do_set_mode)(struct can_device *dev, enum CAN_MODE mode);
+	int (*do_get_state)(struct can_device *dev,	can_state_t *state);
+	int (*do_set_mode)(struct can_device *dev, can_mode_t mode);
+	int	(*do_set_ctrlmode)(struct can_device *dev, can_ctrlmode_t ctrlmode);
+	int (*do_get_ctrlmode)(struct can_device *dev, can_ctrlmode_t *ctrlmode);
+
 	void *priv;
 };
 

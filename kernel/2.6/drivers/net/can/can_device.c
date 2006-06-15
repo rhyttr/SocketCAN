@@ -62,8 +62,8 @@ int can_calc_bit_time(struct can_device *can, u32 baudrate,
 	u32 brp_min, brp_max, brp_expected;
 	u64 tmp;
 
-	/* baudrate range [1Kbaud,1Mbaud] */
-	if (baudrate < 1000 || baudrate > 1000000UL)
+	/* baudrate range [1baud,1Mbaud] */
+	if (baudrate == 0 || baudrate > 1000000UL)
 		return -EINVAL;
 
 	tmp = (u64)can->can_sys_clock*1000;
@@ -144,37 +144,19 @@ EXPORT_SYMBOL(can_calc_bit_time);
 
 static struct net_device_stats *can_get_stats(struct net_device *dev)
 {
-	return &ND2CAN(dev)->stats;
+	return &ND2CAN(dev)->net_stats;
 }
 
 static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 {
 	struct can_device *can = ND2CAN(ndev);
 	struct can_bittime	*bt = (struct can_bittime *)&ifr->ifr_ifru;
-	union can_settings	*settings = (union can_settings *)&ifr->ifr_ifru;
 	int ret = -EOPNOTSUPP;
 	ulong *baudrate = (ulong *)&ifr->ifr_ifru;
 
 	dev_dbg(ND2D(ndev), "(%s) 0x%08x %p\n", __FUNCTION__, cmd, &ifr->ifr_ifru);
 
 	switch (cmd) {
-	case SIOCSCANCUSTOMBITTIME:
-		if (can->do_set_bit_time) {
-			ret = can->do_set_bit_time(can, bt);
-			if ( !ret ) {
-				can->bit_time = *bt;
-				if (bt->type == CAN_BITTIME_STD && bt->std.brp) {
-				  can->baudrate = can->can_sys_clock/(bt->std.brp*
-				  (1+bt->std.prop_seg+bt->std.phase_seg1+bt->std.phase_seg2));
-				}
-				else
-					can->baudrate = CAN_BAUDRATE_UNKNOWN;
-			}
-		}
-		break;
-	case SIOCGCANCUSTOMBITTIME:
-		*bt = can->bit_time;
-		break;
 	case SIOCSCANBAUDRATE:
 	   if (can->do_set_bit_time) {
 			struct can_bittime bit_time;
@@ -193,13 +175,61 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 	    *baudrate = can->baudrate;
 		ret = 0;
 		break;
+	case SIOCSCANCUSTOMBITTIME:
+		if (can->do_set_bit_time) {
+			ret = can->do_set_bit_time(can, bt);
+			if ( !ret ) {
+				can->bit_time = *bt;
+				if (bt->type == CAN_BITTIME_STD && bt->std.brp) {
+				  can->baudrate = can->can_sys_clock/(bt->std.brp*
+				  (1+bt->std.prop_seg+bt->std.phase_seg1+bt->std.phase_seg2));
+				}
+				else
+					can->baudrate = CAN_BAUDRATE_UNKNOWN;
+			}
+		}
+		break;
+	case SIOCGCANCUSTOMBITTIME:
+		*bt = can->bit_time;
+		ret = 0;
+		break;
 	case SIOCSCANMODE:
-		if(can->do_set_mode)
-			return can->do_set_mode(can, settings->mode);
+		if (can->do_set_mode) {
+			can_mode_t mode = *((can_mode_t *)(&ifr->ifr_ifru));
+			if ( mode == CAN_MODE_START &&
+				can->baudrate == CAN_BAUD_UNCONFIGURED) {
+				dev_info(ND2D(ndev), "Impossible to start on UNKNOWN speed\n");
+				ret = EINVAL;
+			}
+			else
+				return can->do_set_mode(can, mode);
+		}
+		break;
+	case SIOCGCANMODE:
+	   	*((can_mode_t *)(&ifr->ifr_ifru)) = can->mode;
+		ret = 0;
+		break;
+	case SIOCSCANCTRLMODE:
+		if (can->do_set_ctrlmode) {
+			can_ctrlmode_t ctrlmode = *((can_ctrlmode_t *)(&ifr->ifr_ifru));
+			return can->do_set_ctrlmode(can, ctrlmode);
+		}
+		break;
+	case SIOCGCANCTRLMODE:
+	   	*((can_ctrlmode_t *)(&ifr->ifr_ifru)) = can->ctrlmode;
+		ret = 0;
+		break;
+	case SIOCSCANFILTER:
+		break;
+	case SIOCGCANFILTER:
 		break;
 	case SIOCGCANSTATE:
 		if(can->do_get_state)
-			return can->do_get_state(can, &settings->state);
+			return can->do_get_state(can, (can_state_t *)(&ifr->ifr_ifru));
+		break;
+	case SIOCGCANSTATS:
+		*((struct can_device_stats *)(&ifr->ifr_ifru)) = can->can_stats;
+		ret = 0;
 		break;
 	}
 
@@ -245,6 +275,7 @@ struct can_device *alloc_candev(int sizeof_priv)
   					  "can%d", can_setup);
   if(!ndev)
 		return NULL;
+
   can = netdev_priv(ndev);
 
   can->net_dev = ndev;
@@ -254,7 +285,6 @@ struct can_device *alloc_candev(int sizeof_priv)
   can->baudrate = CAN_BAUD_UNCONFIGURED;
   can->max_brp = DEFAULT_MAX_BRP;
   can->max_sjw = DEFAULT_MAX_SJW;
-  can->baudrate = CAN_BAUD_UNCONFIGURED;
   spin_lock_init(&can->irq_lock);
 
   return can;
