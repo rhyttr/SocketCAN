@@ -68,6 +68,9 @@
 #define CAN_ERR_CRTL_TX_OVERFLOW 0x02 /* TX buffer overflow */
 #define CAN_ERR_CRTL_RX_WARNING  0x04 /* reached warning level for RX errors */
 #define CAN_ERR_CRTL_TX_WARNING  0x08 /* reached warning level for TX errors */
+#define CAN_ERR_CRTL_PASSIVE 	 0x10 /* reached the error passive status	 */
+									  /* (at least one error counter exceeds */
+									  /* the protocol-defined level of 127) */
 
 /* error in CAN protocol (type) / data[2] */
 #define CAN_ERR_PROT_UNSPEC      0x00 /* unspecified */
