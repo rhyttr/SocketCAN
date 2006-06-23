@@ -516,7 +516,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 				break;
 	d->entries--;
 
-	if(!d->entries)
+	if (!d->entries)
 		d->dev = NULL; /* mark unused */
 
  out:
@@ -669,34 +669,35 @@ static struct rcv_list **find_rcv_list(canid_t *can_id, canid_t *mask,
 	/* find receive list for this device */
 	if (!dev)
 		p = &rx_alldev_list;
-	else
-		for (p = rx_dev_list; p; p = p->next)
-			if (p->dev == dev)
+	else {
+		/* find the list for dev or an unused list entry, otherwise */
+		struct rcv_dev_list *q;
+		p = NULL;
+		for (q = rx_dev_list; q; q = q->next)
+			if (!q->dev)
+				p = q;
+			else if (q->dev == dev) {
+				p = q;
 				break;
+			}
 
-	if (!p) {
-		/* arrange new rcv_dev_list for this device */
-
-		/* find deactivated receive list for this device */
-		for (p = rx_dev_list; p; p = p->next)
-			if (p->dev == NULL)
-				break;
-
-		if (p) {
+		if (p && !p->dev) {
 			DBG("reactivating rcv_dev_list for %s\n", dev->name); 
 			p->dev = dev;
-		} else {
-			/* create new rcv_dev_list for this device */
-			DBG("creating new rcv_dev_list for %s\n", dev->name);
-			if (!(p = kmalloc(sizeof(struct rcv_dev_list), GFP_KERNEL))) {
-				printk(KERN_ERR "CAN: allocation of receive list failed\n");
-				return NULL;
-			}
-			memset (p, 0, sizeof(struct rcv_dev_list));
-			p->dev      = dev;
-			p->next     = rx_dev_list;
-			rx_dev_list = p;
 		}
+	}
+
+	if (!p) {
+		/* create new rcv_dev_list for this device */
+		DBG("creating new rcv_dev_list for %s\n", dev->name);
+		if (!(p = kmalloc(sizeof(struct rcv_dev_list), GFP_KERNEL))) {
+			printk(KERN_ERR "CAN: allocation of receive list failed\n");
+			return NULL;
+		}
+		memset (p, 0, sizeof(struct rcv_dev_list));
+		p->dev      = dev;
+		p->next     = rx_dev_list;
+		rx_dev_list = p;
 	}
 
 	if (err) /* error frames */

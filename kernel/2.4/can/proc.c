@@ -110,102 +110,100 @@ void can_init_proc(void)
     /* create /proc/can directory */
     can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
 
-    if (can_dir) {
+    if (!can_dir) {
+	printk(KERN_INFO "af_can: failed to create CAN_PROC_DIR. "
+	       "CONFIG_PROC_FS missing?\n");
+	return;
+    }
 
-	can_dir->owner = THIS_MODULE;
+    can_dir->owner = THIS_MODULE;
 
-	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_read_entry(CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_read_entry(CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_read_entry(CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_read_entry(CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_read_entry(CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_read_entry(CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_read_entry(CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_read_entry(CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_read_entry(CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
+    /* own procfs entries from the AF_CAN core */
+    pde_version     = can_create_proc_read_entry(
+	CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
+    pde_stats       = can_create_proc_read_entry(
+	CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
+    pde_reset_stats = can_create_proc_read_entry(
+	CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
+    pde_rcvlist_all = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
+    pde_rcvlist_fil = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
+    pde_rcvlist_inv = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
+    pde_rcvlist_sff = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
+    pde_rcvlist_eff = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
+    pde_rcvlist_err = can_create_proc_read_entry(
+	CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
 
-	if (stats_timer) {
-	    /* the statistics are updated every second (timer triggered) */
-	    stattimer.function = can_stat_update;
-	    stattimer.data = 0;
-	    stattimer.expires = jiffies + HZ; /* every second */
-	    add_timer(&stattimer); /* start statistics timer */
-	}
-    } else
-	printk(KERN_INFO "af_can: failed to create CAN_PROC_DIR. CONFIG_PROC_FS missing?\n");
+    if (stats_timer) {
+	/* the statistics are updated every second (timer triggered) */
+	stattimer.function = can_stat_update;
+	stattimer.data = 0;
+	stattimer.expires = jiffies + HZ; /* every second */
+	add_timer(&stattimer); /* start statistics timer */
+    }
 }
 
 void can_remove_proc(void)
 {
     /* procfs remove */
-    if (pde_version) {
+    if (pde_version)
 	can_remove_proc_entry(CAN_PROC_VERSION);
-    }
 
-    if (pde_stats) {
+    if (pde_stats)
 	can_remove_proc_entry(CAN_PROC_STATS);
-    }
 
-    if (pde_reset_stats) {
+    if (pde_reset_stats)
 	can_remove_proc_entry(CAN_PROC_RESET_STATS);
-    }
 
-    if (pde_rcvlist_all) {
+    if (pde_rcvlist_all)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_ALL);
-    }
 
-    if (pde_rcvlist_fil) {
+    if (pde_rcvlist_fil)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_FIL);
-    }
 
-    if (pde_rcvlist_inv) {
+    if (pde_rcvlist_inv)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_INV);
-    }
 
-    if (pde_rcvlist_sff) {
+    if (pde_rcvlist_sff)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_SFF);
-    }
 
-    if (pde_rcvlist_eff) {
+    if (pde_rcvlist_eff)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_EFF);
-    }
 
-    if (pde_rcvlist_err) {
+    if (pde_rcvlist_err)
 	can_remove_proc_entry(CAN_PROC_RCVLIST_ERR);
-    }
 
-    if (can_dir) {
+    if (can_dir)
 	remove_proc_entry(CAN_PROC_DIR, NULL);
-    }
 }
 
 /**************************************************/
 /* proc read functions                            */
 /**************************************************/
 
-int can_print_recv_list(char *page, int len, struct rcv_list *rx_list, struct net_device *dev)
+static int can_print_recv_list(char *page, int len, struct rcv_list *rx_list, struct net_device *dev)
 {
     struct rcv_list *p;
 
-    if (rx_list) {
-	for (p = rx_list; p; p = p->next) {
+    for (p = rx_list; p; p = p->next) {
+	char *fmt = p->can_id & CAN_EFF_FLAG ? /* EFF & CAN_ID_ALL */
+	    "   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
+	    "   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
+	
+	len += snprintf(page + len, PAGE_SIZE - len, fmt,
+			dev->name, p->can_id, p->mask, (unsigned int)p->func,
+			(unsigned int)p->data, p->matches, p->ident);
 
-	    /*                             can1.  00000000  00000000  00000000  .......0  tp20 */
-	    if (p->can_id & CAN_EFF_FLAG) /* EFF & CAN_ID_ALL */
-		len += snprintf(page + len, PAGE_SIZE - len, "   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n",
-			       dev->name, p->can_id, p->mask, (unsigned int)p->func,
-			       (unsigned int)p->data, p->matches, p->ident);
-	    else
-		len += snprintf(page + len, PAGE_SIZE - len, "   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n",
-			       dev->name, p->can_id, p->mask, (unsigned int)p->func,
-			       (unsigned int)p->data, p->matches, p->ident);
-
-	    /* does a typical line fit into the current buffer? */
-	    if (len > PAGE_SIZE - 100) { /* 100 Bytes before end of buffer */
-		len += snprintf(page + len, PAGE_SIZE - len, "   (..)\n"); /* mark output cutted off */
-		return len;
-	    }
+	/* does a typical line fit into the current buffer? */
+	/* 100 Bytes before end of buffer */
+	if (len > PAGE_SIZE - 100) {
+	    /* mark output cut off */
+	    len += snprintf(page + len, PAGE_SIZE - len, "   (..)\n");
+	    return len;
 	}
     }
 
@@ -221,7 +219,7 @@ static int can_print_recv_banner(char *page, int len)
     return len;
 }
 
-int can_proc_read_stats(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_stats(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
 
@@ -281,7 +279,7 @@ int can_proc_read_stats(char *page, char **start, off_t off, int count, int *eof
     return len;
 }
 
-int can_proc_read_reset_stats(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_reset_stats(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
 
@@ -297,7 +295,7 @@ int can_proc_read_reset_stats(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_version(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_version(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
 
@@ -313,7 +311,7 @@ int can_proc_read_version(char *page, char **start, off_t off, int count, int *e
     return len;
 }
 
-int can_proc_read_rcvlist_all(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_all(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
     struct rcv_dev_list *p;
@@ -329,9 +327,8 @@ int can_proc_read_rcvlist_all(char *page, char **start, off_t off, int count, in
 	if (p->rx_all) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_all, p->dev);
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -342,7 +339,7 @@ int can_proc_read_rcvlist_all(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_rcvlist_fil(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
     struct rcv_dev_list *p;
@@ -358,9 +355,8 @@ int can_proc_read_rcvlist_fil(char *page, char **start, off_t off, int count, in
 	if (p->rx_fil) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_fil, p->dev);
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -371,7 +367,7 @@ int can_proc_read_rcvlist_fil(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_rcvlist_inv(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
     struct rcv_dev_list *p;
@@ -387,9 +383,8 @@ int can_proc_read_rcvlist_inv(char *page, char **start, off_t off, int count, in
 	if (p->rx_inv) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_inv, p->dev);
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -400,11 +395,9 @@ int can_proc_read_rcvlist_inv(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
-    unsigned long id = 0;
-    int i;
     struct rcv_dev_list *p;
 
     MOD_INC_USE_COUNT;
@@ -414,19 +407,22 @@ int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int count, in
 
     /* find receive list for this device */
     for (p = rx_dev_list; p; p = p->next) {
-
-	for(i=0; i<0x800; i++)
-	    id |= (unsigned long) p->rx_sff[i]; /* check if any entry available */
-
-	if (id) {
+	int i, all_empty = 1;
+	/* check wether at least one list is non-empty */
+	for(i = 0; i < 0x800; i++)
+	    if (p->rx_sff[i]) {
+		all_empty = 0;
+		break;
+	    }
+	
+	if (!all_empty) {
 	    len = can_print_recv_banner(page, len);
-	    for(i=0; i<0x800; i++) {
-		if ((p->rx_sff[i]) && (len < PAGE_SIZE - 100))
+	    for(i = 0; i < 0x800; i++) {
+		if (p->rx_sff[i] && len < PAGE_SIZE - 100)
 		    len = can_print_recv_list(page, len, p->rx_sff[i], p->dev);
 	    }
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -437,7 +433,7 @@ int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
     struct rcv_dev_list *p;
@@ -453,9 +449,8 @@ int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, in
 	if (p->rx_eff) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_eff, p->dev);
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -466,7 +461,7 @@ int can_proc_read_rcvlist_eff(char *page, char **start, off_t off, int count, in
     return len;
 }
 
-int can_proc_read_rcvlist_err(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int can_proc_read_rcvlist_err(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
     struct rcv_dev_list *p;
@@ -482,9 +477,8 @@ int can_proc_read_rcvlist_err(char *page, char **start, off_t off, int count, in
 	if (p->rx_err) {
 	    len = can_print_recv_banner(page, len);
 	    len = can_print_recv_list(page, len, p->rx_err, p->dev);
-	} else
-	    if (p->dev)
-		len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
+	} else if (p->dev)
+	    len += snprintf(page + len, PAGE_SIZE - len, "  (%s: no entry)\n", p->dev->name);
     }
 
     len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -525,7 +519,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif, unsig
 	return 99999999;
     }
 
-    ret = ((count * HZ) / (newjif - oldjif));
+    ret = (count * HZ) / (newjif - oldjif);
 
     return ret;
 };
