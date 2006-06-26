@@ -1,5 +1,5 @@
 /*
- * $Id:$
+ * $Id$
  *
  * DESCRIPTION:
  *  CAN bus driver for the Freescale MPC52xx embedded CPU.

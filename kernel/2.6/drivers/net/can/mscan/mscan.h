@@ -1,5 +1,5 @@
 /*
- * $Id:$
+ * $Id$
  *
  * DESCRIPTION:
  *  Definitions of consts/structs to drive the Freescale MSCAN.

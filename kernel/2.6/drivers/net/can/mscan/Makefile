@@ -1,5 +1,7 @@
 #
-# Makefile for the MSCAN based device drivers.
+#  $Id$
+#
+#  Makefile for the MSCAN based device drivers.
 #
 #
 
