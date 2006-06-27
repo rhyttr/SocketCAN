@@ -5,5 +5,6 @@
 #
 #
 
-obj-$(CONFIG_CAN_MSCAN)		+= mscan.o
-obj-$(CONFIG_CAN_MPC52XX)	+= mpc52xx_can.o
+obj-$(CONFIG_CAN_MPC52XX)	+= mpc52xx_can.o 
+
+mpc52xx_can-objs	:= mscan.o
