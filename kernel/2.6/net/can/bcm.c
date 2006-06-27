@@ -651,9 +651,9 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 	{
 		struct sk_buff *skb;
 		struct net_device *dev;
-	    
+
 		/* just copy and send one can_frame */
-	    
+
 		if (msg_head.nframes < 1) /* we need at least one can_frame */
 			return -EINVAL;
 
@@ -1337,7 +1337,7 @@ static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id)
 {
 	struct bcm_op *p, **q;
 
-	for (q = ops; p = *q; q = &p->next)
+	for (q = ops; (p = *q); q = &p->next)
 		if (p->can_id == can_id) {
 			*q = p->next;
 			DBG("removing rx_op (%p) for can_id <%03X>\n", p, p->can_id);
@@ -1360,7 +1360,7 @@ static void bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id)
 {
 	struct bcm_op *p, **q;
 
-	for (q = ops; p = *q; q = &p->next)
+	for (q = ops; (p = *q); q = &p->next)
 		if (p->can_id == can_id) {
 			*q = p->next;
 			DBG("removing rx_op (%p) for can_id <%03X>\n",

@@ -246,7 +246,7 @@ void can_dev_unregister(struct net_device *dev,
 
 	DBG("called for %s\n", dev->name);
 
-	for (q = &nlist; p = *q; q = &p->next) {
+	for (q = &nlist; (p = *q); q = &p->next) {
 		if (p->dev == dev && p->func == func && p->data == data) {
 			*q = p->next;
 			kfree(p);
@@ -490,7 +490,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		goto out;
 	}
 
-	for (; p = *q; q = &p->next) {
+	for (; (p = *q); q = &p->next) {
 		if (p->can_id == can_id && p->mask == mask
 		    && p->func == func && p->data == data)
 			break;
@@ -579,7 +579,7 @@ static inline void deliver(struct sk_buff *skb, struct rcv_list *p)
 		p->matches++;    /* update specific statistics */
 	}
 }
-    
+
 static int can_rcv_filter(struct rcv_dev_list *q, struct sk_buff *skb)
 {
 	struct rcv_list *p;
@@ -682,7 +682,7 @@ static struct rcv_list **find_rcv_list(canid_t *can_id, canid_t *mask,
 			}
 
 		if (p && !p->dev) {
-			DBG("reactivating rcv_dev_list for %s\n", dev->name); 
+			DBG("reactivating rcv_dev_list for %s\n", dev->name);
 			p->dev = dev;
 		}
 	}
@@ -760,7 +760,7 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	int len;
 	int dlc, i;
 	char buf[1024];
-    
+
 	len = sprintf(buf, KERN_DEBUG);
 	va_start(ap, cf);
 	len += snprintf(buf + len, sizeof(buf) - 64, msg, ap);

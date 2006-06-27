@@ -284,7 +284,7 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
 
 	if (peer)
 		return -EOPNOTSUPP;
-	
+
 	addr->can_family  = AF_CAN;
 	addr->can_ifindex = canraw_sk(sk)->ifindex;
 	*len = sizeof(*addr);
@@ -323,7 +323,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 				return -EINVAL;
 			if (!(filter = kmalloc(optlen, GFP_KERNEL)))
 				return -ENOMEM;
-			if (err = copy_from_user(filter, optval, optlen)) {
+			if ((err = copy_from_user(filter, optval, optlen))) {
 				kfree(filter);
 				return err;
 			}
@@ -338,7 +338,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 			if (canraw_sk(sk)->bound)
 				raw_remove_filters(dev, sk);
-	    
+
 			kfree(canraw_sk(sk)->filter);
 			canraw_sk(sk)->count = 0;
 			canraw_sk(sk)->filter = NULL;
@@ -363,7 +363,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen) {
 			if (optlen != sizeof(err_mask))
 				return -EINVAL;
-			if (err = copy_from_user(&err_mask, optval, optlen)) {
+			if ((err = copy_from_user(&err_mask, optval, optlen))) {
 				return err;
 			}
 		}
