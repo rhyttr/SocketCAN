@@ -42,7 +42,6 @@
 
 
 
-MOD_GPL = can.o can-raw.o can-bcm.o
 MOD_VW  = can-tpgen.o can-tp20.o can-tp16.o can-mcnet.o
 
 ifeq ($(KERNELRELEASE),)
@@ -50,25 +49,37 @@ ifeq ($(KERNELRELEASE),)
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
-default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+all: can raw bcm
+
+can:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m modules
+
+raw: can
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_RAW=m modules
+
+bcm: can
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_BCM=m modules
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+
+.PHONY: clean all can raw bcm
 
 else
 
 ifneq ($(KBUILD_EXTMOD),)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
-EXTRA_CFLAGS += -Wno-parentheses
 endif
 
-obj-m := $(MOD_GPL)
-
+obj-$(CONFIG_CAN) += can.o
 can-objs       := af_can.o proc.o
-can-bcm-objs   := bcm.o
-can-raw-objs   := raw.o
+
+obj-$(CONFIG_CAN) += candev.o
+candev-objs	:= can_device.o
+
+obj-$(CONFIG_CAN_BCM)	+= bcm.o
+obj-$(CONFIG_CAN_RAW)	+= raw.o
 
 can-tpgen-objs := tp_gen.o
 can-tp20-objs  := tp20.o

@@ -22,7 +22,7 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/can/can.h>
-#include <can/can_device.h>
+#include "can_device.h"
 
 /*
  Abstract:
