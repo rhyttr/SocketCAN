@@ -60,7 +60,7 @@
 
 /* arbitration lost in bit ... / data[0] */
 #define CAN_ERR_LOSTARB_UNSPEC   0x00 /* unspecified */
-                                      /* else bit number in bitstream */
+				      /* else bit number in bitstream */
 
 /* error status of CAN-controller / data[1] */
 #define CAN_ERR_CRTL_UNSPEC      0x00 /* unspecified */

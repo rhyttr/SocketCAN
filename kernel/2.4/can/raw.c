@@ -70,8 +70,8 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 MODULE_PARM(debug, "1i");
 static int debug = 0;
 #define DBG(args...)       (debug & 1 ? \
-	                       (printk(KERN_DEBUG "RAW %s: ", __func__), \
-			        printk(args)) : 0)
+			       (printk(KERN_DEBUG "RAW %s: ", __func__), \
+				printk(args)) : 0)
 #define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
 #else
 #define DBG(args...)
@@ -253,7 +253,7 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
 
     if (peer)
 	return -EOPNOTSUPP;
-	
+
     addr->can_family  = AF_CAN;
     addr->can_ifindex = canraw_sk(sk)->ifindex;
     *len = sizeof(*addr);
@@ -307,7 +307,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 	    if (canraw_sk(sk)->bound)
 		raw_remove_filters(dev, sk);
-	    
+
 	    kfree(canraw_sk(sk)->filter);
 	    canraw_sk(sk)->count = 0;
 	    canraw_sk(sk)->filter = NULL;

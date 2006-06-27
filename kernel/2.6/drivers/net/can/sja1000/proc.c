@@ -185,8 +185,8 @@ static int sja1000_proc_read_reset(char *page, char **start, off_t off,
 			    && (priv->state != STATE_RESET_MODE)) {
 				len += snprintf(page + len, PAGE_SIZE - len,
 						"%s ", dev->name);
-                                dev->stop(dev);
-                                dev->open(dev);
+				dev->stop(dev);
+				dev->open(dev);
 				/* count number of restarts */
 				priv->can_stats.restarts++;
 

@@ -150,7 +150,7 @@ int mscan_init(void)
 	    gpio->port_config |= 0x00000010;   // set PSC2 function to CAN
 	}
 	else if(!strncmp(pins,"i2c1/tmr01",11))
-	    gpio->port_config |= 0x10000000;  // set ALT for CAN, leave PSC2 untouched 
+	    gpio->port_config |= 0x10000000;  // set ALT for CAN, leave PSC2 untouched
 	else
 	    printk(KERN_ERR "\n!!!Invalid kernel module parameter \"%s\" ignored."
 		   " Use \"psc2\" or \"i2c1/tmr01\"\n", pins);

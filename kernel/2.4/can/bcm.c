@@ -60,8 +60,8 @@ RCSID("$Id$");
 MODULE_PARM(debug, "1i");
 static int debug = 0;
 #define DBG(args...)       (debug & 1 ? \
-	                       (printk(KERN_DEBUG "BCM %s: ", __func__), \
-			        printk(args)) : 0)
+			       (printk(KERN_DEBUG "BCM %s: ", __func__), \
+				printk(args)) : 0)
 #define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
 #define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
 #else
@@ -450,7 +450,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	    /* create array for can_frames and copy the data */
 	    if (!(op->frames = kmalloc(msg_head.nframes * sizeof(struct can_frame), GFP_KERNEL))) {
-	        kfree(op);
+		kfree(op);
 		return -ENOMEM;
 	    }
 
@@ -624,9 +624,9 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	{
 	    struct sk_buff *skb;
 	    struct net_device *dev;
-	    
+
 	    /* just copy and send one can_frame */
-	    
+
 	    if (msg_head.nframes < 1) /* we need at least one can_frame */
 		return -EINVAL;
 
@@ -637,7 +637,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	    memcpy_fromiovec(skb_put(skb, sizeof(struct can_frame)), msg->msg_iov, sizeof(struct can_frame));
 
-	    DBG_FRAME("BCM: TX_SEND: sending frame", 
+	    DBG_FRAME("BCM: TX_SEND: sending frame",
 		      (struct can_frame *)skb->data);
 	    dev = dev_get_by_index(sk->bound_dev_if);
 

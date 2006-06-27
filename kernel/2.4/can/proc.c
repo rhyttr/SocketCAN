@@ -193,7 +193,7 @@ static int can_print_recv_list(char *page, int len, struct rcv_list *rx_list, st
 	char *fmt = p->can_id & CAN_EFF_FLAG ? /* EFF & CAN_ID_ALL */
 	    "   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
 	    "   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
-	
+
 	len += snprintf(page + len, PAGE_SIZE - len, fmt,
 			dev->name, p->can_id, p->mask, (unsigned int)p->func,
 			(unsigned int)p->data, p->matches, p->ident);
@@ -414,7 +414,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off, int co
 		all_empty = 0;
 		break;
 	    }
-	
+
 	if (!all_empty) {
 	    len = can_print_recv_banner(page, len);
 	    for(i = 0; i < 0x800; i++) {

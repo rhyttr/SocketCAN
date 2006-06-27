@@ -136,7 +136,7 @@ typedef __u32 can_filter_t;
 #define CAN_FILTER_CAPAB       0  /* get filter type capabilities (32 Bit value) */
 #define CAN_FILTER_MASK_VALUE  1  /* easy bit filter (see struct can_filter) */
 #define CAN_FILTER_SFF_BITMASK 2  /* bitfield with 2048 bit SFF filter */
-                                  /* filters 3 - 31 currently undefined */
+				  /* filters 3 - 31 currently undefined */
 
 #define CAN_FILTER_MAX         31 /* max. filter type value */
 

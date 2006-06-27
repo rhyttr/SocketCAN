@@ -66,12 +66,12 @@
 #define DEV_PORT_REGS_U8(reg) " " #reg " 0x%02X\n", 0xFF & (int) (regs->reg)
 
 #define GPIO_REG_U32(reg)  " " #reg " 0x%08X\n", 0xFFFFFFFF & (int)(gpio->reg)
-#define GPIO_REG_U16(reg)  " " #reg " 0x%04X\n", 0xFFFF & (int)(gpio->reg) 
-#define GPIO_REG_U8(reg)   " " #reg " 0x%02X\n", 0xFF & (int)(gpio->reg) 
+#define GPIO_REG_U16(reg)  " " #reg " 0x%04X\n", 0xFFFF & (int)(gpio->reg)
+#define GPIO_REG_U8(reg)   " " #reg " 0x%02X\n", 0xFF & (int)(gpio->reg)
 
 #define CDM_REG_U32(reg)  " " #reg " 0x%08X\n", 0xFFFFFFFF & (int)(cdm->reg)
-#define CDM_REG_U16(reg)  " " #reg " 0x%04X\n", 0xFFFF & (int)(cdm->reg) 
-#define CDM_REG_U8(reg)   " " #reg " 0x%02X\n", 0xFF & (int)(cdm->reg) 
+#define CDM_REG_U16(reg)  " " #reg " 0x%04X\n", 0xFFFF & (int)(cdm->reg)
+#define CDM_REG_U8(reg)   " " #reg " 0x%02X\n", 0xFF & (int)(cdm->reg)
 
 extern struct net_device *can_dev[];
 
@@ -140,7 +140,7 @@ static int mscan_proc_read_regs(char *page, char **start, off_t off, int count, 
     const u8 canctl1_listen = 0x08;
     const u8 canctl1_wump   = 0x20;
     const u8 canctl1_slpak  = 0x40;
-    const u8 canctl1_initak = 0x80; 
+    const u8 canctl1_initak = 0x80;
 
     MOD_INC_USE_COUNT;
 
@@ -150,8 +150,8 @@ static int mscan_proc_read_regs(char *page, char **start, off_t off, int count, 
 	    priv = (struct can_priv*)can_dev[i]->priv;
 	    regs = priv->regs;
 
-	    len += sprintf(page + len, "\n"); 
-	    len += sprintf(page + len, "----------- MSCAN MODULE %s --------------\n", dev->name); 
+	    len += sprintf(page + len, "\n");
+	    len += sprintf(page + len, "----------- MSCAN MODULE %s --------------\n", dev->name);
 	    len += sprintf(page + len, DEV_PORT_REGS_U8( canctl0 ) );
 	    len += sprintf(page + len, DEV_PORT_REGS_U8( canctl1 ) );
 	    len += sprintf(page + len, DEV_PORT_REGS_U8( canbtr0 ) );
@@ -197,7 +197,7 @@ static int mscan_proc_read_regs(char *page, char **start, off_t off, int count, 
 	    len += sprintf(page + len, " Synchronized Status : %s\n", canctl0 & canctl0_synch ? "Not synchronized" : "Synchronized");
 
 	    len += sprintf(page + len, " MSCAN Clock : %u (use clk=<value> as kernel module parameter)\n",priv->clk);
-	    len += sprintf(page + len, "---------------------------------------------\n"); 
+	    len += sprintf(page + len, "---------------------------------------------\n");
 	}
     }
 
@@ -215,7 +215,7 @@ static int mscan_proc_read_gpio(char *page, char **start, off_t off, int count, 
 
     MOD_INC_USE_COUNT;
 
-    len += sprintf(page + len, "\n--------------- GPIO MODULE -----------------\n"); 
+    len += sprintf(page + len, "\n--------------- GPIO MODULE -----------------\n");
     len += sprintf(page + len, GPIO_REG_U32( port_config ) );
     len += sprintf(page + len, GPIO_REG_U32( simple_gpioe ) );
     len += sprintf(page + len, GPIO_REG_U32( simple_ode ) );
@@ -239,12 +239,12 @@ static int mscan_proc_read_gpio(char *page, char **start, off_t off, int count, 
     if (gpio->port_config & 0x10000000)
 	len += sprintf(page + len, " CAN1 on I2C1 Pins, CAN2 on TMR0/1 Pins\n");
     else
-        if (((gpio->port_config & 0x00000030)>>4) == 1)
+	if (((gpio->port_config & 0x00000030)>>4) == 1)
 	    len += sprintf(page + len, " CAN1&2 on PSC2 Pins\n");
 	else
 	    len += sprintf(page + len, " CAN1&2 not routed to any IO Pin.\n");
 
-    len += sprintf(page + len, "---------------------------------------------\n"); 
+    len += sprintf(page + len, "---------------------------------------------\n");
 
     MOD_DEC_USE_COUNT;
 
@@ -259,7 +259,7 @@ static int mscan_proc_read_cdm(char *page, char **start, off_t off, int count, i
 
     MOD_INC_USE_COUNT;
 
-    len += sprintf(page + len, "\n--------------- CDM MODULE ------------------\n"); 
+    len += sprintf(page + len, "\n--------------- CDM MODULE ------------------\n");
     len += sprintf(page + len, CDM_REG_U32 ( jtag_id ) );
     len += sprintf(page + len, CDM_REG_U32 ( rstcfg ) );
     len += sprintf(page + len, CDM_REG_U32 ( breadcrumb ) );
@@ -299,17 +299,17 @@ static int mscan_proc_read_cdm(char *page, char **start, off_t off, int count, i
 
     len += sprintf(page + len,           " System Clock (@ XTAL 27.0   33.0 MHz)\n");
     switch (((cdm->rstcfg)>>6) & 0x3) { // sys_pll_cfg[0:1]
-	case 0: len += sprintf(page + len, "                      432    528  MHz\n");break; 
+	case 0: len += sprintf(page + len, "                      432    528  MHz\n");break;
 	case 1: len += sprintf(page + len, "                      324    396  MHz\n"); break;
-	case 2: len += sprintf(page + len, "                     (486    528  MHz, invalid)\n");break; 
-	case 3: len += sprintf(page + len, "                      324    396  MHz\n");break; 
+	case 2: len += sprintf(page + len, "                     (486    528  MHz, invalid)\n");break;
+	case 3: len += sprintf(page + len, "                      324    396  MHz\n");break;
     }
 
     len += sprintf(page + len, " XLB Clock  = %s System Clock \n", cdm->xlb_clk_sel ? "1/4" : "1/8");
     len += sprintf(page + len, " IPB Clock  = 1/%i System Clock \n", 0x4<<(((cdm->xlb_clk_sel?1:0) + (cdm->ipg_clk_sel?1:0))));
     len += sprintf(page + len, " PCI Clock  = 1/%i System Clock \n", 0x8<<(((cdm->xlb_clk_sel?1:0) + (cdm->pci_clk_sel?1:0))));
-  
-    len += sprintf(page + len, "---------------------------------------------\n"); 
+
+    len += sprintf(page + len, "---------------------------------------------\n");
 
     MOD_DEC_USE_COUNT;
 

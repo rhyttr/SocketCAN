@@ -57,7 +57,7 @@
 
 #define DEFAULT_KBIT_PER_SEC 500
 #define MSCAN_DEFAULT_CLOCK  132000000
-#define TX_TIMEOUT           (HZ/20) /* 50ms */ 
+#define TX_TIMEOUT           (HZ/20) /* 50ms */
 
 /* private data structure */
 

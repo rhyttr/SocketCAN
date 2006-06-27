@@ -76,8 +76,8 @@ int stats_timer = 1; /* default: on */
 MODULE_PARM(debug, "1i");
 static int debug = 0;
 #define DBG(args...)       (debug & 1 ? \
-	                       (printk(KERN_DEBUG "CAN %s: ", __func__), \
-			        printk(args)) : 0)
+			       (printk(KERN_DEBUG "CAN %s: ", __func__), \
+				printk(args)) : 0)
 #define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
 #define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
 #else
@@ -539,7 +539,7 @@ static inline void deliver(struct sk_buff *skb, struct rcv_list *p)
 	p->matches++;    /* update specific statistics */
     }
 }
-    
+
 static int can_rcv_filter(struct rcv_dev_list *q, struct sk_buff *skb)
 {
     struct rcv_list *p;
@@ -641,7 +641,7 @@ static struct rcv_list **find_rcv_list(canid_t *can_id, canid_t *mask, struct ne
 	    }
 
 	if (p && !p->dev) {
-	    DBG("reactivating rcv_dev_list for %s\n", dev->name); 
+	    DBG("reactivating rcv_dev_list for %s\n", dev->name);
 	    p->dev = dev;
 	}
     }
@@ -719,7 +719,7 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
     int len;
     int dlc, i;
     char buf[1024];
-    
+
     len = sprintf(buf, KERN_DEBUG);
     va_start(ap, cf);
     len += snprintf(buf + len, sizeof(buf) - 64, msg, ap);

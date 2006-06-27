@@ -90,7 +90,7 @@ static void set_btr(struct net_device *dev, u8 btr0, u8 btr1)
 {
     struct can_priv *priv = (struct can_priv*)dev->priv;
     struct mpc5xxx_mscan *regs = priv->regs;
-	
+
     if (priv->state == STATE_UNINITIALIZED) /* no bla bla when restarting the device */
 	printk(KERN_INFO "%s: setting BTR0=%02X BTR1=%02X\n",
 	       dev->name, btr0, btr1);
@@ -200,7 +200,7 @@ static int set_init_mode(struct net_device *dev)
 
     return 0;
 }
-	
+
 static int set_normal_mode(struct net_device *dev)
 {
     struct can_priv *priv = (struct can_priv*)dev->priv;
@@ -365,7 +365,7 @@ static void mscan_rx(struct net_device *dev)
     }
     skb->dev = dev;
     skb->protocol = htons(ETH_P_CAN);
-    
+
     if (regs->canrxfg.idr[1] & BUFFER_EXTENDED) {
 	/* extended frame format (EFF) */
 
@@ -374,7 +374,7 @@ static void mscan_rx(struct net_device *dev)
 	    |((regs->canrxfg.idr[1] & 0x07) << 15)
 	    |(regs->canrxfg.idr[4] << 7)
 	    |(regs->canrxfg.idr[5] >> 1);
-	
+
 	id |= CAN_EFF_FLAG;
 
 	if (regs->canrxfg.idr[5] & BUFFER_EXT_RTR)
@@ -422,7 +422,7 @@ static int mscan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
     if (!netif_running(dev))
 	return -EINVAL;
-    
+
     switch (cmd) {
     case SIOCSRATE:
 	;

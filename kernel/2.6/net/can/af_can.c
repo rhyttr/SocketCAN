@@ -76,8 +76,8 @@ module_param(stats_timer, int, S_IRUGO);
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
-	                       (printk(KERN_DEBUG "CAN %s: ", __func__), \
-			        printk(args)) : 0)
+			       (printk(KERN_DEBUG "CAN %s: ", __func__), \
+				printk(args)) : 0)
 #define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
 #define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
 #else
