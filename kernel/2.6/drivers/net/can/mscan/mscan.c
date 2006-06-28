@@ -118,7 +118,7 @@ static int mscan_set_mode(struct can_device *can, u8 mode)
 					break;
 			}
 			if(i>255)
-			   ret=-ENODEV;
+				ret=-ENODEV;
 		}
 
 		if ( !ret && (mode & MSCAN_CSWAI) )
@@ -127,18 +127,18 @@ static int mscan_set_mode(struct can_device *can, u8 mode)
 	} else  {
 		canctl1 = in_8(&regs->canctl1);
 		if ( canctl1 & (MSCAN_SLPAK | MSCAN_INITAK) ) {
-		 out_8(&regs->canctl0, in_8(&regs->canctl0) &
-		 		 	  ~(MSCAN_SLPRQ | MSCAN_INITRQ));
-		  for (i = 0; i < 255; i++ ) {
-			canctl1 = in_8(&regs->canctl1);
-		    if ( (canctl1 & (MSCAN_INITAK | MSCAN_SLPAK)) ==0 )
-		  		break;
-		  }
-		  if(i>255)
-		    ret=-ENODEV;
+			out_8(&regs->canctl0, in_8(&regs->canctl0) &
+			      ~(MSCAN_SLPRQ | MSCAN_INITRQ));
+			for (i = 0; i < 255; i++ ) {
+				canctl1 = in_8(&regs->canctl1);
+				if ( (canctl1 & (MSCAN_INITAK | MSCAN_SLPAK)) ==0 )
+					break;
+			}
+			if(i>255)
+				ret=-ENODEV;
 		}
 	}
-  return ret;
+	return ret;
 }
 
 static void mscan_push_state(struct can_device *can, struct mscan_state *state)
@@ -325,7 +325,7 @@ static int mscan_rx_poll(struct net_device *ndev, int *budget)
 	int i;
 
 	while ( npackets < quota &&
- 	( (canrflg = in_8(&regs->canrflg)) & (MSCAN_RXF | MSCAN_ERR_IF) )) {
+	( (canrflg = in_8(&regs->canrflg)) & (MSCAN_RXF | MSCAN_ERR_IF) )) {
 
 		skb = dev_alloc_skb(sizeof(struct can_frame));
 		if (!skb) {
@@ -555,47 +555,46 @@ int mscan_do_set_bit_time(struct can_device *can, struct can_bittime *bt)
 
 static int mscan_open(struct net_device *ndev)
 {
-  int ret = 0;
-  struct can_device *can = ND2CAN(ndev);
-  struct mscan_regs *regs = (struct mscan_regs *)(CAN2ND(can)->base_addr);
-  struct mscan_priv *priv = can->priv;
+	int ret = 0;
+	struct can_device *can = ND2CAN(ndev);
+	struct mscan_regs *regs = (struct mscan_regs *)(CAN2ND(can)->base_addr);
+	struct mscan_priv *priv = can->priv;
 
-  if((ret =
-  		  request_irq(ndev->irq, mscan_isr, SA_SHIRQ, ndev->name, ndev)) < 0) {
-   	printk(KERN_ERR "%s - failed to attach interrupt\n", ndev->name);
-   	return ret;
-  }
+	if((ret = request_irq(ndev->irq, mscan_isr, SA_SHIRQ, ndev->name, ndev)) < 0) {
+		printk(KERN_ERR "%s - failed to attach interrupt\n", ndev->name);
+		return ret;
+	}
 
-  INIT_LIST_HEAD(&priv->tx_head);
-  /* acceptance mask/acceptance code (accept everything) */
-  out_be16(&regs->canidar1_0, 0);
-  out_be16(&regs->canidar3_2, 0);
-  out_be16(&regs->canidar5_4, 0);
-  out_be16(&regs->canidar7_6, 0);
+	INIT_LIST_HEAD(&priv->tx_head);
+	/* acceptance mask/acceptance code (accept everything) */
+	out_be16(&regs->canidar1_0, 0);
+	out_be16(&regs->canidar3_2, 0);
+	out_be16(&regs->canidar5_4, 0);
+	out_be16(&regs->canidar7_6, 0);
 
-  out_be16(&regs->canidmr1_0, 0xffff);
-  out_be16(&regs->canidmr3_2, 0xffff);
-  out_be16(&regs->canidmr5_4, 0xffff);
-  out_be16(&regs->canidmr7_6, 0xffff);
-  /* Two 32 bit Acceptance Filters */
-  out_8(&regs->canidac, MSCAN_AF_32BIT);
+	out_be16(&regs->canidmr1_0, 0xffff);
+	out_be16(&regs->canidmr3_2, 0xffff);
+	out_be16(&regs->canidmr5_4, 0xffff);
+	out_be16(&regs->canidmr7_6, 0xffff);
+	/* Two 32 bit Acceptance Filters */
+	out_8(&regs->canidac, MSCAN_AF_32BIT);
 
-  out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_LISTEN);
-  mscan_set_mode( can, MSCAN_NORMAL_MODE);
+	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_LISTEN);
+	mscan_set_mode( can, MSCAN_NORMAL_MODE);
 
-  priv->shadow_statflg = in_8(&regs->canrflg) & MSCAN_STAT_MSK;
-  priv->cur_pri = 0;
-  priv->tx_active = 0;
+	priv->shadow_statflg = in_8(&regs->canrflg) & MSCAN_STAT_MSK;
+	priv->cur_pri = 0;
+	priv->tx_active = 0;
 
-  out_8(&regs->cantier, 0);
-  /* Enable receive interrupts. */
-  out_8(&regs->canrier, MSCAN_OVRIE | MSCAN_RXFIE | MSCAN_CSCIE |
-				  		MSCAN_RSTATE1 | MSCAN_RSTATE0 |
-						MSCAN_TSTATE1 | MSCAN_TSTATE0);
+	out_8(&regs->cantier, 0);
+	/* Enable receive interrupts. */
+	out_8(&regs->canrier, MSCAN_OVRIE | MSCAN_RXFIE | MSCAN_CSCIE |
+	      MSCAN_RSTATE1 | MSCAN_RSTATE0 |
+	      MSCAN_TSTATE1 | MSCAN_TSTATE0);
 
-  netif_start_queue(ndev);
+	netif_start_queue(ndev);
 
- return 0;
+	return 0;
 }
 
 static int mscan_close(struct net_device *ndev)

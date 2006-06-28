@@ -36,7 +36,7 @@
 
 struct can_device {
 	struct net_device_stats net_stats;
-	struct net_device 		*net_dev;
+	struct net_device       *net_dev;
 
 	struct can_device_stats can_stats;
 
@@ -64,10 +64,10 @@ struct can_device {
 	can_mode_t  mode;
 	can_ctrlmode_t ctrlmode;
 
-	int	(*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
+	int (*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
 	int (*do_get_state)(struct can_device *dev,	can_state_t *state);
 	int (*do_set_mode)(struct can_device *dev, can_mode_t mode);
-	int	(*do_set_ctrlmode)(struct can_device *dev, can_ctrlmode_t ctrlmode);
+	int (*do_set_ctrlmode)(struct can_device *dev, can_ctrlmode_t ctrlmode);
 	int (*do_get_ctrlmode)(struct can_device *dev, can_ctrlmode_t *ctrlmode);
 
 	void *priv;
@@ -81,6 +81,6 @@ struct can_device *alloc_candev(int sizeof_priv);
 void free_candev(struct can_device *);
 
 int can_calc_bit_time(struct can_device *can, u32 baudrate,
-					  struct can_bittime_std *bit_time);
+		      struct can_bittime_std *bit_time);
 
 #endif /* __CAN_DEVICE_H__ */

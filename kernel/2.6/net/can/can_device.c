@@ -39,7 +39,7 @@
 
   [out]
 	bit_time	- calculated time segments, for meaning of
-				  each field read CAN standart.
+			  each field read CAN standart.
 */
 
 #define DEFAULT_MAX_BRP			64U
@@ -53,7 +53,7 @@
 #define MAX_PHASE_SEG2	8U
 
 int can_calc_bit_time(struct can_device *can, u32 baudrate,
-					  struct can_bittime_std *bit_time)
+		      struct can_bittime_std *bit_time)
 {
 	int best_error = -1; /* Ariphmetic error */
 	int df, best_df = -1; /* oscillator's tolerance range, greater is better*/
@@ -108,7 +108,7 @@ int can_calc_bit_time(struct can_device *can, u32 baudrate,
 						goto next_brp;
 
 				err1 = phase_seg1*brp*500*1000/
-					   (13*brp_expected-phase_seg2*brp*1000);
+					(13*brp_expected-phase_seg2*brp*1000);
 				err2 = sjw*brp*50*1000/brp_expected;
 
 				df = min(err1,err2);
@@ -172,7 +172,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		}
 		break;
 	case SIOCGCANBAUDRATE:
-	    *baudrate = can->baudrate;
+		*baudrate = can->baudrate;
 		ret = 0;
 		break;
 	case SIOCSCANCUSTOMBITTIME:
@@ -206,7 +206,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		}
 		break;
 	case SIOCGCANMODE:
-	   	*((can_mode_t *)(&ifr->ifr_ifru)) = can->mode;
+		*((can_mode_t *)(&ifr->ifr_ifru)) = can->mode;
 		ret = 0;
 		break;
 	case SIOCSCANCTRLMODE:
@@ -216,7 +216,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		}
 		break;
 	case SIOCGCANCTRLMODE:
-	   	*((can_ctrlmode_t *)(&ifr->ifr_ifru)) = can->ctrlmode;
+		*((can_ctrlmode_t *)(&ifr->ifr_ifru)) = can->ctrlmode;
 		ret = 0;
 		break;
 	case SIOCSCANFILTER:
@@ -233,7 +233,7 @@ static int can_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		break;
 	}
 
-  return ret;
+	return ret;
 }
 
 static void can_setup(struct net_device *dev)
@@ -250,15 +250,15 @@ static void can_setup(struct net_device *dev)
 
 	dev->hard_header_len = 0;
 
-	dev->get_stats	= can_get_stats;
+	dev->get_stats		= can_get_stats;
 	dev->mtu		= sizeof(struct can_frame);
-	dev->do_ioctl   = can_ioctl;
-	dev->addr_len	= 0;
+	dev->do_ioctl		= can_ioctl;
+	dev->addr_len		= 0;
 	dev->tx_queue_len	= 10;
 
 	/* New-style flags. */
-	dev->flags		= IFF_NOARP;
-	dev->features  	= NETIF_F_NO_CSUM;
+	dev->flags	= IFF_NOARP;
+	dev->features	= NETIF_F_NO_CSUM;
 }
 
 /*
@@ -268,26 +268,26 @@ static void can_setup(struct net_device *dev)
  */
 struct can_device *alloc_candev(int sizeof_priv)
 {
-  struct net_device *ndev;
-  struct can_device *can;
+	struct net_device *ndev;
+	struct can_device *can;
 
-  ndev = alloc_netdev(sizeof_priv+sizeof(struct can_device),
-  					  "can%d", can_setup);
-  if(!ndev)
+	ndev = alloc_netdev(sizeof_priv+sizeof(struct can_device),
+			    "can%d", can_setup);
+	if(!ndev)
 		return NULL;
 
-  can = netdev_priv(ndev);
+	can = netdev_priv(ndev);
 
-  can->net_dev = ndev;
-  if(sizeof_priv)
-	  can->priv = &can[1];
+	can->net_dev = ndev;
+	if(sizeof_priv)
+		can->priv = &can[1];
 
-  can->baudrate = CAN_BAUDRATE_UNCONFIGURED;
-  can->max_brp = DEFAULT_MAX_BRP;
-  can->max_sjw = DEFAULT_MAX_SJW;
-  spin_lock_init(&can->irq_lock);
+	can->baudrate = CAN_BAUDRATE_UNCONFIGURED;
+	can->max_brp = DEFAULT_MAX_BRP;
+	can->max_sjw = DEFAULT_MAX_SJW;
+	spin_lock_init(&can->irq_lock);
 
-  return can;
+	return can;
 }
 EXPORT_SYMBOL(alloc_candev);
 

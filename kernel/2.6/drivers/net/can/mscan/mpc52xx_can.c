@@ -136,7 +136,7 @@ int __init mpc52xx_can_init(void)
 
 void __exit mpc52xx_can_exit(void)
 {
- 	platform_driver_unregister(&mpc52xx_can_driver);
+	platform_driver_unregister(&mpc52xx_can_driver);
 	printk(KERN_INFO "%s unloaded\n", mpc52xx_can_driver.driver.name);
 }
 

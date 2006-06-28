@@ -84,7 +84,7 @@ static int sja1000_proc_read(char *page, char **start, off_t off, int count, int
 					priv->can_stats.wakeup,
 					priv->can_stats.bus_error,
 					priv->can_stats.error_passive,
-				       	priv->can_stats.arbitration_lost,
+					priv->can_stats.arbitration_lost,
 					priv->can_stats.restarts,
 					priv->clock,
 					priv->speed
