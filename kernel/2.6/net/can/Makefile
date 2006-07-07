@@ -38,11 +38,9 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 #  DAMAGE.
 #
-#  Send feedback to <llcf@volkswagen.de>
+#  Send feedback to <socketcan-users@lists.berlios.de>
 
 
-
-MOD_VW  = can-tpgen.o can-tp20.o can-tp16.o can-mcnet.o
 
 ifeq ($(KERNELRELEASE),)
 
@@ -55,10 +53,10 @@ can:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m modules
 
 raw: can
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_RAW=m modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_CAN_RAW=m modules
 
 bcm: can
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_BCM=m modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_CAN_BCM=m modules
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
@@ -72,18 +70,16 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
 endif
 
-obj-$(CONFIG_CAN) += can.o
-can-objs       := af_can.o proc.o
+obj-$(CONFIG_CAN)	+= can.o
+can-objs		:= af_can.o proc.o
 
-obj-$(CONFIG_CAN) += candev.o
-candev-objs	:= can_device.o
+obj-$(CONFIG_CAN)	+= candev.o
+candev-objs		:= can_device.o
 
-obj-$(CONFIG_CAN_BCM)	+= bcm.o
-obj-$(CONFIG_CAN_RAW)	+= raw.o
+obj-$(CONFIG_CAN_RAW)	+= can-raw.o
+can-raw-objs		:= raw.o
 
-can-tpgen-objs := tp_gen.o
-can-tp20-objs  := tp20.o
-can-tp16-objs  := tp16.o
-can-mcnet-objs := mcnet.o
+obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
+can-bcm-objs		:= bcm.o
 
 endif

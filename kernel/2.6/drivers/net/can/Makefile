@@ -31,7 +31,7 @@ AFLAGS		+= -Idrivers/net -Inet
 CFLAGS		+= -Idrivers/net -Inet
 
 ifneq ($(KBUILD_EXTMOD),)
-EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
+EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include
 endif
 
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o

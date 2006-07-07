@@ -43,7 +43,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  *
- * Send feedback to <llcf@volkswagen.de>
+ * Send feedback to <socketcan-users@lists.berlios.de>
  *
  */
 
@@ -584,10 +584,10 @@ static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		return -EINVAL;
 
 	switch (cmd) {
-	case SIOCSRATE:
+	case SIOCSCANBAUDRATE:
 		;
 		return 0;
-	case SIOCGRATE:
+	case SIOCGCANBAUDRATE:
 		;
 		return 0;
 	}

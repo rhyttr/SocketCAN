@@ -10,7 +10,7 @@
 #  Copyright (c) 2005 Volkswagen Group Electronic Research
 #  38436 Wolfsburg, GERMANY
 #
-#  contact email: llcf@volkswagen.de
+#  contact email: socketcan-users@lists.berlios.de
 #
 #  Idea, Design, Implementation:
 #  Oliver Hartkopp <oliver.hartkopp@volkswagen.de>

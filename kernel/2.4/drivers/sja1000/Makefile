@@ -38,7 +38,7 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 #  DAMAGE.
 #
-#  Send feedback to <llcf@volkswagen.de>
+#  Send feedback to <socketcan-users@lists.berlios.de>
 
 CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -I../../can \
 		-DMODULE -I$(KERNELDIR)/include \
