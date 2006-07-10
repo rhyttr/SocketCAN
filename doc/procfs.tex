@@ -8,14 +8,14 @@ Das \LLCF\ unterstützt das /proc-Filesystem und stellt darüber Statistiken
 und Informationen über interne Strukturen und Stati in lesbarer Form zur
 Verfügung. Die Informationen können vom Benutzer beispielsweise mit\\
 
-\verb+cat /proc/sys/net/can/stats+\\
+\verb+cat /proc/net/can/stats+\\
 
 abgefragt werden. Im Folgenden werden die einzelnen Einträge erläutert.
 
-\subsection{Versionsinformation /proc/sys/net/can/version}
+\subsection{Versionsinformation /proc/net/can/version}
 
 Die \LL-Versionsinformationen können für eine Anwendung z.B. durch das
-Öffnen der Datei \verb+/proc/sys/net/can/version+ ausgelesen werden. Dazu werden
+Öffnen der Datei \verb+/proc/net/can/version+ ausgelesen werden. Dazu werden
 die ersten 6 Zeichen in einen Puffer kopiert und mit 
 \verb+ llcf_version_code = strtoul(mybuffer, (char **)NULL, 16);+
 in den LLCF\_VERSION\_CODE überführt. Der LLCF\_VERSION\_CODE wird
@@ -26,11 +26,11 @@ nach der Regel\\
 berechnet.
 
 \begin{code}
-hartko@pplinux1:~> cat /proc/sys/net/can/version 
+hartko@pplinux1:~> cat /proc/net/can/version 
 010000 [ Volkswagen AG - Low Level CAN Framework (LLCF) v1.0.0-rc1 ]
 \end{code}
 
-\subsection{Statistiken /proc/sys/net/can/stats}
+\subsection{Statistiken /proc/net/can/stats}
 
 Über die angebotenen Statistiken kann man sich über das aktuelle
 Datenaufkommen informieren und wie beispielsweise der Anteil der von
@@ -40,7 +40,7 @@ empfangener CAN-Frames ist.\\
 Die Informationen werden mit dem Start des \LL\ jede Sekunde aktualisiert.
 
 \begin{code}
-hartko@pplinux1:~> cat /proc/sys/net/can/stats 
+hartko@pplinux1:~> cat /proc/net/can/stats 
 
       811 transmitted frames (TXF)
    319427 received frames (RXF)
@@ -62,7 +62,7 @@ hartko@pplinux1:~> cat /proc/sys/net/can/stats
         6 maximum receive list entries (MRCV)
 
 \end{code}
-\subsection{Zurücksetzen von Statistiken /proc/sys/net/can/reset\_stats}
+\subsection{Zurücksetzen von Statistiken /proc/net/can/reset\_stats}
 
 Das Zurücksetzen der statistischen Informationen kann durch interne
 Überläufe von Zählern oder vom Benutzer selbst initiiert werden. Über
@@ -71,9 +71,9 @@ zusätzliche Zeile (STR). An diesem Beispiel sind die Auswirkungen in
 einem laufenden System bezüglich der obigen Ausgabe der Statistiken
 gut zu erkennen.
 \begin{code}
-hartko@pplinux1:~> cat /proc/sys/net/can/reset_stats 
+hartko@pplinux1:~> cat /proc/net/can/reset_stats 
 LLCF statistic reset #1 done.
-hartko@pplinux1:~> cat /proc/sys/net/can/stats 
+hartko@pplinux1:~> cat /proc/net/can/stats 
 
        31 transmitted frames (TXF)
      2585 received frames (RXF)
@@ -155,7 +155,7 @@ Möchte man alle Empfangslisten auf einmal ansehen, kann man zur
 Vereinfachung folgendes eingeben:
 
 \begin{code}
-hartko@pplinux1:~> cat /proc/sys/net/can/rcvlist_*
+hartko@pplinux1:~> cat /proc/net/can/rcvlist_*
 
 receive list 'rx_all':
   device   can_id   can_mask  function  userdata   matches  ident
@@ -194,7 +194,7 @@ receive list 'rx_sff':
 Es geht natürlich auch so:
 
 \begin{code}
-hartko@pplinux1:~> cat /proc/sys/net/can/rcvlist_sff
+hartko@pplinux1:~> cat /proc/net/can/rcvlist_sff
 
 receive list 'rx_sff':
   (can1: no entry)

@@ -204,7 +204,7 @@ static int __init bcm_init(void)
 
 	can_proto_register(CAN_BCM, &bcm_can_proto);
 
-	/* create /proc/can/bcm directory */
+	/* create /proc/net/can/bcm directory */
 	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
 
 	if (proc_dir)

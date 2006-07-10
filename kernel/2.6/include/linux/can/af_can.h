@@ -95,7 +95,7 @@ struct can_filter {
 
 #ifdef __KERNEL__
 
-#define CAN_PROC_DIR "sys/net/can" /* /proc/... */
+#define CAN_PROC_DIR "net/can" /* /proc/... */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 struct can_proto {
