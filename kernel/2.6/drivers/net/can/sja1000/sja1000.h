@@ -53,8 +53,6 @@
 #define SJA1000_IO_SIZE_BASIC   0x20
 #define SJA1000_IO_SIZE_PELICAN 0x80
 
-#define SJA1000_IO_SIZE_ISA     0x20
-
 #define DEFAULT_SPEED	100 /* kBit/s */
 
 #define TX_TIMEOUT	(HZ/20) /* 50ms */
@@ -190,5 +188,7 @@ struct can_priv {
 void sja1000_setup(struct net_device *dev);
 void sja1000_proc_init(const char *drv_name, struct net_device **dev, int max);
 void sja1000_proc_delete(const char *drv_name);
+
+int set_reset_mode(struct net_device *dev);
 
 #endif /* __SJA1000_H__ */

@@ -42,6 +42,7 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/kmod.h>
@@ -72,7 +73,7 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 int stats_timer = 1; /* default: on */
 module_param(stats_timer, int, S_IRUGO);
 
-#ifdef DEBUG
+#ifdef CONFIG_CAN_DEBUG_CORE
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
@@ -305,8 +306,10 @@ static int can_create(struct socket *sock, int protocol)
 	case SOCK_RAW:
 		switch (protocol) {
 		case CAN_RAW:
+#ifndef CONFIG_CAN_RAW_USER
 			if (!capable(CAP_NET_RAW))
 				return -EPERM;
+#endif
 			break;
 		default:
 			return -EPROTONOSUPPORT;
@@ -752,7 +755,7 @@ unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 /* af_can debugging stuff                         */
 /**************************************************/
 
-#ifdef DEBUG
+#ifdef CONFIG_CAN_DEBUG_CORE
 
 void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 {

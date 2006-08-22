@@ -42,6 +42,7 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/net.h>
@@ -57,7 +58,7 @@
 
 RCSID("$Id$");
 
-#ifdef DEBUG
+#ifdef CONFIG_CAN_DEBUG_CORE
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
@@ -75,6 +76,7 @@ module_param(debug, int, S_IRUGO);
 #define RX_RECV    0x40 /* received data for this element */
 #define RX_THR     0x80 /* this element has not been sent due to throttle functionality */
 #define BCM_CAN_DLC_MASK 0x0F /* clean flags by masking with BCM_CAN_DLC_MASK */
+#define BCM_RX_REGMASK (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG)
 
 #define NAME "Broadcast Manager (BCM) for LLCF"
 #define IDENT "bcm"
@@ -265,7 +267,7 @@ static int bcm_release(struct socket *sock)
 			if (sk->sk_bound_dev_if) {
 				struct net_device *dev = dev_get_by_index(sk->sk_bound_dev_if);
 				if (dev) {
-					can_rx_unregister(dev, op->can_id, 0xFFFFFFFFU, bcm_rx_handler, op);
+					can_rx_unregister(dev, op->can_id, BCM_RX_REGMASK, bcm_rx_handler, op);
 					dev_put(dev);
 				}
 			} else
@@ -881,7 +883,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			DBG("RX_SETUP: can_rx_register() for can_id <%03X>. rx_op is (%p)\n", op->can_id, op);
 
 			if (dev) {
-				can_rx_register(dev, op->can_id, 0xFFFFFFFFU, bcm_rx_handler, op, IDENT);
+				can_rx_register(dev, op->can_id, BCM_RX_REGMASK, bcm_rx_handler, op, IDENT);
 				dev_put(dev);
 			}
 		}
@@ -1345,7 +1347,7 @@ static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id)
 			if (p->sk->sk_bound_dev_if) {
 				struct net_device *dev = dev_get_by_index(p->sk->sk_bound_dev_if);
 				if (dev) {
-					can_rx_unregister(dev, p->can_id, 0xFFFFFFFFU, bcm_rx_handler, p);
+					can_rx_unregister(dev, p->can_id, BCM_RX_REGMASK, bcm_rx_handler, p);
 					dev_put(dev);
 				}
 			} else

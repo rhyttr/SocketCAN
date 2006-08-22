@@ -99,6 +99,21 @@ static int restart_ms = 100;
 /* array of all can chips */
 static struct net_device	*can_dev[MAX_CAN];
 
+static int base_addr_n;
+static int irq_n;
+static int speed_n;
+static int btr_n;
+static int rx_probe_n;
+
+module_param_array(base_addr, int, &base_addr_n, 0);
+module_param_array(irq, int, &irq_n, 0);
+module_param_array(speed, int, &speed_n, 0);
+module_param_array(btr, int, &btr_n, 0);
+module_param_array(rx_probe, int, &rx_probe_n, 0);
+
+module_param(clk, int, 0);
+module_param(debug, int, 0);
+module_param(restart_ms, int, 0);
 
 /* special functions to access the chips registers */
 static uint8_t reg_read(struct net_device *dev, int reg)
@@ -110,15 +125,6 @@ static void reg_write(struct net_device *dev, int reg, uint8_t val)
 {
 	outb(val, dev->base_addr + reg);
 }
-
-MODULE_PARM(base_addr, "1-" __MODULE_STRING(MAX_CAN)"i");
-MODULE_PARM(irq,       "1-" __MODULE_STRING(MAX_CAN)"i");
-MODULE_PARM(speed,     "1-" __MODULE_STRING(MAX_CAN)"i");
-MODULE_PARM(btr,       "1-" __MODULE_STRING(MAX_CAN)"i");
-MODULE_PARM(rx_probe,  "1-" __MODULE_STRING(MAX_CAN)"i");
-MODULE_PARM(clk, "i");
-MODULE_PARM(debug, "i");
-MODULE_PARM(restart_ms, "i");
 
 static struct net_device* sja1000_isa_probe(uint32_t base, int irq, int speed,
 					    int btr, int rx_probe, int clk,
@@ -187,7 +193,7 @@ static __exit void sja1000_isa_cleanup_module(void)
 			struct can_priv *priv = netdev_priv(can_dev[i]);
 			unregister_netdev(can_dev[i]);
 			del_timer(&priv->timer);
-			release_region(base_addr[i], SJA1000_IO_SIZE_ISA);
+			release_region(base_addr[i], SJA1000_IO_SIZE_BASIC);
 			free_netdev(can_dev[i]);
 		}
 	}
@@ -213,7 +219,7 @@ static __init int sja1000_isa_init_module(void)
 	for (i = 0; base_addr[i]; i++) {
 		printk(KERN_DEBUG "%s: checking for %s on address 0x%X ...\n",
 		       chip_name, chip_name, base_addr[i]);
-		if (!request_region(base_addr[i], SJA1000_IO_SIZE_ISA, chip_name)) {
+		if (!request_region(base_addr[i], SJA1000_IO_SIZE_BASIC, chip_name)) {
 			printk(KERN_ERR "%s: memory already in use\n", chip_name);
 			sja1000_isa_cleanup_module();
 			return -EBUSY;
@@ -225,7 +231,7 @@ static __init int sja1000_isa_init_module(void)
 			sja1000_proc_init(drv_name, can_dev, MAX_CAN);
 		} else {
 			can_dev[i] = NULL;
-			release_region(base_addr[i], SJA1000_IO_SIZE_ISA);
+			release_region(base_addr[i], SJA1000_IO_SIZE_BASIC);
 		}
 	}
 	return 0;

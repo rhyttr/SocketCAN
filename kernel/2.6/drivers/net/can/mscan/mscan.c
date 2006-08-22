@@ -366,11 +366,11 @@ static int mscan_rx_poll(struct net_device *ndev, int *budget)
 
 			dev_dbg(ND2D(ndev), "received pkt: id: %u dlc: %u data: ",
 				frame->can_id,frame->can_dlc);
-		#ifdef DEBUG
+#ifdef DEBUG
 			for(i=0; i<frame->can_dlc && !(frame->can_id & CAN_FLAG_RTR ); i++)
-				printk( "%2x ",frame->payload.data[i]);
+				printk( "%2x ",frame->data[i]);
 			printk("\n");
-		#endif
+#endif
 
 			out_8(&regs->canrflg, MSCAN_RXF);
 			ndev->last_rx = jiffies;

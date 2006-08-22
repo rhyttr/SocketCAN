@@ -42,6 +42,7 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
@@ -67,7 +68,7 @@ MODULE_DESCRIPTION(NAME);
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
-#ifdef DEBUG
+#ifdef CONFIG_CAN_DEBUG_CORE
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \

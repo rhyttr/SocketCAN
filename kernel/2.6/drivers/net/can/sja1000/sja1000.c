@@ -47,8 +47,8 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
-
 #include <linux/ioport.h>
 #include <linux/slab.h>
 #include <linux/netdevice.h>
@@ -59,9 +59,7 @@
 #include <linux/can/can_ioctl.h>
 #include "sja1000.h"
 
-#define DEBUG
-
-#ifdef DEBUG
+#ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((priv->debug > 0) ? printk(args) : 0)
 #define iDBG(args...)  ((priv->debug > 1) ? printk(args) : 0)  /* logging in interrupt context */
 #define iiDBG(args...) ((priv->debug > 2) ? printk(args) : 0)  /* logging in interrupt context */
@@ -71,9 +69,7 @@
 #define iiDBG(args...)
 #endif
 
-
-static const char *chip_name	= SJA1000_CHIP_NAME;
-
+#ifdef CONFIG_CAN_DEBUG_DEVICES
 static const char *ecc_errors[] = {
 	NULL,
 	NULL,
@@ -115,6 +111,7 @@ static const char *ecc_types[] = {
 	"stuff error",
 	"other type of error"
 };
+#endif
 
 /* declarations */
 
@@ -237,17 +234,19 @@ int set_reset_mode(struct net_device *dev)
 
 static int set_normal_mode(struct net_device *dev)
 {
-	struct can_priv *priv = netdev_priv(dev);
 	unsigned char status = REG_READ(REG_MOD);
 	int i;
 
 	for (i = 0; i < 10; i++) {
 		/* check reset bit */
 		if ((status & MOD_RM) == 0) {
+#ifdef CONFIG_CAN_DEBUG_DEVICES
 			if (i > 1) {
+				struct can_priv *priv = netdev_priv(dev);
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
 				     dev->name, __FUNCTION__, i);
 			}
+#endif
 			return 0;
 		}
 
@@ -262,17 +261,19 @@ static int set_normal_mode(struct net_device *dev)
 
 static int set_listen_mode(struct net_device *dev)
 {
-	struct can_priv *priv = netdev_priv(dev);
 	unsigned char status = REG_READ(REG_MOD);
 	int i;
 
 	for (i = 0; i < 10; i++) {
 		/* check reset mode bit */
 		if ((status & MOD_RM) == 0) {
+#ifdef CONFIG_CAN_DEBUG_DEVICES
 			if (i > 1) {
+				struct can_priv *priv = netdev_priv(dev);
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
 				     dev->name, __FUNCTION__, i);
 			}
+#endif
 			return 0;
 		}
 

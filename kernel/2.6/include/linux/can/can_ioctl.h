@@ -68,6 +68,9 @@
 #define SIOCGCANSTATE		(SIOCDEVPRIVATE+10)
 #define SIOCGCANSTATS		(SIOCDEVPRIVATE+11)
 
+#define SIOCSCANERRORCONFIG	(SIOCDEVPRIVATE+12)
+#define SIOCGCANERRORCONFIG	(SIOCDEVPRIVATE+13)
+
 /* parameters for ioctls */
 
 /* SIOC[SG]CANBAUDRATE */
@@ -108,7 +111,8 @@ struct can_bittime {
 		struct can_bittime_btr btr;
 	};
 };
-#define CAN_BAUDRATE_UNCONFIGURED	((__u32)-1)
+
+#define CAN_BAUDRATE_UNCONFIGURED	((__u32) 0xFFFFFFFFU)
 #define CAN_BAUDRATE_UNKNOWN		0
 
 /* SIOC[SG]CANMODE */
@@ -166,5 +170,15 @@ struct can_device_stats {
 	int restarts;
 	int bus_error_at_init;
 };
+
+/* SIOC[SG]CANERRORCONFIG */
+
+typedef enum CAN_ERRCFG_TYPE {
+	CAN_ERRCFG_MASK,
+	CAN_ERRCFG_BUSERR,
+	CAN_ERRCFG_BUSOFF
+} can_errcfg_type_t;
+
+/* tbd */
 
 #endif /* CAN_IOCTL_H */

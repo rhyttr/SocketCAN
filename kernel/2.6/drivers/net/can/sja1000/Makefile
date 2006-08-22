@@ -58,8 +58,9 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../../include
 endif
 
-obj-m := sja1000-isa.o sja1000-gw2.o
+obj-m := sja1000-isa.o sja1000-gw2.o sja1000-mem.o
 
+sja1000-mem-objs := mem.o        sja1000.o proc.o
 sja1000-isa-objs := isa.o        sja1000.o proc.o
 sja1000-gw2-objs := trajet-gw2.o sja1000.o proc.o
 

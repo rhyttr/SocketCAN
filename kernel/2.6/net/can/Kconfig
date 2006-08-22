@@ -29,6 +29,14 @@ config CAN_RAW
 	  socket has several filter options e.g. ID-Masking / Errorframes.
 	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 
+config CAN_RAW_USER
+	bool "Allow non-root users to access Raw CAN Protocol sockets"
+	depends on CAN_RAW
+	default N
+	---help---
+	  Say Y here if you want non-root users to be able to access CAN_RAW-
+	  sockets.
+
 config CAN_BCM
 	tristate "Broadcast Manager (BCM)"
 	depends on CAN
@@ -45,7 +53,7 @@ config CAN_BCM
 config CAN_DEBUG_CORE
        bool "CAN Core debugging messages"
        depends on CAN
-       help
+       ---help---
          Say Y here if you want the CAN core to produce a bunch of debug
          messages to the system log.  Select this if you are having a
          problem with CAN support and want to see more of what is going on.
