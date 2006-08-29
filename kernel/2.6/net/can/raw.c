@@ -126,6 +126,8 @@ struct raw_opt {
 	int bound;
 	int ifindex;
 	int count;
+	int loopback;
+	int recv_own_msgs;
 	struct can_filter *filter;
 	can_err_mask_t err_mask;
 };
@@ -389,6 +391,26 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		break;
 
+	case CAN_RAW_LOOPBACK:
+		if (optlen) {
+			if (optlen != sizeof(canraw_sk(sk)->loopback))
+				return -EINVAL;
+			if ((err = copy_from_user(&canraw_sk(sk)->loopback, optval, optlen))) {
+				return err;
+			}
+		}
+		break;
+
+	case CAN_RAW_RECV_OWN_MSGS:
+		if (optlen) {
+			if (optlen != sizeof(canraw_sk(sk)->recv_own_msgs))
+				return -EINVAL;
+			if ((err = copy_from_user(&canraw_sk(sk)->recv_own_msgs, optval, optlen))) {
+				return err;
+			}
+		}
+		break;
+
 	default:
 		return -ENOPROTOOPT;
 	}
@@ -420,8 +442,10 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 				return -EFAULT;
 		} else
 			len = 0;
+
 		if (put_user(len, optlen))
 			return -EFAULT;
+
 		break;
 
 	case CAN_RAW_ERR_FILTER:
@@ -439,6 +463,43 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 
 		if (put_user(len, optlen))
 			return -EFAULT;
+
+		break;
+
+	case CAN_RAW_LOOPBACK:
+		if (get_user(len, optlen))
+			return -EFAULT;
+
+		if (len < sizeof(int))
+			return -EINVAL;
+
+		if (len > sizeof(int))
+			len = sizeof(int);
+
+		if (copy_to_user(optval, &canraw_sk(sk)->loopback, len))
+			return -EFAULT;
+
+		if (put_user(len, optlen))
+			return -EFAULT;
+
+		break;
+
+	case CAN_RAW_RECV_OWN_MSGS:
+		if (get_user(len, optlen))
+			return -EFAULT;
+
+		if (len < sizeof(int))
+			return -EINVAL;
+
+		if (len > sizeof(int))
+			len = sizeof(int);
+
+		if (copy_to_user(optval, &canraw_sk(sk)->recv_own_msgs, len))
+			return -EFAULT;
+
+		if (put_user(len, optlen))
+			return -EFAULT;
+
 		break;
 
 	default:
@@ -506,11 +567,12 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return err;
 	}
 	skb->dev = dev;
+	skb->sk  = sk;
 
 	DBG("sending skbuff to interface %d\n", ifindex);
 	DBG_SKB(skb);
 
-	err = can_send(skb);
+	err = can_send(skb, canraw_sk(sk)->loopback);
 
 	dev_put(dev);
 
@@ -569,6 +631,14 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 
 	DBG("received skbuff %p, sk %p\n", skb, sk);
 	DBG_SKB(skb);
+
+	if (!canraw_sk(sk)->recv_own_msgs) {
+		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
+			DBG("trashed own tx msg\n");
+			kfree_skb(skb);
+			return;
+		}
+	}
 
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));

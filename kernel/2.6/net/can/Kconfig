@@ -35,7 +35,7 @@ config CAN_RAW_USER
 	default N
 	---help---
 	  Say Y here if you want non-root users to be able to access CAN_RAW-
-	  sockets.
+	  sockets. This may lead to a security hole.
 
 config CAN_BCM
 	tristate "Broadcast Manager (BCM)"
@@ -49,6 +49,14 @@ config CAN_BCM
 	  You probably want to use the bcm socket in most cases where cyclic
 	  CAN messages are used on the bus (e.g. in automotive environments).
 	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
+
+config CAN_BCM_USER
+	bool "Allow non-root users to access CAN broadcast manager sockets"
+	depends on CAN_BCM
+	default N
+	---help---
+	  Say Y here if you want non-root users to be able to access CAN_BCM-
+	  sockets. This may lead to a security hole.
 
 config CAN_DEBUG_CORE
        bool "CAN Core debugging messages"

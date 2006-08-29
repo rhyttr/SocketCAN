@@ -121,7 +121,7 @@ void can_dev_register(struct net_device *dev,
 		      void (*func)(unsigned long msg, void *), void *data);
 void can_dev_unregister(struct net_device *dev,
 			void (*func)(unsigned long msg, void *), void *data);
-int  can_send(struct sk_buff *skb);
+int  can_send(struct sk_buff *skb, int loop);
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 

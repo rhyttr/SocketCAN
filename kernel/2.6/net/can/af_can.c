@@ -296,6 +296,10 @@ static int can_create(struct socket *sock, int protocol)
 	case SOCK_DGRAM:
 		switch (protocol) {
 		case CAN_BCM:
+#ifndef CONFIG_CAN_BCM_USER
+			if (!capable(CAP_NET_RAW))
+				return -EPERM;
+#endif
 			break;
 		case CAN_BAP:
 			break;
@@ -399,10 +403,17 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 /* af_can tx path                                 */
 /**************************************************/
 
-int can_send(struct sk_buff *skb)
+int can_send(struct sk_buff *skb, int loop)
 {
-	struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 	int err;
+
+	if (loop) { /* local loopback (default) */
+		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+		newskb->protocol  = htons(ETH_P_CAN);
+		newskb->ip_summed = CHECKSUM_UNNECESSARY;
+		*(struct sock **)newskb->cb = skb->sk; /* tx sock reference */
+		netif_rx(newskb); /* => local loopback */
+	}
 
 	if (!(skb->dev->flags & IFF_UP))
 		err = -ENETDOWN;
@@ -412,10 +423,6 @@ int can_send(struct sk_buff *skb)
 	/* update statistics */
 	stats.tx_frames++;
 	stats.tx_frames_delta++;
-
-	newskb->protocol  = htons(ETH_P_CAN);
-	newskb->ip_summed = CHECKSUM_UNNECESSARY;
-	netif_rx(newskb);                          /* local loopback */
 
 	return err;
 }

@@ -672,7 +672,8 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb);
+			skb->sk  = sk;
+			can_send(skb, 1); /* send with loopback */
 			dev_put(dev);
 		}
 
@@ -1273,7 +1274,8 @@ static void bcm_can_tx(struct bcm_op *op)
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb);
+			skb->sk = op->sk;
+			can_send(skb, 1); /* send with loopback */
 			dev_put(dev);
 		}
 	}
