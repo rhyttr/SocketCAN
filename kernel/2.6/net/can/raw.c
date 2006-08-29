@@ -80,6 +80,7 @@ module_param(debug, int, S_IRUGO);
 #define DBG_SKB(skb)
 #endif
 
+static int raw_init(struct sock *sk);
 static int raw_release(struct socket *sock);
 static int raw_bind   (struct socket *sock, struct sockaddr *uaddr, int len);
 static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
@@ -145,6 +146,7 @@ static struct proto raw_proto = {
 	.name     = "CAN_RAW",
 	.owner    = THIS_MODULE,
 	.obj_size = sizeof(struct raw_sock),
+	.init     = raw_init,
 };
 
 static struct can_proto raw_can_proto = {
@@ -160,13 +162,14 @@ static struct can_proto raw_can_proto = {
 	.ops      = &raw_ops,
 	.owner    = THIS_MODULE,
 	.obj_size = sizeof(struct raw_opt),
+	.init     = raw_init,
 };
 
 #endif
 
 #define MASK_ALL 0
 
-static __init int raw_init(void)
+static __init int raw_module_init(void)
 {
 	printk(banner);
 
@@ -174,9 +177,17 @@ static __init int raw_init(void)
 	return 0;
 }
 
-static __exit void raw_exit(void)
+static __exit void raw_module_exit(void)
 {
 	can_proto_unregister(CAN_RAW);
+}
+
+static int raw_init(struct sock *sk)
+{
+	canraw_sk(sk)->loopback      = 1;
+	canraw_sk(sk)->recv_own_msgs = 0;
+
+	return 0;
 }
 
 static int raw_release(struct socket *sock)
@@ -670,5 +681,5 @@ static void raw_notifier(unsigned long msg, void *data)
 }
 
 
-module_init(raw_init);
-module_exit(raw_exit);
+module_init(raw_module_init);
+module_exit(raw_module_exit);

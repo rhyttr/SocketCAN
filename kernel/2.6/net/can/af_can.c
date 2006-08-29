@@ -273,6 +273,7 @@ static int can_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
 	struct can_proto *cp;
+	int ret;
 
 	DBG("socket %p, type %d, proto %d\n", sock, sock->type, protocol);
 
@@ -360,6 +361,21 @@ static int can_create(struct socket *sock, int protocol)
 	sk->sk_destruct = can_sock_destruct;
 
 	DBG("created sock: %p\n", sk);
+
+	ret = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+	if (sk->sk_prot->init)
+		ret = sk->sk_prot->init(sk);
+#else
+	if (cp->init)
+		ret = cp->init(sk);
+#endif
+	if (ret) {
+		/* we must release sk */
+		sock_orphan(sk);
+		sock_put(sk);
+		return ret;
+	}
 
 	return 0;
 

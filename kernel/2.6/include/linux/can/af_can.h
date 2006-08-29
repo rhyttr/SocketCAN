@@ -106,6 +106,7 @@ struct can_proto {
 struct can_proto {
 	struct proto_ops *ops;
 	struct module    *owner;
+	int              (*init)(struct sock *sk);
 	size_t           obj_size;
 };
 #endif
