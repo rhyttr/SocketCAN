@@ -52,7 +52,14 @@ RCSID("$Id$");
 
 #include <linux/types.h>
 
-#define ETH_P_CAN    0x000c
+/* controller area network (CAN) kernel definitions */
+
+/* ethernet protocol identifier */
+#define ETH_P_CAN	0x000C	/* to be moved to include/linux/if_ether.h */
+
+/* ARP protocol identifier (dummy type for non ARP hardware) */
+#define ARPHRD_CAN	804	/* to be moved to include/linux/if_arp.h */
+
 
 /* special address description flags for the CAN_ID */
 #define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
@@ -66,9 +73,9 @@ RCSID("$Id$");
 typedef __u32 canid_t;
 
 struct can_frame {
-    canid_t can_id;      /* 32 bit CAN_ID + EFF/RTR flags */
-    __u8    can_dlc;     /* data length code: 0 .. 8 */
-    __u8    data[8] __attribute__ ((aligned(8)));
+	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+	__u8    can_dlc; /* data length code: 0 .. 8 */
+	__u8    data[8] __attribute__ ((aligned(8)));
 };
 
 #endif /* CAN_H */
