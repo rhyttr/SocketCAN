@@ -1335,34 +1335,34 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 
 static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id)
 {
-	struct bcm_op *p;
+	struct bcm_op *op;
 
-	list_for_each_entry(p, ops, list)
-		if (p->can_id == can_id)
-			return p;
+	list_for_each_entry(op, ops, list)
+		if (op->can_id == can_id)
+			return op;
 
 	return NULL;
 }
 
 static void bcm_delete_rx_op(struct list_head *ops, canid_t can_id)
 {
-	struct bcm_op *p, *n;
+	struct bcm_op *op, *n;
 
-	list_for_each_entry_safe(p, n, ops, list) {
-		if (p->can_id == can_id) {
-			DBG("removing rx_op (%p) for can_id <%03X>\n", p, p->can_id);
+	list_for_each_entry_safe(op, n, ops, list) {
+		if (op->can_id == can_id) {
+			DBG("removing rx_op (%p) for can_id <%03X>\n", op, op->can_id);
 
-			if (p->sk->sk_bound_dev_if) {
-				struct net_device *dev = dev_get_by_index(p->sk->sk_bound_dev_if);
+			if (op->sk->sk_bound_dev_if) {
+				struct net_device *dev = dev_get_by_index(op->sk->sk_bound_dev_if);
 				if (dev) {
-					can_rx_unregister(dev, p->can_id, BCM_RX_REGMASK, bcm_rx_handler, p);
+					can_rx_unregister(dev, op->can_id, BCM_RX_REGMASK, bcm_rx_handler, op);
 					dev_put(dev);
 				}
 			} else
-				DBG("sock %p not bound for can_rx_unregister()\n", p->sk);
+				DBG("sock %p not bound for can_rx_unregister()\n", op->sk);
 
-			list_del(&p->list);
-			bcm_remove_op(p);
+			list_del(&op->list);
+			bcm_remove_op(op);
 			return;
 		}
 	}
@@ -1370,14 +1370,14 @@ static void bcm_delete_rx_op(struct list_head *ops, canid_t can_id)
 
 static void bcm_delete_tx_op(struct list_head *ops, canid_t can_id)
 {
-	struct bcm_op *p, *n;
+	struct bcm_op *op, *n;
 
-	list_for_each_entry_safe(p, n, ops, list) {
-		if (p->can_id == can_id) {
+	list_for_each_entry_safe(op, n, ops, list) {
+		if (op->can_id == can_id) {
 			DBG("removing rx_op (%p) for can_id <%03X>\n",
-			    p, p->can_id);
-			list_del(&p->list);
-			bcm_remove_op(p);
+			    op, op->can_id);
+			list_del(&op->list);
+			bcm_remove_op(op);
 			return;
 		}
 	}
