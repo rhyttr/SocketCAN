@@ -51,6 +51,7 @@
 #include <linux/netdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/if.h>
+#include <linux/list.h>
 #else
 #include <net/if.h>
 #endif
@@ -132,24 +133,25 @@ void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 /* af_can rx dispatcher structures */
 
 struct rcv_list {
-	struct rcv_list *next;
+	struct hlist_node list;
 	canid_t can_id;
 	canid_t mask;
 	unsigned long matches;
 	void (*func)(struct sk_buff *, void *);
 	void *data;
+	struct rcu_head rcu;
 	char *ident;
 };
 
 struct rcv_dev_list {
-	struct rcv_dev_list *next;
+	struct hlist_node list;
 	struct net_device *dev;
-	struct rcv_list *rx_err;
-	struct rcv_list *rx_all;
-	struct rcv_list *rx_fil;
-	struct rcv_list *rx_inv;
-	struct rcv_list *rx_sff[0x800];
-	struct rcv_list *rx_eff;
+	struct hlist_head rx_err;
+	struct hlist_head rx_all;
+	struct hlist_head rx_fil;
+	struct hlist_head rx_inv;
+	struct hlist_head rx_sff[0x800];
+	struct hlist_head rx_eff;
 	int entries;
 };
 

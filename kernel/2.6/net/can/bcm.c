@@ -90,7 +90,7 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 #define GET_U64(p) (*(unsigned long long*)(p)->data)
 
 struct bcm_op {
-	struct bcm_op *next;
+	struct list_head list;
 	canid_t can_id;
 	int flags;
 	unsigned long j_ival1, j_ival2, j_lastmsg;
@@ -106,8 +106,8 @@ struct bcm_op {
 };
 
 struct bcm_user_data {
-	struct bcm_op *rx_ops;
-	struct bcm_op *tx_ops;
+	struct list_head rx_ops;
+	struct list_head tx_ops;
 	struct proc_dir_entry *bcm_proc_read;
 	char procname [9];
 };
@@ -131,10 +131,9 @@ static void bcm_tx_timeout_handler(unsigned long data);
 static void bcm_rx_handler(struct sk_buff *skb, void *op);
 static void bcm_rx_timeout_handler(unsigned long data);
 static void bcm_rx_thr_handler(unsigned long data);
-static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id);
-static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op);
-static void bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id);
-static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id);
+static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id);
+static void bcm_delete_tx_op(struct list_head *ops, canid_t can_id);
+static void bcm_delete_rx_op(struct list_head *ops, canid_t can_id);
 static void bcm_remove_op(struct bcm_op *op);
 static void bcm_can_tx(struct bcm_op *op);
 static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
@@ -243,7 +242,7 @@ static int bcm_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct bcm_user_data *ud = bcm_sk(sk);
-	struct bcm_op *op,*next;
+	struct bcm_op *op, *n;
 
 	/* many things to do here:
 	   free all rx_ops and tx_ops, bcm_user_data structure,
@@ -254,15 +253,13 @@ static int bcm_release(struct socket *sock)
 	/* remove userdata, bcm_ops, timer, etc. */
 
 	if (ud) {
-		for (op = ud->tx_ops; op ; op = next) {
+		list_for_each_entry_safe(op, n, &ud->tx_ops, list) {
 			DBG("removing tx_op (%p) for can_id <%03X>\n", op, op->can_id);
-			next = op->next;
 			bcm_remove_op(op);
 		}
 
-		for (op = ud->rx_ops; op ; op = next) {
+		list_for_each_entry_safe(op, n, &ud->rx_ops, list) {
 			DBG("removing rx_op (%p) for can_id <%03X>\n", op, op->can_id);
-			next = op->next;
 
 			if (sk->sk_bound_dev_if) {
 				struct net_device *dev = dev_get_by_index(sk->sk_bound_dev_if);
@@ -325,8 +322,8 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 		return -ENOMEM;
 
 	/* intitial BCM operations */
-	ud->tx_ops = NULL;
-	ud->rx_ops = NULL;
+	INIT_LIST_HEAD(&ud->tx_ops);
+	INIT_LIST_HEAD(&ud->rx_ops);
 	ud->bcm_proc_read = NULL;
 
 	sk->sk_protinfo = ud;
@@ -349,19 +346,23 @@ int bcm_read_proc(char *page, char **start, off_t off, int count, int *eof, void
 
 	len += snprintf(page + len, PAGE_SIZE - len,">>> ud %p", ud);
 
-	if (ud->rx_ops) {
-		if (ud->rx_ops->sk->sk_bound_dev_if)
-			dev = dev_get_by_index(ud->rx_ops->sk->sk_bound_dev_if);
+	if (!list_empty(&ud->rx_ops)) {
+		struct sock *sk;
+		op = list_entry(ud->rx_ops.next, struct bcm_op, list);
+		sk = op->sk;
+		if (sk->sk_bound_dev_if)
+			dev = dev_get_by_index(sk->sk_bound_dev_if);
 		len += snprintf(page + len, PAGE_SIZE - len,
-				" / sk %p / socket %p", ud->rx_ops->sk, ud->rx_ops->sk->sk_socket);
+				" / sk %p / socket %p", sk, sk->sk_socket);
+	} else if (!list_empty(&ud->tx_ops)) {
+		struct sock *sk;
+		op = list_entry(ud->tx_ops.next, struct bcm_op, list);
+		sk = op->sk;
+		if (sk->sk_bound_dev_if)
+			dev = dev_get_by_index(sk->sk_bound_dev_if);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" / sk %p / socket %p", sk, sk->sk_socket);
 	}
-	else
-		if (ud->tx_ops) {
-			if (ud->tx_ops->sk->sk_bound_dev_if)
-				dev = dev_get_by_index(ud->tx_ops->sk->sk_bound_dev_if);
-			len += snprintf(page + len, PAGE_SIZE - len,
-					" / sk %p / socket %p", ud->tx_ops->sk, ud->tx_ops->sk->sk_socket);
-		}
 
 	if (dev) {
 		len += snprintf(page + len, PAGE_SIZE - len, " / %s", dev->name);
@@ -370,7 +371,7 @@ int bcm_read_proc(char *page, char **start, off_t off, int count, int *eof, void
 
 	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
 
-	for (op = ud->rx_ops; op && (len < PAGE_SIZE - 100); op = op->next) {
+	list_for_each_entry(op, &ud->rx_ops, list) {
 
 		unsigned long reduction;
 
@@ -394,11 +395,14 @@ int bcm_read_proc(char *page, char **start, off_t off, int count, int *eof, void
 		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
 				(reduction == 100)?"near ":"", reduction);
 
-		if (len > PAGE_SIZE - 100) /* 100 Bytes before end of buffer */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n"); /* mark output cutted off */
+		if (len >= PAGE_SIZE - 100) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		} 
 	}
 
-	for (op = ud->tx_ops; op && (len < PAGE_SIZE - 100); op = op->next) {
+	list_for_each_entry(op, &ud->tx_ops, list) {
 
 		len += snprintf(page + len, PAGE_SIZE - len, "tx_op: %03X [%d] ",
 				op->can_id, op->nframes);
@@ -410,8 +414,11 @@ int bcm_read_proc(char *page, char **start, off_t off, int count, int *eof, void
 
 		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n", op->frames_abs);
 
-		if (len > PAGE_SIZE - 100) /* 100 Bytes before end of buffer */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n"); /* mark output cutted off */
+		if (len >= PAGE_SIZE - 100) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		}
 	}
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -465,7 +472,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		/* check the given can_id */
 
-		if (!(op = bcm_find_op(ud->tx_ops, msg_head.can_id))) {
+		if (!(op = bcm_find_op(&ud->tx_ops, msg_head.can_id))) {
 
 			/* insert new BCM operation for the given can_id */
 
@@ -502,7 +509,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			op->timer.data = (unsigned long)op; /* timer.data points to this op-structure */
 
 			/* add this bcm_op to the list of the tx_ops */
-			bcm_insert_op(&ud->tx_ops, op);
+			list_add(&op->list, &ud->tx_ops);
 
 		} else {
 			/* update existing BCM operation */
@@ -607,7 +614,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		/* reuse msg_head for the reply */
 		msg_head.opcode  = TX_STATUS; /* reply to TX_READ */
-		op = bcm_find_op(ud->tx_ops, msg_head.can_id);
+		op = bcm_find_op(&ud->tx_ops, msg_head.can_id);
 		c  = 'T'; /* for nice debug output ... */
 
 		goto TRX_READ;
@@ -616,7 +623,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		/* reuse msg_head for the reply */
 		msg_head.opcode  = RX_STATUS; /* reply to RX_READ */
-		op = bcm_find_op(ud->rx_ops, msg_head.can_id);
+		op = bcm_find_op(&ud->rx_ops, msg_head.can_id);
 		c  = 'R'; /* for nice debug output ... */
 
 	TRX_READ:
@@ -705,7 +712,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		/* check the given can_id */
 
-		if (!(op = bcm_find_op(ud->rx_ops, msg_head.can_id))) {
+		if (!(op = bcm_find_op(&ud->rx_ops, msg_head.can_id))) {
 
 			/* insert new BCM operation for the given can_id */
 
@@ -769,7 +776,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			op->thrtimer.expires = 0; /* mark disabled timer */
 
 			/* add this bcm_op to the list of the tx_ops */
-			bcm_insert_op(&ud->rx_ops, op);
+			list_add(&op->list, &ud->rx_ops);
 
 			c=1; /* call can_rx_register() at end of RX_SETUP */
 
@@ -812,7 +819,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			op->nframes = msg_head.nframes;
 			c=0; /* do not call can_rx_register() at end of RX_SETUP */
 
-		} /* if (!bcm_find_op(ud->tx_ops, msg_head.can_id)) */
+		} /* if (!bcm_find_op(&ud->tx_ops, msg_head.can_id)) */
 
 
 		/* check flags */
@@ -1326,24 +1333,23 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 	}
 }
 
-static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id)
+static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id)
 {
 	struct bcm_op *p;
 
-	for (p = ops; p; p = p->next)
+	list_for_each_entry(p, ops, list)
 		if (p->can_id == can_id)
 			return p;
 
 	return NULL;
 }
 
-static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id)
+static void bcm_delete_rx_op(struct list_head *ops, canid_t can_id)
 {
-	struct bcm_op *p, **q;
+	struct bcm_op *p, *n;
 
-	for (q = ops; (p = *q); q = &p->next)
+	list_for_each_entry_safe(p, n, ops, list) {
 		if (p->can_id == can_id) {
-			*q = p->next;
 			DBG("removing rx_op (%p) for can_id <%03X>\n", p, p->can_id);
 
 			if (p->sk->sk_bound_dev_if) {
@@ -1355,23 +1361,26 @@ static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id)
 			} else
 				DBG("sock %p not bound for can_rx_unregister()\n", p->sk);
 
+			list_del(&p->list);
 			bcm_remove_op(p);
 			return;
 		}
+	}
 }
 
-static void bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id)
+static void bcm_delete_tx_op(struct list_head *ops, canid_t can_id)
 {
-	struct bcm_op *p, **q;
+	struct bcm_op *p, *n;
 
-	for (q = ops; (p = *q); q = &p->next)
+	list_for_each_entry_safe(p, n, ops, list) {
 		if (p->can_id == can_id) {
-			*q = p->next;
 			DBG("removing rx_op (%p) for can_id <%03X>\n",
 			    p, p->can_id);
+			list_del(&p->list);
 			bcm_remove_op(p);
 			return;
 		}
+	}
 }
 
 static void bcm_remove_op(struct bcm_op *op)
@@ -1385,12 +1394,6 @@ static void bcm_remove_op(struct bcm_op *op)
 	kfree(op);
 
 	return;
-}
-
-static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op)
-{
-	op->next = *ops;
-	*ops = op;
 }
 
 module_init(bcm_init);
