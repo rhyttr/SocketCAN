@@ -129,15 +129,14 @@ RCSID("$Id$");
 
 struct can_device_stats {
 
-    int error_warning;
-    int data_overrun;
-    int wakeup;
-    int bus_error;
-    int error_passive;
-    int arbitration_lost;
-    int restarts;
-    int bus_error_at_init;
-
+	int error_warning;
+	int data_overrun;
+	int wakeup;
+	int bus_error;
+	int error_passive;
+	int arbitration_lost;
+	int restarts;
+	int bus_error_at_init;
 };
 
 #endif /* CAN_IOCTL_H */

@@ -86,44 +86,44 @@ static int debug = 0;
 static int vcan_init(struct net_device *dev);
 
 static struct net_device vcan_devs[NDEVICES] = {
-    { .init = vcan_init, .name = "vcan%d" },
-    { .init = vcan_init, .name = "vcan%d" },
-    { .init = vcan_init, .name = "vcan%d" },
-    { .init = vcan_init, .name = "vcan%d" },
+	{ .init = vcan_init, .name = "vcan%d" },
+	{ .init = vcan_init, .name = "vcan%d" },
+	{ .init = vcan_init, .name = "vcan%d" },
+	{ .init = vcan_init, .name = "vcan%d" },
 };
 
 static int vcan_open(struct net_device *dev)
 {
-    DBG("%s: interface up\n", dev->name);
+	DBG("%s: interface up\n", dev->name);
 
-    netif_start_queue(dev);
-    return 0;
+	netif_start_queue(dev);
+	return 0;
 }
 
 static int vcan_stop(struct net_device *dev)
 {
-    DBG("%s: interface down\n", dev->name);
+	DBG("%s: interface down\n", dev->name);
 
-    netif_stop_queue(dev);
-    return 0;
+	netif_stop_queue(dev);
+	return 0;
 }
 
 #ifdef DO_LOOPBACK
 
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
-    struct net_device_stats *stats = netdev_priv(dev);
-    stats->rx_packets++;
-    stats->rx_bytes += skb->len;
+	struct net_device_stats *stats = netdev_priv(dev);
+	stats->rx_packets++;
+	stats->rx_bytes += skb->len;
 
-    skb->protocol  = htons(ETH_P_CAN);
-    skb->dev       = dev;
-    skb->ip_summed = CHECKSUM_UNNECESSARY;
+	skb->protocol  = htons(ETH_P_CAN);
+	skb->dev       = dev;
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-    DBG("received skbuff on interface %d\n", dev->ifindex);
-    DBG_SKB(skb);
+	DBG("received skbuff on interface %d\n", dev->ifindex);
+	DBG_SKB(skb);
 
-    netif_rx(skb);
+	netif_rx(skb);
 }
 
 #endif
@@ -131,118 +131,120 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
-    struct net_device_stats *stats = netdev_priv(dev);
+	struct net_device_stats *stats = netdev_priv(dev);
 
-    DBG("sending skbuff on interface %s\n", dev->name);
-    DBG_SKB(skb);
-    DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
+	DBG("sending skbuff on interface %s\n", dev->name);
+	DBG_SKB(skb);
+	DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
 
 #ifdef DO_LOOPBACK
-    if (atomic_read(&skb->users) != 1) {
-	struct sk_buff *old_skb = skb;
-	skb = skb_clone(old_skb, GFP_ATOMIC);
-	DBG("  freeing old skbuff %p, using new skbuff %p\n", old_skb, skb);
-	kfree_skb(old_skb);
-	if (!skb) {
-	    return 0;
-	}
-    } else
-	skb_orphan(skb);
+	if (atomic_read(&skb->users) != 1) {
+		struct sk_buff *old_skb = skb;
+		skb = skb_clone(old_skb, GFP_ATOMIC);
+		DBG("  freeing old skbuff %p, using new skbuff %p\n",
+		    old_skb, skb);
+		kfree_skb(old_skb);
+		if (!skb) {
+			return 0;
+		}
+	} else
+		skb_orphan(skb);
 #endif
 
-    stats->tx_packets++;
-    stats->tx_bytes += skb->len;
+	stats->tx_packets++;
+	stats->tx_bytes += skb->len;
 #ifdef DO_LOOPBACK
-    vcan_rx(skb, dev);
+	vcan_rx(skb, dev);
 #else
-    stats->rx_packets++;
-    stats->rx_bytes += skb->len;
-    kfree_skb(skb);
+	stats->rx_packets++;
+	stats->rx_bytes += skb->len;
+	kfree_skb(skb);
 #endif
-    return 0;
+	return 0;
 }
 
 static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
-    return -EOPNOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 static int vcan_rebuild_header(struct sk_buff *skb)
 {
-    DBG("called on skbuff %p\n", skb);
-    DBG_SKB(skb);
-    return 0;
+	DBG("called on skbuff %p\n", skb);
+	DBG_SKB(skb);
+	return 0;
 }
 
 static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 		       unsigned short type, void *daddr, void *saddr,
 		       unsigned int len)
 {
-    DBG("called skbuff %p device %p\n", skb, dev);
-    DBG_SKB(skb);
-    return 0;
+	DBG("called skbuff %p device %p\n", skb, dev);
+	DBG_SKB(skb);
+	return 0;
 }
 
 
 static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 {
-    struct net_device_stats *stats = netdev_priv(dev);
-    return stats;
+	struct net_device_stats *stats = netdev_priv(dev);
+	return stats;
 }
 
 static int vcan_init(struct net_device *dev)
 {
-    DBG("dev %s\n", dev->name);
+	DBG("dev %s\n", dev->name);
 
-    ether_setup(dev);
+	ether_setup(dev);
 
-    dev->priv              = kmalloc(sizeof(struct net_device_stats), GFP_KERNEL);
-    if (!dev->priv)
-	return -ENOMEM;
-    memset(dev->priv, 0, sizeof(struct net_device_stats));
+	dev->priv              = kmalloc(sizeof(struct net_device_stats), GFP_KERNEL);
+	if (!dev->priv)
+		return -ENOMEM;
+	memset(dev->priv, 0, sizeof(struct net_device_stats));
 
-    dev->open              = vcan_open;
-    dev->stop              = vcan_stop;
-    dev->set_config        = NULL;
-    dev->hard_start_xmit   = vcan_tx;
-    dev->do_ioctl          = vcan_ioctl;
-    dev->get_stats         = vcan_get_stats;
+	dev->open              = vcan_open;
+	dev->stop              = vcan_stop;
+	dev->set_config        = NULL;
+	dev->hard_start_xmit   = vcan_tx;
+	dev->do_ioctl          = vcan_ioctl;
+	dev->get_stats         = vcan_get_stats;
 
-    dev->mtu               = sizeof(struct can_frame);
-    dev->flags             = IFF_LOOPBACK;
-    dev->hard_header       = vcan_header;
-    dev->rebuild_header    = vcan_rebuild_header;
-    dev->hard_header_cache = NULL;
-    dev->type              = ARPHRD_LOOPBACK;
+	dev->mtu               = sizeof(struct can_frame);
+	dev->flags             = IFF_LOOPBACK;
+	dev->hard_header       = vcan_header;
+	dev->rebuild_header    = vcan_rebuild_header;
+	dev->hard_header_cache = NULL;
+	dev->type              = ARPHRD_LOOPBACK;
 
-    SET_MODULE_OWNER(dev);
+	SET_MODULE_OWNER(dev);
 
-    return 0;
+	return 0;
 }
 
 static __init int vcan_init_module(void)
 {
-    int i, ndev = 0, result;
+	int i, ndev = 0, result;
 
-    printk(banner);
+	printk(banner);
 
-    for (i = 0; i < NDEVICES; i++) {
-	if (result = register_netdev(vcan_devs + i))
-	    printk(KERN_ERR "vcan: error %d registering interface %s\n",
-		   result, vcan_devs[i].name);
-	else {
-	    DBG("successfully registered interface %s\n", vcan_devs[i].name);
-	    ndev++;
+	for (i = 0; i < NDEVICES; i++) {
+		if (result = register_netdev(vcan_devs + i))
+			printk(KERN_ERR "vcan: error %d registering interface %s\n",
+			       result, vcan_devs[i].name);
+		else {
+			DBG("successfully registered interface %s\n",
+			    vcan_devs[i].name);
+			ndev++;
+		}
 	}
-    }
-    return ndev ? 0 : -ENODEV;
+	return ndev ? 0 : -ENODEV;
 }
 
 static __exit void vcan_cleanup_module(void)
 {
-    int i;
-    for (i = 0; i < NDEVICES; i++)
-	unregister_netdev(vcan_devs + i);
+	int i;
+	for (i = 0; i < NDEVICES; i++)
+		unregister_netdev(vcan_devs + i);
 }
 
 module_init(vcan_init_module);
