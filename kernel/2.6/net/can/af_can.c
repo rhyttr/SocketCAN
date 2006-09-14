@@ -734,24 +734,11 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	return matches;
 }
 
-static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-					struct net_device *dev)
+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
+						int create)
 {
-	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
-	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
-	canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
-	canid_t err = *mask & CAN_ERR_FLAG; /* mask for error frames only */
-
 	struct dev_rcv_lists *d;
 	struct hlist_node *n;
-
-	/* make some paranoic operations */
-	if (*can_id & CAN_EFF_FLAG)
-		*mask &= (CAN_EFF_MASK | eff | rtr);
-	else
-		*mask &= (CAN_SFF_MASK | rtr);
-
-	*can_id &= *mask;
 
 	/* find receive list for this device */
 	if (!dev)
@@ -761,7 +748,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 		struct dev_rcv_lists *q;
 		d = NULL;
 		hlist_for_each_entry(q, n, &rx_dev_list, list)
-			if (!q->dev)
+			if (!q->dev && create)
 				d = q;
 			else if (q->dev == dev) {
 				d = q;
@@ -774,7 +761,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 		}
 	}
 
-	if (!d) {
+	if (!d && create) {
 		/* create new dev_rcv_lists for this device */
 		DBG("creating new dev_rcv_lists for %s\n", dev->name);
 		if (!(d = kmalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL))) {
@@ -785,11 +772,34 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 		        for the embedded hlist_head structs.
 			Another list type, e.g. list_head, would require
 			explicit initialization. */
-		memset (d, 0, sizeof(struct dev_rcv_lists));
+		memset(d, 0, sizeof(struct dev_rcv_lists));
 
 		d->dev = dev;
 		hlist_add_head(&d->list, &rx_dev_list);
 	}
+
+	return d;
+}
+
+static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
+					struct net_device *dev)
+{
+	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
+	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
+	canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
+	canid_t err = *mask & CAN_ERR_FLAG; /* mask for error frames only */
+
+	struct dev_rcv_lists *d;
+
+	/* make some paranoic operations */
+	if (*can_id & CAN_EFF_FLAG)
+		*mask &= (CAN_EFF_MASK | eff | rtr);
+	else
+		*mask &= (CAN_SFF_MASK | rtr);
+
+	*can_id &= *mask;
+
+	d = find_dev_rcv_lists(dev, 1);
 
 	if (err) /* error frames */
 		return &d->rx_err;
