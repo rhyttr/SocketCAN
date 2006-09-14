@@ -106,8 +106,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb);
 static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
 						int create);
-static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *,
-		   struct net_device *dev, struct dev_rcv_lists *d);
+static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
+					struct dev_rcv_lists *d);
 
 struct notifier {
 	struct list_head list;
@@ -476,7 +476,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	spin_lock(&rcv_lists_lock);
 
 	d  = find_dev_rcv_lists(dev, 1);
-	rl = find_rcv_list(&can_id, &mask, dev, d);
+	rl = find_rcv_list(&can_id, &mask, d);
 
 	if (!rl) {
 		printk(KERN_ERR "CAN: receive list not found for "
@@ -534,7 +534,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		goto out;
 	}
 
-	rl = find_rcv_list(&can_id, &mask, dev, d);
+	rl = find_rcv_list(&can_id, &mask, d);
 
 	if (!rl) {
 		printk(KERN_ERR "CAN: receive list not found for "
@@ -769,7 +769,7 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
 }
 
 static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-	struct net_device *dev, struct dev_rcv_lists *d)
+					struct dev_rcv_lists *d)
 {
 	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
 	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
