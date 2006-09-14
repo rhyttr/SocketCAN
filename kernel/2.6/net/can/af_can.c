@@ -104,8 +104,10 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 		   struct packet_type *pt);
 #endif
 static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb);
-static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-					struct net_device *dev);
+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
+						int create);
+static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *,
+		   struct net_device *dev, struct dev_rcv_lists *d);
 
 struct notifier {
 	struct list_head list;
@@ -466,7 +468,6 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 {
 	struct receiver *r;
 	struct hlist_head *rl;
-	struct hlist_node *next;
 	struct dev_rcv_lists *d;
 
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
@@ -474,7 +475,8 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	spin_lock(&rcv_lists_lock);
 
-	rl = find_rcv_list(&can_id, &mask, dev);
+	d  = find_dev_rcv_lists(dev, 1);
+	rl = find_rcv_list(&can_id, &mask, dev, d);
 
 	if (!rl) {
 		printk(KERN_ERR "CAN: receive list not found for "
@@ -495,16 +497,6 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	r->ident   = ident;
 
 	hlist_add_head_rcu(&r->list, rl);
-
-	if (!dev)
-		d = &rx_alldev_list;
-	else {
-		/* the device list contains exactly one matching item */
-		d = NULL;
-		hlist_for_each_entry(d, next, &rx_dev_list, list)
-			if (d->dev == dev)
-				break;
-	}
 	d->entries++;
 
 	pstats.rcv_entries++;
@@ -536,7 +528,13 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	spin_lock(&rcv_lists_lock);
 
-	rl = find_rcv_list(&can_id, &mask, dev);
+	if (!(d = find_dev_rcv_lists(dev, 0))) {
+		printk(KERN_ERR "CAN: receive list not found for "
+		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		goto out;
+	}
+
+	rl = find_rcv_list(&can_id, &mask, dev, d);
 
 	if (!rl) {
 		printk(KERN_ERR "CAN: receive list not found for "
@@ -545,7 +543,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	}
 
 	/*  Search the receiver list for the item to delete.  This must
-	 *  must exist, since no receiver may be unregistered that hasn't
+	 *  exist, since no receiver may be unregistered that hasn't
 	 *  been registered before.
 	 */
 
@@ -568,16 +566,6 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	}
 
 	hlist_del_rcu(&r->list);
-
-	if (!dev)
-		d = &rx_alldev_list;
-	else {
-		/* the device list contains exactly one matching item */
-		d = NULL;
-		hlist_for_each_entry(d, next, &rx_dev_list, list)
-			if (d->dev == dev)
-				break;
-	}
 	d->entries--;
 	if (!d->entries)
 		d->dev = NULL; /* mark unused */
@@ -737,28 +725,27 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
 						int create)
 {
-	struct dev_rcv_lists *d;
+	struct dev_rcv_lists *d, *q;
 	struct hlist_node *n;
 
 	/* find receive list for this device */
 	if (!dev)
-		d = &rx_alldev_list;
-	else {
-		/* find the list for dev or an unused list entry, otherwise */
-		struct dev_rcv_lists *q;
-		d = NULL;
-		hlist_for_each_entry(q, n, &rx_dev_list, list)
-			if (!q->dev && create)
-				d = q;
-			else if (q->dev == dev) {
-				d = q;
-				break;
-			}
+		return &rx_alldev_list;
 
-		if (d && !d->dev) {
-			DBG("reactivating dev_rcv_lists for %s\n", dev->name);
-			d->dev = dev;
+	/* find the list for dev or an unused list entry, otherwise */
+
+	d = NULL;
+	hlist_for_each_entry(q, n, &rx_dev_list, list)
+		if (!q->dev && create)
+			d = q;
+		else if (q->dev == dev) {
+			d = q;
+			break;
 		}
+
+	if (d && !d->dev) {
+		DBG("reactivating dev_rcv_lists for %s\n", dev->name);
+		d->dev = dev;
 	}
 
 	if (!d && create) {
@@ -782,14 +769,12 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
 }
 
 static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-					struct net_device *dev)
+	struct net_device *dev, struct dev_rcv_lists *d)
 {
 	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
 	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
 	canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
 	canid_t err = *mask & CAN_ERR_FLAG; /* mask for error frames only */
-
-	struct dev_rcv_lists *d;
 
 	/* make some paranoic operations */
 	if (*can_id & CAN_EFF_FLAG)
@@ -798,8 +783,6 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 		*mask &= (CAN_SFF_MASK | rtr);
 
 	*can_id &= *mask;
-
-	d = find_dev_rcv_lists(dev, 1);
 
 	if (err) /* error frames */
 		return &d->rx_err;
