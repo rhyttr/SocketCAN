@@ -184,6 +184,8 @@ static __exit void raw_module_exit(void)
 
 static int raw_init(struct sock *sk)
 {
+	canraw_sk(sk)->bound         = 0;
+	canraw_sk(sk)->count         = 0;
 	canraw_sk(sk)->loopback      = 1;
 	canraw_sk(sk)->recv_own_msgs = 0;
 
@@ -353,17 +355,14 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 				raw_remove_filters(dev, sk);
 
 			kfree(canraw_sk(sk)->filter);
-			canraw_sk(sk)->count = 0;
-			canraw_sk(sk)->filter = NULL;
 		} else if (canraw_sk(sk)->bound)
 			can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
 
 		/* add new filters & register */
-		if (optlen) {
-			canraw_sk(sk)->filter = filter;
-			canraw_sk(sk)->count  = count;
-			if (canraw_sk(sk)->bound)
-				raw_add_filters(dev, sk);
+		canraw_sk(sk)->filter = filter;
+		canraw_sk(sk)->count  = count;
+		if (canraw_sk(sk)->bound && count > 0)
+			raw_add_filters(dev, sk);
 		} else if (canraw_sk(sk)->bound)
 			can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
 
