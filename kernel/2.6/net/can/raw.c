@@ -363,7 +363,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		canraw_sk(sk)->count  = count;
 		if (canraw_sk(sk)->bound && count > 0)
 			raw_add_filters(dev, sk);
-		} else if (canraw_sk(sk)->bound)
+		else if (canraw_sk(sk)->bound)
 			can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
 
 		if (dev)
