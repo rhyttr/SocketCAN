@@ -45,6 +45,7 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/version.h>
+#include <linux/slab.h>
 #include <linux/kmod.h>
 #include <linux/init.h>
 #include <linux/list.h>
@@ -126,6 +127,8 @@ HLIST_HEAD(rx_dev_list);
 struct dev_rcv_lists rx_alldev_list;
 static spinlock_t rcv_lists_lock  = SPIN_LOCK_UNLOCKED;
 
+static kmem_cache_t *rcv_cache;
+
 static struct packet_type can_packet = {
 	.type = __constant_htons(ETH_P_CAN),
 	.dev  = NULL,
@@ -161,6 +164,11 @@ static __init int can_init(void)
 {
 	printk(banner);
 
+	rcv_cache = kmem_cache_create("CAN receiver", sizeof(struct receiver),
+				      0, 0, NULL, NULL);
+	if (!rcv_cache)
+		return -ENOMEM;
+
 	if (stats_timer) {
 		/* statistics init */
 		init_timer(&stattimer);
@@ -191,6 +199,8 @@ static __exit void can_exit(void)
 	dev_remove_pack(&can_packet);
 	unregister_netdevice_notifier(&can_netdev_notifier);
 	sock_unregister(PF_CAN);
+
+	kmem_cache_destroy(rcv_cache);
 }
 
 /**************************************************/
@@ -545,7 +555,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	}
 
 	/* insert   (dev,canid,mask) -> (func,data) */
-	if (!(r = kmalloc(sizeof(struct receiver), GFP_KERNEL)))
+	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL)))
 		goto out;
 
 	r->can_id  = can_id;
@@ -575,7 +585,7 @@ static void can_rcv_lists_delete(struct rcu_head *rp)
 static void can_rx_delete(struct rcu_head *rp)
 {
 	struct receiver *r = container_of(rp, struct receiver, rcu);
-	kfree(r);
+	kmem_cache_free(rcv_cache, r);
 }
 
 static void can_rx_delete_all(struct hlist_head *rl)
