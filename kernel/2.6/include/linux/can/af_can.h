@@ -134,17 +134,18 @@ void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 
 struct receiver {
 	struct hlist_node list;
+	struct rcu_head rcu;
 	canid_t can_id;
 	canid_t mask;
 	unsigned long matches;
 	void (*func)(struct sk_buff *, void *);
 	void *data;
-	struct rcu_head rcu;
 	char *ident;
 };
 
 struct dev_rcv_lists {
 	struct hlist_node list;
+	struct rcu_head rcu;
 	struct net_device *dev;
 	struct hlist_head rx_err;
 	struct hlist_head rx_all;

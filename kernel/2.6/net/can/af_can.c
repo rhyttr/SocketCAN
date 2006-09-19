@@ -104,10 +104,13 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 		   struct packet_type *pt);
 #endif
 static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb);
-static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
-						int create);
+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev);
 static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 					struct dev_rcv_lists *d);
+static void can_rcv_lists_delete(struct rcu_head *rp);
+static void can_rx_delete(struct rcu_head *rp);
+static void can_rx_delete_all(struct hlist_head *rl);
+
 
 struct notifier {
 	struct list_head list;
@@ -403,6 +406,59 @@ static int can_notifier(struct notifier_block *nb,
 
 	DBG("called for %s, msg = %lu\n", dev->name, msg);
 
+#if 0
+	if (dev->type != ARPHRD_CAN)
+		return NOTIFY_DONE;
+#endif
+
+	switch (msg) {
+		struct dev_rcv_lists *d;
+		int i;
+
+	case NETDEV_REGISTER:
+
+		/* create new dev_rcv_lists for this device */
+
+		DBG("creating new dev_rcv_lists for %s\n", dev->name);
+		if (!(d = kmalloc(sizeof(*d), GFP_KERNEL))) {
+			printk(KERN_ERR "CAN: allocation of receive list failed\n");
+			return NOTIFY_DONE;
+		}
+		/* N.B. zeroing the struct is the correct initialization
+		        for the embedded hlist_head structs.
+			Another list type, e.g. list_head, would require
+			explicit initialization. */
+		memset(d, 0, sizeof(*d));
+		d->dev = dev;
+
+		spin_lock(&rcv_lists_lock);
+		hlist_add_head_rcu(&d->list, &rx_dev_list);
+		spin_unlock(&rcv_lists_lock);
+
+		break;
+
+	case NETDEV_UNREGISTER:
+		spin_lock(&rcv_lists_lock);
+
+		d = find_dev_rcv_lists(dev);
+		hlist_del_rcu(&d->list);
+
+		/* remove all receivers hooked at this netdevice */
+		can_rx_delete_all(&d->rx_err);
+		can_rx_delete_all(&d->rx_all);
+		can_rx_delete_all(&d->rx_fil);
+		can_rx_delete_all(&d->rx_inv);
+		can_rx_delete_all(&d->rx_eff);
+		for (i = 0; i < 2048; i++)
+			can_rx_delete_all(&d->rx_sff[i]);
+
+		spin_unlock(&rcv_lists_lock);
+
+		call_rcu(&d->rcu, can_rcv_lists_delete);
+
+		break;
+	}
+
 	read_lock(&notifier_lock);
 	list_for_each_entry (n, &notifier_list, list) {
 		if (n->dev == dev)
@@ -410,7 +466,7 @@ static int can_notifier(struct notifier_block *nb,
 	}
 	read_unlock(&notifier_lock);
 
-	return 0;
+	return NOTIFY_DONE;
 }
 
 static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
@@ -475,10 +531,13 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	spin_lock(&rcv_lists_lock);
 
-	d  = find_dev_rcv_lists(dev, 1);
-	rl = find_rcv_list(&can_id, &mask, d);
+	if (!(d = find_dev_rcv_lists(dev))) {
+		printk(KERN_ERR "CAN: receive list not found for "
+		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		goto out;
+	}
 
-	if (!rl) {
+	if (!(rl = find_rcv_list(&can_id, &mask, d))) {
 		printk(KERN_ERR "CAN: receive list not found for "
 		       "dev %s, id %03X, mask %03X, ident %s\n",
 		       dev->name, can_id, mask, ident);
@@ -507,10 +566,27 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	spin_unlock(&rcv_lists_lock);
 }
 
-void can_rx_delete(struct rcu_head *rp)
+static void can_rcv_lists_delete(struct rcu_head *rp)
+{
+	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
+	kfree(d);
+}
+
+static void can_rx_delete(struct rcu_head *rp)
 {
 	struct receiver *r = container_of(rp, struct receiver, rcu);
 	kfree(r);
+}
+
+static void can_rx_delete_all(struct hlist_head *rl)
+{
+	struct receiver *r;
+	struct hlist_node *n;
+
+	hlist_for_each_entry_rcu(r, n, rl, list) {
+		hlist_del_rcu(&r->list);
+		call_rcu(&r->rcu, can_rx_delete);
+	}
 }
 
 void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
@@ -528,15 +604,13 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	spin_lock(&rcv_lists_lock);
 
-	if (!(d = find_dev_rcv_lists(dev, 0))) {
+	if (!(d = find_dev_rcv_lists(dev))) {
 		printk(KERN_ERR "CAN: receive list not found for "
 		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
 		goto out;
 	}
 
-	rl = find_rcv_list(&can_id, &mask, d);
-
-	if (!rl) {
+	if (!(rl = find_rcv_list(&can_id, &mask, d))) {
 		printk(KERN_ERR "CAN: receive list not found for "
 		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
 		goto out;
@@ -567,8 +641,6 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	hlist_del_rcu(&r->list);
 	d->entries--;
-	if (!d->entries)
-		d->dev = NULL; /* mark unused */
 
 	if (pstats.rcv_entries > 0)
 		pstats.rcv_entries--;
@@ -722,50 +794,21 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	return matches;
 }
 
-static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev,
-						int create)
+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 {
-	struct dev_rcv_lists *d, *q;
+	struct dev_rcv_lists *d;
 	struct hlist_node *n;
 
 	/* find receive list for this device */
+
 	if (!dev)
 		return &rx_alldev_list;
 
-	/* find the list for dev or an unused list entry, otherwise */
-
-	d = NULL;
-	hlist_for_each_entry(q, n, &rx_dev_list, list)
-		if (!q->dev && create)
-			d = q;
-		else if (q->dev == dev) {
-			d = q;
+	hlist_for_each_entry(d, n, &rx_dev_list, list)
+		if (d->dev == dev)
 			break;
-		}
 
-	if (d && !d->dev) {
-		DBG("reactivating dev_rcv_lists for %s\n", dev->name);
-		d->dev = dev;
-	}
-
-	if (!d && create) {
-		/* create new dev_rcv_lists for this device */
-		DBG("creating new dev_rcv_lists for %s\n", dev->name);
-		if (!(d = kmalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL))) {
-			printk(KERN_ERR "CAN: allocation of receive list failed\n");
-			return NULL;
-		}
-		/* N.B. zeroing the struct is the correct initialization
-		        for the embedded hlist_head structs.
-			Another list type, e.g. list_head, would require
-			explicit initialization. */
-		memset(d, 0, sizeof(struct dev_rcv_lists));
-
-		d->dev = dev;
-		hlist_add_head(&d->list, &rx_dev_list);
-	}
-
-	return d;
+	return n ? d : NULL;
 }
 
 static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,

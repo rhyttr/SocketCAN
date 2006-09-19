@@ -671,6 +671,7 @@ static void raw_notifier(unsigned long msg, void *data)
 	switch (msg) {
 	case NETDEV_UNREGISTER:
 		canraw_sk(sk)->ifindex = 0;
+		canraw_sk(sk)->bound   = 0;
 		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->sk_err = ENETDOWN;
