@@ -164,7 +164,7 @@ static __init int can_init(void)
 {
 	printk(banner);
 
-	rcv_cache = kmem_cache_create("CAN receiver", sizeof(struct receiver),
+	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
 				      0, 0, NULL, NULL);
 	if (!rcv_cache)
 		return -ENOMEM;

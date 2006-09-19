@@ -238,7 +238,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	if (canraw_sk(sk)->bound) {
 #if 1
-		return -EOPNOTSUPP;
+		return -EINVAL;
 #else
 		/* remove current bindings */
 		if (canraw_sk(sk)->ifindex) {
