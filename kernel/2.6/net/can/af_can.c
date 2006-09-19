@@ -450,7 +450,12 @@ static int can_notifier(struct notifier_block *nb,
 	case NETDEV_UNREGISTER:
 		spin_lock(&rcv_lists_lock);
 
-		d = find_dev_rcv_lists(dev);
+		if (!(d = find_dev_rcv_lists(dev))) {
+			printk(KERN_ERR "CAN: notifier: receive list not "
+			       "found for dev %s\n", dev->name);
+			goto unreg_out;
+		}
+
 		hlist_del_rcu(&d->list);
 
 		/* remove all receivers hooked at this netdevice */
@@ -462,9 +467,11 @@ static int can_notifier(struct notifier_block *nb,
 		for (i = 0; i < 2048; i++)
 			can_rx_delete_all(&d->rx_sff[i]);
 
+unreg_out:
 		spin_unlock(&rcv_lists_lock);
 
-		call_rcu(&d->rcu, can_rcv_lists_delete);
+		if (d)
+			call_rcu(&d->rcu, can_rcv_lists_delete);
 
 		break;
 	}
