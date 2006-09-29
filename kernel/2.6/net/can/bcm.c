@@ -113,8 +113,8 @@ struct bcm_user_data {
 };
 
 static struct proc_dir_entry *proc_dir = NULL;
-int bcm_read_proc(char *page, char **start, off_t off,
-		  int count, int *eof, void *data);
+static int bcm_read_proc(char *page, char **start, off_t off,
+			 int count, int *eof, void *data);
 
 static void bcm_notifier(unsigned long msg, void *data);
 static int bcm_release(struct socket *sock);
@@ -337,7 +337,8 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	return 0;
 }
 
-int bcm_read_proc(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int bcm_read_proc(char *page, char **start, off_t off,
+			 int count, int *eof, void *data)
 {
 	int len = 0;
 	struct bcm_user_data *ud = (struct bcm_user_data *) data;
