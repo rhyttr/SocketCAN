@@ -147,7 +147,7 @@ static struct notifier_block can_netdev_notifier = {
 };
 
 /* table of registered CAN protocols */
-static struct can_proto *proto_tab[CAN_MAX];
+static struct can_proto *proto_tab[CAN_NPROTO];
 
 extern struct timer_list stattimer; /* timer for statistics update */
 extern struct s_stats  stats;       /* packet statistics */
@@ -207,9 +207,10 @@ static __exit void can_exit(void)
 /* af_can protocol functions                      */
 /**************************************************/
 
-void can_proto_register(int proto, struct can_proto *cp)
+void can_proto_register(struct can_proto *cp)
 {
-	if (proto < 0 || proto >= CAN_MAX) {
+	int proto = cp->protocol;
+	if (proto < 0 || proto >= CAN_NPROTO) {
 		printk(KERN_ERR "CAN: protocol number %d out of range\n", proto);
 		return;
 	}
@@ -230,11 +231,10 @@ void can_proto_register(int proto, struct can_proto *cp)
 		cp->ops->ioctl = can_ioctl;
 }
 
-void can_proto_unregister(int proto)
+void can_proto_unregister(struct can_proto *cp)
 {
-	struct can_proto *cp;
-
-	if (!(cp = proto_tab[proto])) {
+	int proto = cp->protocol;
+	if (!proto_tab[proto]) {
 		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
 		return;
 	}
@@ -304,51 +304,8 @@ static int can_create(struct socket *sock, int protocol)
 
 	sock->state = SS_UNCONNECTED;
 
-	switch (sock->type) {
-	case SOCK_SEQPACKET:
-		switch (protocol) {
-		case CAN_TP16:
-			break;
-		case CAN_TP20:
-			break;
-		case CAN_MCNET:
-			break;
-		case CAN_ISOTP:
-			break;
-		default:
-			return -EPROTONOSUPPORT;
-		}
-		break;
-	case SOCK_DGRAM:
-		switch (protocol) {
-		case CAN_BCM:
-#ifndef CONFIG_CAN_BCM_USER
-			if (!capable(CAP_NET_RAW))
-				return -EPERM;
-#endif
-			break;
-		case CAN_BAP:
-			break;
-		default:
-			return -EPROTONOSUPPORT;
-		}
-		break;
-	case SOCK_RAW:
-		switch (protocol) {
-		case CAN_RAW:
-#ifndef CONFIG_CAN_RAW_USER
-			if (!capable(CAP_NET_RAW))
-				return -EPERM;
-#endif
-			break;
-		default:
-			return -EPROTONOSUPPORT;
-		}
-		break;
-	default:
-		return -ESOCKTNOSUPPORT;
-		break;
-	}
+	if (protocol < 0 || protocol >= CAN_NPROTO)
+		return -EINVAL;
 
 	DBG("looking up proto %d in proto_tab[]\n", protocol);
 
@@ -361,9 +318,12 @@ static int can_create(struct socket *sock, int protocol)
 			       module_name);
 	}
 
-	/* check for success */
-	if (!(cp = proto_tab[protocol]))
+	/* check for success and correct type */
+	if (!(cp = proto_tab[protocol]) || cp->type != sock->type)
 		return -EPROTONOSUPPORT;
+
+	if (cp->capability >= 0 && !capable(cp->capability))
+		return -EPERM;
 
 	sock->ops = cp->ops;
 
@@ -679,7 +639,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 #endif
 {
 	struct dev_rcv_lists *d;
-	struct hlist_node *n;
 	int matches;
 
 	DBG("received skbuff on device %s, ptype %04x\n",
@@ -697,23 +656,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	/* deliver the packet to sockets listening on all devices */
 	matches = can_rcv_filter(&rx_alldev_list, skb);
 
-	/*  find receive list for this device
-	 *
-	 *  The hlist_for_each_entry*() macros curse through the list
-	 *  using the pointer variable n and set d to the containing
-	 *  struct in each list iteration.  Therefore, after list
-	 *  iteration, d is unmodified when the list is empty, and it
-	 *  points to last list element, when the list is non-empty
-	 *  but no match in the loop body is found.  I.e. d is *not*
-	 *  NULL when no match is found.  We can, however, use the
-	 *  cursor variable n to decide if a match was found.
-	 */
-
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list)
-		if (d->dev == dev)
-			break;
-
-	if (n)
+	/* find receive list for this device */
+	if ((d = find_dev_rcv_lists(dev)))
 		matches += can_rcv_filter(d, skb);
 
 	rcu_read_unlock();
@@ -820,6 +764,16 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 
 	if (!dev)
 		return &rx_alldev_list;
+
+	/*  The hlist_for_each_entry*() macros curse through the list
+	 *  using the pointer variable n and set d to the containing
+	 *  struct in each list iteration.  Therefore, after list
+	 *  iteration, d is unmodified when the list is empty, and it
+	 *  points to last list element, when the list is non-empty
+	 *  but no match in the loop body is found.  I.e. d is *not*
+	 *  NULL when no match is found.  We can, however, use the
+	 *  cursor variable n to decide if a match was found.
+	 */
 
 	hlist_for_each_entry(d, n, &rx_dev_list, list)
 		if (d->dev == dev)

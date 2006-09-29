@@ -166,6 +166,12 @@ static struct proto_ops bcm_ops = {
 	.sendpage      = sock_no_sendpage,
 };
 
+#ifdef CONFIG_CAN_BCM_USER
+#define BCM_CAP CAP_NET_RAW
+#else
+#define BCM_CAP (-1)
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 
 struct bcm_sock {
@@ -176,14 +182,17 @@ struct bcm_sock {
 #define bcm_sk(sk) ((struct bcm_user_data *)(sk)->sk_protinfo)
 
 static struct proto bcm_proto = {
-	.name     = "CAN_BCM",
-	.owner    = THIS_MODULE,
-	.obj_size = sizeof(struct bcm_sock),
+	.name       = "CAN_BCM",
+	.owner      = THIS_MODULE,
+	.obj_size   = sizeof(struct bcm_sock),
 };
 
 static struct can_proto bcm_can_proto = {
-	.ops  = &bcm_ops,
-	.prot = &bcm_proto,
+	.type       = SOCK_DGRAM,
+	.protocol   = CAN_BCM,
+	.capability = BCM_CAP,
+	.ops        = &bcm_ops,
+	.prot       = &bcm_proto,
 };
 
 #else
@@ -191,9 +200,12 @@ static struct can_proto bcm_can_proto = {
 #define bcm_sk(sk) ((struct bcm_user_data *)(sk)->sk_protinfo)
 
 static struct can_proto bcm_can_proto = {
-	.ops      = &bcm_ops,
-	.owner    = THIS_MODULE,
-	.obj_size = 0,
+	.type       = SOCK_DGRAM,
+	.protocol   = CAN_BCM,
+	.capability = BCM_CAP,
+	.ops        = &bcm_ops,
+	.owner      = THIS_MODULE,
+	.obj_size   = 0,
 };
 
 #endif
@@ -203,7 +215,7 @@ static int __init bcm_init(void)
 {
 	printk(banner);
 
-	can_proto_register(CAN_BCM, &bcm_can_proto);
+	can_proto_register(&bcm_can_proto);
 
 	/* create /proc/net/can/bcm directory */
 	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
@@ -216,7 +228,7 @@ static int __init bcm_init(void)
 
 static void __exit bcm_exit(void)
 {
-	can_proto_unregister(CAN_BCM);
+	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
 		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);

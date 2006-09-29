@@ -71,7 +71,7 @@
 #define CAN_MCNET	5 /* Bosch MCNet */
 #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
 #define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
-#define CAN_MAX		8
+#define CAN_NPROTO	8
 
 #define SOL_CAN_BASE 100
 
@@ -98,22 +98,22 @@ struct can_filter {
 
 #define CAN_PROC_DIR "net/can" /* /proc/... */
 
+struct can_proto {
+	int              type;
+	int              protocol;
+	int              capability;
+	struct proto_ops *ops;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
-struct can_proto {
-	struct proto_ops *ops;
 	struct proto     *prot;
-};
 #else
-struct can_proto {
-	struct proto_ops *ops;
 	struct module    *owner;
 	int              (*init)(struct sock *sk);
 	size_t           obj_size;
-};
 #endif
+};
 
-void can_proto_register(int proto, struct can_proto *cp);
-void can_proto_unregister(int proto);
+void can_proto_register(struct can_proto *cp);
+void can_proto_unregister(struct can_proto *cp);
 void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		     void (*func)(struct sk_buff *, void *), void *data,
 		     char *ident);

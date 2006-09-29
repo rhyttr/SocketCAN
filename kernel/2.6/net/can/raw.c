@@ -133,6 +133,12 @@ struct raw_opt {
 	can_err_mask_t err_mask;
 };
 
+#ifdef CONFIG_CAN_RAW_USER
+#define RAW_CAP CAP_NET_RAW
+#else
+#define RAW_CAP (-1)
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 
 struct raw_sock {
@@ -143,15 +149,18 @@ struct raw_sock {
 #define canraw_sk(sk) (&((struct raw_sock *)(sk))->opt)
 
 static struct proto raw_proto = {
-	.name     = "CAN_RAW",
-	.owner    = THIS_MODULE,
-	.obj_size = sizeof(struct raw_sock),
-	.init     = raw_init,
+	.name       = "CAN_RAW",
+	.owner      = THIS_MODULE,
+	.obj_size   = sizeof(struct raw_sock),
+	.init       = raw_init,
 };
 
 static struct can_proto raw_can_proto = {
-	.ops  = &raw_ops,
-	.prot = &raw_proto,
+	.type       = SOCK_RAW,
+	.protocol   = CAN_RAW,
+	.capability = RAW_CAP,
+	.ops        = &raw_ops,
+	.prot       = &raw_proto,
 };
 
 #else
@@ -159,10 +168,13 @@ static struct can_proto raw_can_proto = {
 #define canraw_sk(sk) ((struct raw_opt *)(sk)->sk_protinfo)
 
 static struct can_proto raw_can_proto = {
-	.ops      = &raw_ops,
-	.owner    = THIS_MODULE,
-	.obj_size = sizeof(struct raw_opt),
-	.init     = raw_init,
+	.type       = SOCK_RAW,
+	.protocol   = CAN_RAW,
+	.capability = RAW_CAP,
+	.ops        = &raw_ops,
+	.owner      = THIS_MODULE,
+	.obj_size   = sizeof(struct raw_opt),
+	.init       = raw_init,
 };
 
 #endif
@@ -173,13 +185,13 @@ static __init int raw_module_init(void)
 {
 	printk(banner);
 
-	can_proto_register(CAN_RAW, &raw_can_proto);
+	can_proto_register(&raw_can_proto);
 	return 0;
 }
 
 static __exit void raw_module_exit(void)
 {
-	can_proto_unregister(CAN_RAW);
+	can_proto_unregister(&raw_can_proto);
 }
 
 static int raw_init(struct sock *sk)
