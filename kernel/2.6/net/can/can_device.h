@@ -28,11 +28,11 @@
  *
  */
 
-#ifndef __CAN_DEVICE_H__
-#define __CAN_DEVICE_H__
+#ifndef CAN_DEVICE_H
+#define CAN_DEVICE_H
 
-#include <linux/can/can_error.h>
-#include <linux/can/can_ioctl.h>
+#include <linux/can/error.h>
+#include <linux/can/ioctl.h>
 
 struct can_device {
 	struct net_device_stats net_stats;
@@ -83,4 +83,4 @@ void free_candev(struct can_device *);
 int can_calc_bit_time(struct can_device *can, u32 baudrate,
 		      struct can_bittime_std *bit_time);
 
-#endif /* __CAN_DEVICE_H__ */
+#endif /* CAN_DEVICE_H */

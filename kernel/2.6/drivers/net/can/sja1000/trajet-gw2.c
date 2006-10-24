@@ -64,8 +64,8 @@
 #include <linux/skbuff.h>
 #include <asm/io.h>
 
-#include <linux/can/can.h>
-#include <linux/can/can_ioctl.h> /* for struct can_device_stats */
+#include <linux/can.h>
+#include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include "sja1000.h"
 
 #define MAX_CAN		8

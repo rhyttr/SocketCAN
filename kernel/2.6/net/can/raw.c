@@ -52,10 +52,12 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include <linux/can/af_can.h>
-#include <linux/can/can_error.h>
+#include <linux/can.h>
+#include <linux/can/error.h>
 #include <linux/can/raw.h>
 #include <linux/can/version.h>
+
+#include "af_can.h"
 
 
 RCSID("$Id$");

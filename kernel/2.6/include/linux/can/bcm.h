@@ -42,8 +42,8 @@
  *
  */
 
-#ifndef BCM_H
-#define BCM_H
+#ifndef CAN_BCM_H
+#define CAN_BCM_H
 
 struct bcm_msg_head {
 	int opcode;                   /* command */
@@ -75,4 +75,4 @@ enum {
 
 #define CMD_ERROR    0x8000
 
-#endif /* BCM_H */
+#endif /* CAN_BCM_H */

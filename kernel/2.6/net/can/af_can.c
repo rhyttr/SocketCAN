@@ -58,8 +58,10 @@
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include <linux/can/af_can.h>
+#include <linux/can.h>
 #include <linux/can/version.h>
+
+#include "af_can.h"
 
 
 RCSID("$Id$");

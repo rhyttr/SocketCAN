@@ -42,26 +42,48 @@
  *
  */
 
-#ifndef AF_CAN_H
-#define AF_CAN_H
+#ifndef CAN_H
+#define CAN_H
 
-#ifdef __KERNEL__
 #include <linux/version.h>
-#include <linux/skbuff.h>
-#include <linux/netdevice.h>
-#include <linux/proc_fs.h>
-#include <linux/if.h>
-#include <linux/list.h>
-#else
-#include <net/if.h>
-#endif
+#include <linux/types.h>
 
-#include <linux/can/can.h>
+#include <linux/can/error.h>
+#include <linux/can/ioctl.h>
+
+/* controller area network (CAN) kernel definitions */
 
 /* CAN socket protocol family definition */
-/* to be moved to include/linux/socket.h */
-#define PF_CAN		29	/* Controller Area Network      */
+#define PF_CAN		29	/* to be moved to include/linux/socket.h */
 #define AF_CAN		PF_CAN
+
+/* ethernet protocol identifier */
+#define ETH_P_CAN	0x000C	/* to be moved to include/linux/if_ether.h */
+
+/* ARP protocol identifier (dummy type for non ARP hardware) */
+#define ARPHRD_CAN	804	/* to be moved to include/linux/if_arp.h */
+
+
+
+
+/* special address description flags for the CAN_ID */
+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
+#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
+#define CAN_ERR_FLAG 0x20000000U /* error frame */
+
+/* valid bits in CAN ID for frame formats */
+#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
+#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
+
+typedef __u32 canid_t;
+
+struct can_frame {
+	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+	__u8    can_dlc; /* data length code: 0 .. 8 */
+	__u8    data[8] __attribute__ ((aligned(8)));
+};
+
+
 
 /* particular protocols of the protocol family PF_CAN */
 #define CAN_RAW		1 /* RAW sockets */
@@ -93,6 +115,8 @@ struct can_filter {
 };
 
 #define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
+
+
 
 #ifdef __KERNEL__
 
@@ -127,70 +151,7 @@ int  can_send(struct sk_buff *skb, int loop);
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 
-void can_debug_skb(struct sk_buff *skb);
-void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
-
-/* af_can rx dispatcher structures */
-
-struct receiver {
-	struct hlist_node list;
-	struct rcu_head rcu;
-	canid_t can_id;
-	canid_t mask;
-	unsigned long matches;
-	void (*func)(struct sk_buff *, void *);
-	void *data;
-	char *ident;
-};
-
-struct dev_rcv_lists {
-	struct hlist_node list;
-	struct rcu_head rcu;
-	struct net_device *dev;
-	struct hlist_head rx_err;
-	struct hlist_head rx_all;
-	struct hlist_head rx_fil;
-	struct hlist_head rx_inv;
-	struct hlist_head rx_sff[0x800];
-	struct hlist_head rx_eff;
-	int entries;
-};
-
-/* statistic structures */
-
-struct s_stats {
-	unsigned long jiffies_init;
-
-	unsigned long rx_frames;
-	unsigned long tx_frames;
-	unsigned long matches;
-
-	unsigned long total_rx_rate;
-	unsigned long total_tx_rate;
-	unsigned long total_rx_match_ratio;
-
-	unsigned long current_rx_rate;
-	unsigned long current_tx_rate;
-	unsigned long current_rx_match_ratio;
-
-	unsigned long max_rx_rate;
-	unsigned long max_tx_rate;
-	unsigned long max_rx_match_ratio;
-
-	unsigned long rx_frames_delta;
-	unsigned long tx_frames_delta;
-	unsigned long matches_delta;
-}; /* can be reset e.g. by can_init_stats() */
-
-struct s_pstats {
-	unsigned long stats_reset;
-	unsigned long rcv_entries;
-	unsigned long rcv_entries_max;
-}; /* persistent statistics */
-
-void can_init_proc(void);
-void can_remove_proc(void);
-
 #endif
 
-#endif /* AF_CAN_H */
+
+#endif /* CAN_H */

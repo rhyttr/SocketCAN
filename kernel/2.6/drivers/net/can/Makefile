@@ -26,9 +26,9 @@ clean:
 
 else
 
-CPPFLAGS	+= -Idrivers/net -Inet
-AFLAGS		+= -Idrivers/net -Inet
-CFLAGS		+= -Idrivers/net -Inet
+CPPFLAGS	+= -Idrivers/net -Inet -I/home/ethuerm/src/socketcan/trunk/kernel/2.6/include
+#AFLAGS		+= -Idrivers/net -Inet
+#CFLAGS		+= -Idrivers/net -Inet
 
 ifneq ($(KBUILD_EXTMOD),)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include

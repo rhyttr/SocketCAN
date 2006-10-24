@@ -42,8 +42,8 @@
  *
  */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef CAN_VERSION_H
+#define CAN_VERSION_H
 
 #define RCSID(s) asm(".section .rodata.str1.1,\"aMS\",@progbits,1\n\t" \
 		     ".string \"" s "\"\n\t.previous\n")
@@ -69,4 +69,4 @@ RCSID("$Id$");
 	EXTRAVERSION
 #define BANNER(name) KERN_INFO name " v" VERSION "\n"
 
-#endif /* VERSION_H */
+#endif /* CAN_VERSION_H */

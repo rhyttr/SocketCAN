@@ -21,7 +21,9 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
-#include <linux/can/can.h>
+
+#include <linux/can.h>
+
 #include "can_device.h"
 
 /*

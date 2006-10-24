@@ -47,8 +47,8 @@
  *
  */
 
-#ifndef __SJA1000_H__
-#define __SJA1000_H__
+#ifndef SJA1000_H
+#define SJA1000_H
 
 #define SJA1000_IO_SIZE_BASIC   0x20
 #define SJA1000_IO_SIZE_PELICAN 0x80
@@ -191,4 +191,4 @@ void sja1000_proc_delete(const char *drv_name);
 
 int set_reset_mode(struct net_device *dev);
 
-#endif /* __SJA1000_H__ */
+#endif /* SJA1000_H */
