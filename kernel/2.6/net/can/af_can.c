@@ -127,7 +127,7 @@ static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
 
 HLIST_HEAD(rx_dev_list);
 struct dev_rcv_lists rx_alldev_list;
-static spinlock_t rcv_lists_lock  = SPIN_LOCK_UNLOCKED;
+static spinlock_t rcv_lists_lock = SPIN_LOCK_UNLOCKED;
 
 static kmem_cache_t *rcv_cache;
 
@@ -397,7 +397,7 @@ static int can_notifier(struct notifier_block *nb,
 			return NOTIFY_DONE;
 		}
 		/* N.B. zeroing the struct is the correct initialization
-		        for the embedded hlist_head structs.
+			for the embedded hlist_head structs.
 			Another list type, e.g. list_head, would require
 			explicit initialization. */
 		memset(d, 0, sizeof(*d));

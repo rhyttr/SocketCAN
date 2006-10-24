@@ -26,7 +26,7 @@ clean:
 
 else
 
-CPPFLAGS	+= -Idrivers/net -Inet -I/home/ethuerm/src/socketcan/trunk/kernel/2.6/include
+#CPPFLAGS	+= -Idrivers/net -Inet
 #AFLAGS		+= -Idrivers/net -Inet
 #CFLAGS		+= -Idrivers/net -Inet
 

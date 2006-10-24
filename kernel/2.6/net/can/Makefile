@@ -66,7 +66,6 @@ clean:
 else
 
 ifneq ($(KBUILD_EXTMOD),)
-EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include
 endif
 

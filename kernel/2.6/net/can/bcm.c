@@ -187,6 +187,7 @@ static struct proto bcm_proto = {
 	.name       = "CAN_BCM",
 	.owner      = THIS_MODULE,
 	.obj_size   = sizeof(struct bcm_sock),
+	.init       = NULL,
 };
 
 static struct can_proto bcm_can_proto = {
@@ -208,6 +209,7 @@ static struct can_proto bcm_can_proto = {
 	.ops        = &bcm_ops,
 	.owner      = THIS_MODULE,
 	.obj_size   = 0,
+	.init       = NULL,
 };
 
 #endif
@@ -414,7 +416,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 			/* mark output cut off */
 			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
 			break;
-		} 
+		}
 	}
 
 	list_for_each_entry(op, &ud->tx_ops, list) {
