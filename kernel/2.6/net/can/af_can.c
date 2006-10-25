@@ -474,12 +474,17 @@ int can_send(struct sk_buff *skb, int loop)
 	int err;
 
 	if (loop) { /* local loopback (default) */
-		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
-		newskb->protocol  = htons(ETH_P_CAN);
-		newskb->ip_summed = CHECKSUM_UNNECESSARY;
-		*(struct sock **)newskb->cb = skb->sk; /* tx sock reference */
-		netif_rx(newskb); /* => local loopback */
-	}
+		*(struct sock **)skb->cb = skb->sk; /* tx sock reference */
+
+		/* interface not capabable to do the loopback itself? */
+		if (!(skb->dev->flags & IFF_LOOPBACK)) {
+			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+			newskb->protocol  = htons(ETH_P_CAN);
+			newskb->ip_summed = CHECKSUM_UNNECESSARY;
+			netif_rx(newskb); /* perform local loopback here */
+		}
+	} else
+		*(struct sock **)skb->cb = NULL; /* no loopback required */
 
 	if (!(skb->dev->flags & IFF_UP))
 		err = -ENETDOWN;
