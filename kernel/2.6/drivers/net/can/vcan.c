@@ -119,7 +119,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 
 #endif
 
-
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
@@ -147,11 +146,13 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 
 		vcan_rx(skb, dev);
 	} else
-		kfree_skb(skb); /* no loopback => trash message */
 #else
-	stats->rx_packets++;
-	stats->rx_bytes += skb->len;
-	kfree_skb(skb); /* trash message like NULL device */
+	{
+		/* only count, then remove the packet without loopback */
+		stats->rx_packets++;
+		stats->rx_bytes += skb->len;
+		kfree_skb(skb);
+	}
 #endif
 	return 0;
 }
@@ -163,7 +164,7 @@ static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 static int vcan_rebuild_header(struct sk_buff *skb)
 {
-	DBG("called on skbuff %p\n", skb);
+	DBG("skbuff %p\n", skb);
 	DBG_SKB(skb);
 	return 0;
 }
@@ -172,7 +173,7 @@ static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 		       unsigned short type, void *daddr, void *saddr,
 		       unsigned int len)
 {
-	DBG("called skbuff %p device %p\n", skb, dev);
+	DBG("skbuff %p, device %p\n", skb, dev);
 	DBG_SKB(skb);
 	return 0;
 }
@@ -192,22 +193,21 @@ static void vcan_init(struct net_device *dev)
 
 	memset(dev->priv, 0, sizeof(struct net_device_stats));
 
+	dev->type              = ARPHRD_CAN;
+	dev->mtu               = sizeof(struct can_frame);
+#ifdef DO_LOOPBACK
+	dev->flags             = IFF_LOOPBACK;
+#endif
+
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
 	dev->set_config        = NULL;
 	dev->hard_start_xmit   = vcan_tx;
 	dev->do_ioctl          = vcan_ioctl;
 	dev->get_stats         = vcan_get_stats;
-	dev->mtu               = sizeof(struct can_frame);
-
 	dev->hard_header       = vcan_header;
 	dev->rebuild_header    = vcan_rebuild_header;
 	dev->hard_header_cache = NULL;
-	dev->type              = ARPHRD_CAN;
-
-#ifdef DO_LOOPBACK
-	dev->flags             = IFF_LOOPBACK;
-#endif
 
 	SET_MODULE_OWNER(dev);
 }
