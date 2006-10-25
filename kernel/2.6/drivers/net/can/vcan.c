@@ -75,8 +75,8 @@ module_param(debug, int, S_IRUGO);
 #define DBG_SKB(skb)
 #endif
 
-/* This 'undef' makes the vcan a kind of NULL device.  Since LLCF v0.6  */
-/* the local loopback is implemented in af_can.c for all interfaces.    */
+/* Indicate if this VCAN driver should do a real loopback, or if this */
+/* should be done in af_can.c */
 #undef  DO_LOOPBACK
 
 #define NDEVICES 4
@@ -128,28 +128,30 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	DBG_SKB(skb);
 	DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
 
-#ifdef DO_LOOPBACK
-	if (atomic_read(&skb->users) != 1) {
-		struct sk_buff *old_skb = skb;
-		skb = skb_clone(old_skb, GFP_ATOMIC);
-		DBG("  freeing old skbuff %p, using new skbuff %p\n",
-		    old_skb, skb);
-		kfree_skb(old_skb);
-		if (!skb) {
-			return 0;
-		}
-	} else
-		skb_orphan(skb);
-#endif
-
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
+
 #ifdef DO_LOOPBACK
-	vcan_rx(skb, dev);
+	if (*(struct sock **)skb->cb) { /* loopback required */
+		if (atomic_read(&skb->users) != 1) {
+			struct sk_buff *old_skb = skb;
+			skb = skb_clone(old_skb, GFP_ATOMIC);
+			DBG("  freeing old skbuff %p, using new skbuff %p\n",
+			    old_skb, skb);
+			kfree_skb(old_skb);
+			if (!skb) {
+				return 0;
+			}
+		} else
+			skb_orphan(skb);
+
+		vcan_rx(skb, dev);
+	} else
+		kfree_skb(skb); /* no loopback => trash message */
 #else
 	stats->rx_packets++;
 	stats->rx_bytes += skb->len;
-	kfree_skb(skb);
+	kfree_skb(skb); /* trash message like NULL device */
 #endif
 	return 0;
 }
@@ -196,13 +198,16 @@ static void vcan_init(struct net_device *dev)
 	dev->hard_start_xmit   = vcan_tx;
 	dev->do_ioctl          = vcan_ioctl;
 	dev->get_stats         = vcan_get_stats;
-
 	dev->mtu               = sizeof(struct can_frame);
-	dev->flags             = IFF_LOOPBACK;
+
 	dev->hard_header       = vcan_header;
 	dev->rebuild_header    = vcan_rebuild_header;
 	dev->hard_header_cache = NULL;
-	dev->type              = ARPHRD_LOOPBACK;
+	dev->type              = ARPHRD_CAN;
+
+#ifdef DO_LOOPBACK
+	dev->flags             = IFF_LOOPBACK;
+#endif
 
 	SET_MODULE_OWNER(dev);
 }
