@@ -23,8 +23,7 @@
 #include <linux/if_arp.h>
 
 #include <linux/can.h>
-
-#include "can_device.h"
+#include <linux/can/dev.h>
 
 /*
  Abstract:

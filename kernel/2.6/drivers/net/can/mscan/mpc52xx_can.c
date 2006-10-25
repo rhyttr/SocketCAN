@@ -37,10 +37,11 @@
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
 #include <linux/can/can.h>
-#include <can/can_device.h>
-#include <can/mscan/mscan.h>
+#include <linux/can/dev.h>
 #include <asm/io.h>
 #include <asm/mpc52xx.h>
+
+#include "mscan.h"
 
 static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 {

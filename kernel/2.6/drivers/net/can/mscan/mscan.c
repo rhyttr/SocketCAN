@@ -39,8 +39,8 @@
 #include <linux/list.h>
 #include <asm/io.h>
 
-#include <can/can_device.h>
-#include <can/mscan/mscan.h>
+#include <linux/can/dev.h>
+#include "mscan.h"
 
 #define MSCAN_NORMAL_MODE	0
 #define MSCAN_SLEEP_MODE	 MSCAN_SLPRQ

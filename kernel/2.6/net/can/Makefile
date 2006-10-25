@@ -72,13 +72,13 @@ endif
 obj-$(CONFIG_CAN)	+= can.o
 can-objs		:= af_can.o proc.o
 
-obj-$(CONFIG_CAN)	+= candev.o
-candev-objs		:= can_device.o
-
 obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 can-raw-objs		:= raw.o
 
 obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 can-bcm-objs		:= bcm.o
+
+obj-$(CONFIG_CAN)	+= candev.o
+candev-objs		:= dev.o
 
 endif
