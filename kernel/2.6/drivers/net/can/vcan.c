@@ -144,15 +144,18 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		} else
 			skb_orphan(skb);
 
-		vcan_rx(skb, dev);
-	} else
-#else
-	{
-		/* only count, then remove the packet without loopback */
-		stats->rx_packets++;
-		stats->rx_bytes += skb->len;
+		vcan_rx(skb, dev); /* with packet counting */
+	} else {
+		/* no looped packets => no counting */
 		kfree_skb(skb);
 	}
+#else
+	/* only count, when the CAN-core made a loopback */
+	if (*(struct sock **)skb->cb) {
+		stats->rx_packets++;
+		stats->rx_bytes += skb->len;
+	}
+	kfree_skb(skb);
 #endif
 	return 0;
 }
