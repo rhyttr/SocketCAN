@@ -429,7 +429,7 @@ static int can_notifier(struct notifier_block *nb,
 		for (i = 0; i < 2048; i++)
 			can_rx_delete_all(&d->rx_sff[i]);
 
-unreg_out:
+	unreg_out:
 		spin_unlock(&rcv_lists_lock);
 
 		if (d)
@@ -510,27 +510,24 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	struct hlist_head *rl;
 	struct dev_rcv_lists *d;
 
+	/* insert new receiver  (dev,canid,mask) -> (func,data) */
+
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
 	    dev, can_id, mask, func, data, ident);
+
+	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL)))
+		goto out;
 
 	spin_lock(&rcv_lists_lock);
 
 	if (!(d = find_dev_rcv_lists(dev))) {
 		printk(KERN_ERR "CAN: receive list not found for "
 		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
-		goto out;
+		kmem_cache_free(rcv_cache, r);
+		goto out_unlock;
 	}
 
-	if (!(rl = find_rcv_list(&can_id, &mask, d))) {
-		printk(KERN_ERR "CAN: receive list not found for "
-		       "dev %s, id %03X, mask %03X, ident %s\n",
-		       dev->name, can_id, mask, ident);
-		goto out;
-	}
-
-	/* insert   (dev,canid,mask) -> (func,data) */
-	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL)))
-		goto out;
+	rl = find_rcv_list(&can_id, &mask, d);
 
 	r->can_id  = can_id;
 	r->mask    = mask;
@@ -546,8 +543,10 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	if (pstats.rcv_entries_max < pstats.rcv_entries)
 		pstats.rcv_entries_max = pstats.rcv_entries;
 
- out:
+ out_unlock:
 	spin_unlock(&rcv_lists_lock);
+ out:
+	return;
 }
 
 static void can_rcv_lists_delete(struct rcu_head *rp)
@@ -594,13 +593,9 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		goto out;
 	}
 
-	if (!(rl = find_rcv_list(&can_id, &mask, d))) {
-		printk(KERN_ERR "CAN: receive list not found for "
-		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
-		goto out;
-	}
+	rl = find_rcv_list(&can_id, &mask, d);
 
-	/*  Search the receiver list for the item to delete.  This must
+	/*  Search the receiver list for the item to delete.  This should
 	 *  exist, since no receiver may be unregistered that hasn't
 	 *  been registered before.
 	 */
