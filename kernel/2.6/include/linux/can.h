@@ -47,7 +47,7 @@
 
 #include <linux/version.h>
 #include <linux/types.h>
-#include <sys/socket.h>
+#include <linux/socket.h>
 
 #include <linux/can/error.h>
 #include <linux/can/ioctl.h>
