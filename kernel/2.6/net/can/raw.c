@@ -102,7 +102,6 @@ static void raw_notifier(unsigned long msg, void *data);
 
 static void raw_add_filters(struct net_device *dev, struct sock *sk);
 static void raw_remove_filters(struct net_device *dev, struct sock *sk);
-static void raw_kfree_filters(struct sock *sk);
 
 
 static struct proto_ops raw_ops = {
@@ -227,11 +226,10 @@ static int raw_release(struct socket *sock)
 		dev = dev_get_by_index(canraw_sk(sk)->ifindex);
 
 	/* remove current filters & unregister */
-	if (canraw_sk(sk)->count > 0) {
-		if (canraw_sk(sk)->bound)
-			raw_remove_filters(dev, sk);
-		raw_kfree_filters(sk);
-	}
+	if (canraw_sk(sk)->bound)
+		raw_remove_filters(dev, sk);
+	if (canraw_sk(sk)->count > 1)
+		kfree(canraw_sk(sk)->filter);
 
 	/* remove current error mask */
 	if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
@@ -280,8 +278,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 			dev = NULL;
 
 		/* unregister current filters for this device */
-		if (canraw_sk(sk)->count > 0)
-			raw_remove_filters(dev, sk);
+		raw_remove_filters(dev, sk);
 
 		/* the filter(s) content is just available here */
 
@@ -309,8 +306,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	canraw_sk(sk)->ifindex = addr->can_ifindex;
 
-	if (canraw_sk(sk)->count > 0)   /* filters set by default/setsockopt */
-		raw_add_filters(dev, sk);
+	raw_add_filters(dev, sk); /* filters set by default/setsockopt */
 
 	if (canraw_sk(sk)->err_mask) /* error frame filter set by setsockopt */
 		can_rx_register(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk, IDENT);
@@ -384,11 +380,10 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			dev = dev_get_by_index(canraw_sk(sk)->ifindex);
 
 		/* remove current filters & unregister */
-		if (canraw_sk(sk)->count > 0) {
-			if (canraw_sk(sk)->bound)
-				raw_remove_filters(dev, sk);
-			raw_kfree_filters(sk);
-		}
+		if (canraw_sk(sk)->bound)
+			raw_remove_filters(dev, sk);
+		if (canraw_sk(sk)->count > 1)
+			kfree(canraw_sk(sk)->filter);
 
 		if (count == 1) { /* copy data for single filter */
 			filter = &canraw_sk(sk)->dfilter;
@@ -399,7 +394,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		/* add new filters & register */
 		canraw_sk(sk)->filter = filter;
 		canraw_sk(sk)->count  = count;
-		if (canraw_sk(sk)->bound && count > 0)
+		if (canraw_sk(sk)->bound)
 			raw_add_filters(dev, sk);
 
 		if (dev)
@@ -581,14 +576,6 @@ static void raw_remove_filters(struct net_device *dev, struct sock *sk)
 		    filter[i].can_id, filter[i].can_mask,
 		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 	}
-}
-
-static void raw_kfree_filters(struct sock *sk)
-{
-	struct can_filter *filter = canraw_sk(sk)->filter;
-
-	if ((canraw_sk(sk)->count > 1) && (filter))
-		kfree(filter);
 }
 
 static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
