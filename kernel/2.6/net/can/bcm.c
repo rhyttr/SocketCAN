@@ -319,11 +319,15 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	struct net_device *dev;
 	struct bcm_user_data *ud;
 
-	/* bind a device to this socket */
+	/* create struct for BCM-specific data for this socket */
+	if (!(ud = kmalloc(sizeof(struct bcm_user_data), GFP_KERNEL)))
+		return -ENOMEM;
 
+	/* bind a device to this socket */
 	dev = dev_get_by_index(addr->can_ifindex);
 	if (!dev) {
 		DBG("could not find device %d\n", addr->can_ifindex);
+		kfree(ud);
 		return -ENODEV;
 	}
 	sk->sk_bound_dev_if = dev->ifindex;
@@ -331,11 +335,6 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	dev_put(dev);
 
 	DBG("socket %p to device %s (idx %d)\n", sock, dev->name, dev->ifindex);
-
-	/* create struct for BCM-specific data for this socket */
-
-	if (!(ud = kmalloc(sizeof(struct bcm_user_data), GFP_KERNEL)))
-		return -ENOMEM;
 
 	/* intitial BCM operations */
 	INIT_LIST_HEAD(&ud->tx_ops);
@@ -510,7 +509,12 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			}
 
 			for (i = 0; i < msg_head.nframes; i++) {
-				memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame));
+				if ((err = memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame))) < 0) {
+					kfree(op->frames);
+					kfree(op);
+					return err;
+				}
+
 				if (msg_head.flags & TX_CP_CAN_ID)
 					op->frames[i].can_id = msg_head.can_id; /* copy can_id into frame */
 			}
@@ -686,9 +690,12 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		skb = alloc_skb(sizeof(struct can_frame), GFP_KERNEL);
 
 		if (!skb)
-			break;
+			return -ENOMEM;
 
-		memcpy_fromiovec(skb_put(skb, sizeof(struct can_frame)), msg->msg_iov, sizeof(struct can_frame));
+		if ((err = memcpy_fromiovec(skb_put(skb, sizeof(struct can_frame)), msg->msg_iov, sizeof(struct can_frame))) < 0) {
+			kfree_skb(skb);
+			return err;
+		}
 
 		DBG_FRAME("BCM: TX_SEND: sending frame",
 			  (struct can_frame *)skb->data);
@@ -753,7 +760,11 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 				}
 
 				for (i = 0; i < msg_head.nframes; i++)
-					memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame));
+					if ((err = memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame))) < 0) {
+						kfree(op->frames);
+						kfree(op);
+						return err;
+					}
 
 				/* create array for received can_frames */
 				if (!(op->last_frames = kmalloc(msg_head.nframes * sizeof(struct can_frame), GFP_KERNEL))) {
@@ -765,7 +776,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 				/* clear received can_frames to indicate 'nothing received' */
 				memset(op->last_frames, 0, msg_head.nframes * sizeof(struct can_frame));
 			} else {
-				op->frames = NULL;
+				/* op->frames = NULL due to memset */
 
 				/* even when we have the RX_FILTER_ID case, we need to store the last frame */
 				/* for the throttle functionality */
@@ -1328,6 +1339,9 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 
 	skb = alloc_skb(sizeof(*head) + datalen,
 			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	if (!skb)
+		return;
+
 	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
 	firstframe = (struct can_frame *) skb->tail; /* can_frames starting here */
 

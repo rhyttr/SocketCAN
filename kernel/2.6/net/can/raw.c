@@ -387,8 +387,13 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		if (count == 1) { /* copy data for single filter */
 			filter = &canraw_sk(sk)->dfilter;
-			if ((err = copy_from_user(filter, optval, optlen)))
+			if ((err = copy_from_user(filter, optval, optlen))) {
+				/* zero filters to prevent double kfree */
+				canraw_sk(sk)->count = 0;
+				if (dev)
+					dev_put(dev);
 				return err;
+			}
 		}
 
 		/* add new filters & register */
@@ -406,9 +411,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen) {
 			if (optlen != sizeof(err_mask))
 				return -EINVAL;
-			if ((err = copy_from_user(&err_mask, optval, optlen))) {
+			if ((err = copy_from_user(&err_mask, optval, optlen)))
 				return err;
-			}
 		}
 
 		err_mask &= CAN_ERR_MASK;
@@ -436,9 +440,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen) {
 			if (optlen != sizeof(canraw_sk(sk)->loopback))
 				return -EINVAL;
-			if ((err = copy_from_user(&canraw_sk(sk)->loopback, optval, optlen))) {
+			if ((err = copy_from_user(&canraw_sk(sk)->loopback, optval, optlen)))
 				return err;
-			}
 		}
 		break;
 
@@ -446,9 +449,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen) {
 			if (optlen != sizeof(canraw_sk(sk)->recv_own_msgs))
 				return -EINVAL;
-			if ((err = copy_from_user(&canraw_sk(sk)->recv_own_msgs, optval, optlen))) {
+			if ((err = copy_from_user(&canraw_sk(sk)->recv_own_msgs, optval, optlen)))
 				return err;
-			}
 		}
 		break;
 
@@ -602,7 +604,11 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return -ENXIO;
 	}
 
-	skb = alloc_skb(size, GFP_KERNEL);
+	if (!(skb = alloc_skb(size, GFP_KERNEL))) {
+		dev_put(dev);
+		return -ENOMEM;
+	}
+
 	if ((err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size)) < 0) {
 		kfree_skb(skb);
 		dev_put(dev);
@@ -636,9 +642,9 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	noblock =  flags & MSG_DONTWAIT;
 	flags   &= ~MSG_DONTWAIT;
-	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error))) {
+
+	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error)))
 		return error;
-	}
 
 	DBG("delivering skbuff %p\n", skb);
 	DBG_SKB(skb);
@@ -647,6 +653,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 		msg->msg_flags |= MSG_TRUNC;
 	else
 		size = skb->len;
+
 	if ((error = memcpy_toiovec(msg->msg_iov, skb->data, size)) < 0) {
 		skb_free_datagram(sk, skb);
 		return error;
