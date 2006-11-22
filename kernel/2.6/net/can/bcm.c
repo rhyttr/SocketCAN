@@ -110,6 +110,7 @@ struct bcm_op {
 struct bcm_user_data {
 	struct list_head rx_ops;
 	struct list_head tx_ops;
+	unsigned long dropped_usr_msgs;
 	struct proc_dir_entry *bcm_proc_read;
 	char procname [9];
 };
@@ -340,6 +341,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	INIT_LIST_HEAD(&ud->tx_ops);
 	INIT_LIST_HEAD(&ud->rx_ops);
 	ud->bcm_proc_read = NULL;
+	ud->dropped_usr_msgs = 0;
 
 	sk->sk_protinfo = ud;
 
@@ -361,6 +363,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	struct net_device *dev = NULL;
 
 	len += snprintf(page + len, PAGE_SIZE - len,">>> ud %p", ud);
+	len += snprintf(page + len, PAGE_SIZE - len," / dropped %lu", ud->dropped_usr_msgs);
 
 	if (!list_empty(&ud->rx_ops)) {
 		struct sock *sk;
@@ -1359,8 +1362,10 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
 	}
 	if ((err = sock_queue_rcv_skb(sk, skb)) < 0) {
+		struct bcm_user_data *ud = bcm_sk(sk);
 		DBG("sock_queue_rcv_skb failed: %d\n", err);
 		kfree_skb(skb);
+		ud->dropped_usr_msgs++; /* don't care about overflows */
 	}
 }
 
