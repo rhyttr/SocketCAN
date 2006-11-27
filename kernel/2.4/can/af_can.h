@@ -74,7 +74,7 @@ RCSID("$Id$");
 #define CAN_MCNET	5 /* Bosch MCNet */
 #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
 #define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
-#define CAN_MAX		8
+#define CAN_NPROTO	8
 
 #define SOL_CAN_BASE 100
 
@@ -101,8 +101,17 @@ struct can_filter {
 
 #define CAN_PROC_DIR "net/can" /* /proc/... */
 
-void can_proto_register(int proto, struct proto_ops *ops);
-void can_proto_unregister(int proto);
+struct can_proto {
+	int              type;
+	int              protocol;
+	int              capability;
+	struct proto_ops *ops;
+	int              (*init)(struct sock *sk);
+	size_t           obj_size;
+};
+
+void can_proto_register(struct can_proto *cp);
+void can_proto_unregister(struct can_proto *cp);
 void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		     void (*func)(struct sk_buff *, void *), void *data,
 		     char *ident);
@@ -112,7 +121,7 @@ void can_dev_register(struct net_device *dev,
 		      void (*func)(unsigned long msg, void *), void *data);
 void can_dev_unregister(struct net_device *dev,
 			void (*func)(unsigned long msg, void *), void *data);
-int  can_send(struct sk_buff *skb);
+int  can_send(struct sk_buff *skb, int loop);
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 
@@ -121,8 +130,8 @@ void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 
 /* af_can rx dispatcher structures */
 
-struct rcv_list {
-	struct rcv_list *next;
+struct receiver {
+	struct receiver *next;
 	canid_t can_id;
 	canid_t mask;
 	unsigned long matches;
@@ -131,15 +140,16 @@ struct rcv_list {
 	char *ident;
 };
 
-struct rcv_dev_list {
-	struct rcv_dev_list *next;
+struct dev_rcv_lists {
+	struct dev_rcv_lists *next;
+	struct dev_rcv_lists **pprev;
 	struct net_device *dev;
-	struct rcv_list *rx_err;
-	struct rcv_list *rx_all;
-	struct rcv_list *rx_fil;
-	struct rcv_list *rx_inv;
-	struct rcv_list *rx_sff[0x800];
-	struct rcv_list *rx_eff;
+	struct receiver *rx_err;
+	struct receiver *rx_all;
+	struct receiver *rx_fil;
+	struct receiver *rx_inv;
+	struct receiver *rx_sff[0x800];
+	struct receiver *rx_eff;
 	int entries;
 };
 

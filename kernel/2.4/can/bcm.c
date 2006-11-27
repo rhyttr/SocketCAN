@@ -166,11 +166,26 @@ static struct proto_ops bcm_ops = {
 	.sendpage      = sock_no_sendpage,
 };
 
+#ifdef CONFIG_CAN_BCM_USER
+#define BCM_CAP CAP_NET_RAW
+#else
+#define BCM_CAP (-1)
+#endif
+
+static struct can_proto bcm_can_proto = {
+	.type       = SOCK_DGRAM,
+	.protocol   = CAN_BCM,
+	.capability = BCM_CAP,
+	.ops        = &bcm_ops,
+	.obj_size   = sizeof(struct bcm_user_data),
+	.init       = NULL,
+};
+
 static int __init bcm_init(void)
 {
 	printk(banner);
 
-	can_proto_register(CAN_BCM, &bcm_ops);
+	can_proto_register(&bcm_can_proto);
 
 	/* create /proc/can/bcm directory */
 	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
@@ -183,7 +198,7 @@ static int __init bcm_init(void)
 
 static void __exit bcm_exit(void)
 {
-	can_proto_unregister(CAN_BCM);
+	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
 		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
@@ -642,7 +657,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb);
+			can_send(skb, 1);
 			dev_put(dev);
 		}
 
@@ -1243,7 +1258,7 @@ static void bcm_can_tx(struct bcm_op *op)
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb);
+			can_send(skb, 1);
 			dev_put(dev);
 		}
 	}

@@ -67,8 +67,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #ifdef DEBUG
-MODULE_PARM(debug, "1i");
 static int debug = 0;
+MODULE_PARM(debug, "1i");
 #define DBG(args...)       (debug & 1 ? \
 			       (printk(KERN_DEBUG "RAW %s: ", __func__), \
 				printk(args)) : 0)
@@ -78,6 +78,7 @@ static int debug = 0;
 #define DBG_SKB(skb)
 #endif
 
+static int raw_init(struct sock *sk);
 static int raw_release(struct socket *sock);
 static int raw_bind   (struct socket *sock, struct sockaddr *uaddr, int len);
 static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
@@ -98,21 +99,6 @@ static void raw_notifier(unsigned long msg, void *data);
 static void raw_add_filters(struct net_device *dev, struct sock *sk);
 static void raw_remove_filters(struct net_device *dev, struct sock *sk);
 
-/*  this struct is part of struct sock in the place of union tp_pinfo,
- *  which is initialized to zero for each newly allocated struct sock.
- */
-
-struct canraw_opt {
-	int bound;
-	int ifindex;
-	int count;
-	struct can_filter *filter;
-	can_err_mask_t err_mask;
-};
-
-#define canraw_sk(sk) ((struct canraw_opt *)&(sk)->tp_pinfo)
-
-#define MASK_ALL 0
 
 static struct proto_ops raw_ops = {
 	.family        = PF_CAN,
@@ -134,17 +120,60 @@ static struct proto_ops raw_ops = {
 	.sendpage      = sock_no_sendpage,
 };
 
-static __init int raw_init(void)
+/*  this struct is part of struct sock in the place of union tp_pinfo,
+ *  which is initialized to zero for each newly allocated struct sock.
+ */
+
+struct canraw_opt {
+	int bound;
+	int ifindex;
+	int count;
+	int loopback;
+	int recv_own_msgs;
+	struct can_filter *filter;
+	can_err_mask_t err_mask;
+};
+
+#ifdef CONFIG_CAN_RAW_USER
+#define RAW_CAP CAP_NET_RAW
+#else
+#define RAW_CAP (-1)
+#endif
+
+#define canraw_sk(sk) ((struct canraw_opt *)&(sk)->tp_pinfo)
+
+static struct can_proto raw_can_proto = {
+	.type       = SOCK_RAW,
+	.protocol   = CAN_RAW,
+	.capability = RAW_CAP,
+	.ops        = &raw_ops,
+	.obj_size   = sizeof(struct canraw_opt),
+	.init       = raw_init,
+};
+
+#define MASK_ALL 0
+
+static __init int raw_module_init(void)
 {
 	printk(banner);
 
-	can_proto_register(CAN_RAW, &raw_ops);
+	can_proto_register(&raw_can_proto);
 	return 0;
 }
 
-static __exit void raw_exit(void)
+static __exit void raw_module_exit(void)
 {
-	can_proto_unregister(CAN_RAW);
+	can_proto_unregister(&raw_can_proto);
+}
+
+static int raw_init(struct sock *sk)
+{
+	canraw_sk(sk)->bound         = 0;
+	canraw_sk(sk)->count         = 0;
+	canraw_sk(sk)->loopback      = 1;
+	canraw_sk(sk)->recv_own_msgs = 0;
+
+	return 0;
 }
 
 static int raw_release(struct socket *sock)
@@ -152,7 +181,8 @@ static int raw_release(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct net_device *dev = NULL;
 
-	DBG("socket %p, sk %p\n", sock, sk);
+	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
+	    atomic_read(&sk->refcnt));
 
 	if (canraw_sk(sk)->bound && canraw_sk(sk)->ifindex)
 		dev = dev_get_by_index(canraw_sk(sk)->ifindex);
@@ -192,7 +222,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	if (canraw_sk(sk)->bound) {
 #if 1
-		return -EOPNOTSUPP;
+		return -EINVAL;
 #else
 		/* remove current bindings */
 		if (canraw_sk(sk)->ifindex) {
@@ -292,7 +322,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 				return -EINVAL;
 			if (!(filter = kmalloc(optlen, GFP_KERNEL)))
 				return -ENOMEM;
-			if (err = copy_from_user(filter, optval, optlen)) {
+			if ((err = copy_from_user(filter, optval, optlen))) {
 				kfree(filter);
 				return err;
 			}
@@ -309,18 +339,15 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 				raw_remove_filters(dev, sk);
 
 			kfree(canraw_sk(sk)->filter);
-			canraw_sk(sk)->count = 0;
-			canraw_sk(sk)->filter = NULL;
 		} else if (canraw_sk(sk)->bound)
 			can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
 
 		/* add new filters & register */
-		if (optlen) {
-			canraw_sk(sk)->filter = filter;
-			canraw_sk(sk)->count  = count;
-			if (canraw_sk(sk)->bound)
-				raw_add_filters(dev, sk);
-		} else if (canraw_sk(sk)->bound)
+		canraw_sk(sk)->filter = filter;
+		canraw_sk(sk)->count  = count;
+		if (canraw_sk(sk)->bound && count > 0)
+			raw_add_filters(dev, sk);
+		else if (canraw_sk(sk)->bound)
 			can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
 
 		if (dev)
@@ -332,7 +359,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen) {
 			if (optlen != sizeof(err_mask))
 				return -EINVAL;
-			if (err = copy_from_user(&err_mask, optval, optlen)) {
+			if ((err = copy_from_user(&err_mask, optval, optlen))) {
 				return err;
 			}
 		}
@@ -389,8 +416,10 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 				return -EFAULT;
 		} else
 			len = 0;
+
 		if (put_user(len, optlen))
 			return -EFAULT;
+
 		break;
 
 	case CAN_RAW_ERR_FILTER:
@@ -475,11 +504,12 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		return err;
 	}
 	skb->dev = dev;
+	skb->sk  = sk;
 
 	DBG("sending skbuff to interface %d\n", ifindex);
 	DBG_SKB(skb);
 
-	err = can_send(skb);
+	err = can_send(skb, canraw_sk(sk)->loopback);
 
 	dev_put(dev);
 
@@ -539,6 +569,14 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	DBG("received skbuff %p, sk %p\n", skb, sk);
 	DBG_SKB(skb);
 
+	if (!canraw_sk(sk)->recv_own_msgs) {
+		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
+			DBG("trashed own tx msg\n");
+			kfree_skb(skb);
+			return;
+		}
+	}
+
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));
 	addr->can_family  = AF_CAN;
@@ -560,6 +598,7 @@ static void raw_notifier(unsigned long msg, void *data)
 	switch (msg) {
 	case NETDEV_UNREGISTER:
 		canraw_sk(sk)->ifindex = 0;
+		canraw_sk(sk)->bound   = 0;
 		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->err = ENETDOWN;
@@ -569,5 +608,5 @@ static void raw_notifier(unsigned long msg, void *data)
 }
 
 
-module_init(raw_init);
-module_exit(raw_exit);
+module_init(raw_module_init);
+module_exit(raw_module_exit);
