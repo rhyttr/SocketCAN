@@ -316,7 +316,7 @@ static int can_create(struct socket *sock, int protocol)
 		char module_name[30];
 		sprintf(module_name, "can-proto-%d", protocol);
 		if (request_module(module_name) == -ENOSYS)
-			printk(KERN_INFO "af_can: request_module(%s) not implemented.\n",
+			printk(KERN_INFO "CAN: request_module(%s) not implemented.\n",
 			       module_name);
 	}
 
