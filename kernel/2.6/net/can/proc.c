@@ -455,7 +455,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 
 		if (!all_empty) {
 			len = can_print_recv_banner(page, len);
-			for(i = 0; i < 0x800; i++) {
+			for (i = 0; i < 0x800; i++) {
 				if (!hlist_empty(&d->rx_sff[i]) && len < PAGE_SIZE - 100)
 					len = can_print_recv_list(page, len, &d->rx_sff[i], d->dev);
 			}

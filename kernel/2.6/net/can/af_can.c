@@ -439,7 +439,7 @@ static int can_notifier(struct notifier_block *nb,
 	}
 
 	read_lock(&notifier_lock);
-	list_for_each_entry (n, &notifier_list, list) {
+	list_for_each_entry(n, &notifier_list, list) {
 		if (n->dev == dev)
 			n->func(msg, n->data);
 	}
@@ -608,7 +608,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/*  Check for bug in CAN protocol implementations:
 	 *  If no matching list item was found, the list cursor variable next
-	 *  will be NULL, while r will point to the item of the list.
+	 *  will be NULL, while r will point to the last item of the list.
 	 */
 
 	if (!next) {
