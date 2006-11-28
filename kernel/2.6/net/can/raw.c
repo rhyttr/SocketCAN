@@ -413,12 +413,10 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case CAN_RAW_ERR_FILTER:
-		if (optlen) {
-			if (optlen != sizeof(err_mask))
-				return -EINVAL;
-			if ((err = copy_from_user(&err_mask, optval, optlen)))
-				return err;
-		}
+		if (optlen != sizeof(err_mask))
+			return -EINVAL;
+		if ((err = copy_from_user(&err_mask, optval, optlen)))
+			return err;
 
 		err_mask &= CAN_ERR_MASK;
 
@@ -430,11 +428,9 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			can_rx_unregister(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk);
 
 		/* add new error mask */
-		if (optlen) {
-			canraw_sk(sk)->err_mask = err_mask;
-			if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
-				can_rx_register(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
-		}
+		canraw_sk(sk)->err_mask = err_mask;
+		if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
+			can_rx_register(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
 
 		if (dev)
 			dev_put(dev);
