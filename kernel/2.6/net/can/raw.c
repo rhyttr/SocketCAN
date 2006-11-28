@@ -146,9 +146,9 @@ struct raw_opt {
 };
 
 #ifdef CONFIG_CAN_RAW_USER
-#define RAW_CAP CAP_NET_RAW
-#else
 #define RAW_CAP (-1)
+#else
+#define RAW_CAP CAP_NET_RAW
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)

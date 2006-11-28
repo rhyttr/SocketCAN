@@ -170,9 +170,9 @@ static struct proto_ops bcm_ops = {
 };
 
 #ifdef CONFIG_CAN_BCM_USER
-#define BCM_CAP CAP_NET_RAW
-#else
 #define BCM_CAP (-1)
+#else
+#define BCM_CAP CAP_NET_RAW
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
