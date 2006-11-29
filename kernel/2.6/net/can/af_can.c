@@ -502,28 +502,32 @@ int can_send(struct sk_buff *skb, int loop)
 /* af_can rx path                                 */
 /**************************************************/
 
-void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
-		     void (*func)(struct sk_buff *, void *), void *data,
-		     char *ident)
+int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+		    void (*func)(struct sk_buff *, void *), void *data,
+		    char *ident)
 {
 	struct receiver *r;
 	struct hlist_head *rl;
 	struct dev_rcv_lists *d;
+	int ret = 0;
 
 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
 	    dev, can_id, mask, func, data, ident);
 
-	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL)))
+	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL))) {
+		ret = -ENOMEM;
 		goto out;
+	}
 
 	spin_lock(&rcv_lists_lock);
 
 	if (!(d = find_dev_rcv_lists(dev))) {
-		printk(KERN_ERR "CAN: receive list not found for "
-		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
+		    dev->name, can_id, mask);
 		kmem_cache_free(rcv_cache, r);
+		ret = -ENODEV;
 		goto out_unlock;
 	}
 
@@ -546,7 +550,7 @@ void can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
  out_unlock:
 	spin_unlock(&rcv_lists_lock);
  out:
-	return;
+	return ret;
 }
 
 static void can_rcv_lists_delete(struct rcu_head *rp)
@@ -572,13 +576,14 @@ static void can_rx_delete_all(struct hlist_head *rl)
 	}
 }
 
-void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
-		       void (*func)(struct sk_buff *, void *), void *data)
+int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+		      void (*func)(struct sk_buff *, void *), void *data)
 {
 	struct receiver *r;
 	struct hlist_head *rl;
 	struct hlist_node *next;
 	struct dev_rcv_lists *d;
+	int ret = 0;
 
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p\n",
 	    dev, can_id, mask, func, data);
@@ -588,8 +593,9 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	spin_lock(&rcv_lists_lock);
 
 	if (!(d = find_dev_rcv_lists(dev))) {
-		printk(KERN_ERR "CAN: receive list not found for "
-		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
+		    dev->name, can_id, mask);
+		ret = -ENODEV;
 		goto out;
 	}
 
@@ -612,8 +618,9 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	 */
 
 	if (!next) {
-		printk(KERN_ERR "CAN: receive list entry not found for "
-		       "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		DBG("receive list entry not found for "
+		    "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		ret = -EINVAL;
 		r = NULL;
 		goto out;
 	}
@@ -630,6 +637,8 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	/* schedule the receiver item for deletion */
 	if (r)
 		call_rcu(&r->rcu, can_rx_delete);
+
+	return ret;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
