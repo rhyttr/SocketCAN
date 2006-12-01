@@ -711,7 +711,8 @@ static void raw_notifier(unsigned long msg, void *data)
 		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->sk_err = ENETDOWN;
-		sk->sk_error_report(sk);
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
 		break;
 	}
 }

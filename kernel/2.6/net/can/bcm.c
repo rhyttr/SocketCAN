@@ -249,9 +249,11 @@ static void bcm_notifier(unsigned long msg, void *data)
 	switch (msg) {
 	case NETDEV_UNREGISTER:
 		sk->sk_bound_dev_if = 0;
+		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->sk_err = ENETDOWN;
-		sk->sk_error_report(sk);
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
 	}
 }
 

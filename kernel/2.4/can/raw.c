@@ -602,7 +602,8 @@ static void raw_notifier(unsigned long msg, void *data)
 		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->err = ENETDOWN;
-		sk->error_report(sk);
+		if (!sk->dead)
+			sk->error_report(sk);
 		break;
 	}
 }
