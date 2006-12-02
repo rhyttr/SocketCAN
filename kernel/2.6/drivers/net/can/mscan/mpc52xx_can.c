@@ -30,7 +30,7 @@
  *
  */
 
-#include <linux/config.h>
+#include <linux/autoconf.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>

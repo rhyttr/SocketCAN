@@ -30,7 +30,7 @@
 #ifndef __MSCAN_H__
 #define __MSCAN_H__
 
-#include <linux/config.h>
+#include <linux/autoconf.h>
 #include <asm/types.h>
 
 /* MSCAN control register 0 (CANCTL0) bits */
