@@ -364,7 +364,8 @@ static int can_notifier(struct notifier_block *nb,
 		d->next        = rx_dev_list;
 		d->pprev       = &rx_dev_list;
 		rx_dev_list    = d;
-		d->next->pprev = &d->next;
+		if (d->next)
+			d->next->pprev = &d->next;
 		write_unlock_bh(&rcv_lists_lock);
 
 		break;
