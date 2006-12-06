@@ -126,7 +126,7 @@ static LIST_HEAD(notifier_list);
 static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
 
 HLIST_HEAD(rx_dev_list);
-struct dev_rcv_lists rx_alldev_list;
+struct dev_rcv_lists *rx_alldev_list; /* shortcut to persistent entry */
 static spinlock_t rcv_lists_lock = SPIN_LOCK_UNLOCKED;
 
 static kmem_cache_t *rcv_cache;
@@ -171,6 +171,17 @@ static __init int can_init(void)
 	if (!rcv_cache)
 		return -ENOMEM;
 
+	/* create a dev_rcv_list for unbound receiption */
+	if (!(rx_alldev_list = kmalloc(sizeof(*rx_alldev_list), GFP_KERNEL))) {
+		printk(KERN_ERR "CAN: allocation of rx_alldev_list failed\n");
+		return -ENOMEM;
+	}
+	memset(rx_alldev_list, 0, sizeof(*rx_alldev_list)); /* dev = NULL */
+
+	spin_lock(&rcv_lists_lock);
+	hlist_add_head_rcu(&rx_alldev_list->list, &rx_dev_list);
+	spin_unlock(&rcv_lists_lock);
+
 	if (stats_timer) {
 		/* statistics init */
 		init_timer(&stattimer);
@@ -201,6 +212,8 @@ static __exit void can_exit(void)
 	dev_remove_pack(&can_packet);
 	unregister_netdevice_notifier(&can_netdev_notifier);
 	sock_unregister(PF_CAN);
+
+	/* TODO: remove rx_dev_list */
 
 	kmem_cache_destroy(rcv_cache);
 }
@@ -525,7 +538,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!(d = find_dev_rcv_lists(dev))) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    dev->name, can_id, mask);
+		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
 		ret = -ENODEV;
 		goto out_unlock;
@@ -594,7 +607,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!(d = find_dev_rcv_lists(dev))) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    dev->name, can_id, mask);
+		    DNAME(dev), can_id, mask);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -619,7 +632,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!next) {
 		DBG("receive list entry not found for "
-		    "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		    "dev %s, id %03X, mask %03X\n", DNAME(dev), can_id, mask);
 		ret = -EINVAL;
 		r = NULL;
 		goto out;
@@ -665,7 +678,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	rcu_read_lock();
 
 	/* deliver the packet to sockets listening on all devices */
-	matches = can_rcv_filter(&rx_alldev_list, skb);
+	matches = can_rcv_filter(rx_alldev_list, skb);
 
 	/* find receive list for this device */
 	if ((d = find_dev_rcv_lists(dev)))
@@ -772,9 +785,6 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 	struct hlist_node *n;
 
 	/* find receive list for this device */
-
-	if (!dev)
-		return &rx_alldev_list;
 
 	/*  The hlist_for_each_entry*() macros curse through the list
 	 *  using the pointer variable n and set d to the containing

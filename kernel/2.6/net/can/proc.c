@@ -213,7 +213,7 @@ static int can_print_recv_list(char *page, int len, struct hlist_head *rx_list,
 			"   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
 
 		len += snprintf(page + len, PAGE_SIZE - len, fmt,
-				dev->name, r->can_id, r->mask,
+				DNAME(dev), r->can_id, r->mask,
 				(unsigned int)r->func, (unsigned int)r->data,
 				r->matches, r->ident);
 
@@ -359,9 +359,9 @@ static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
 		if (!hlist_empty(&d->rx_all)) {
 			len = can_print_recv_banner(page, len);
 			len = can_print_recv_list(page, len, &d->rx_all, d->dev);
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
@@ -389,9 +389,9 @@ static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
 		if (!hlist_empty(&d->rx_fil)) {
 			len = can_print_recv_banner(page, len);
 			len = can_print_recv_list(page, len, &d->rx_fil, d->dev);
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
@@ -419,9 +419,9 @@ static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
 		if (!hlist_empty(&d->rx_inv)) {
 			len = can_print_recv_banner(page, len);
 			len = can_print_recv_list(page, len, &d->rx_inv, d->dev);
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
@@ -459,9 +459,9 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 				if (!hlist_empty(&d->rx_sff[i]) && len < PAGE_SIZE - 100)
 					len = can_print_recv_list(page, len, &d->rx_sff[i], d->dev);
 			}
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
@@ -489,9 +489,9 @@ static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
 		if (!hlist_empty(&d->rx_eff)) {
 			len = can_print_recv_banner(page, len);
 			len = can_print_recv_list(page, len, &d->rx_eff, d->dev);
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
@@ -519,9 +519,9 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 		if (!hlist_empty(&d->rx_err)) {
 			len = can_print_recv_banner(page, len);
 			len = can_print_recv_list(page, len, &d->rx_err, d->dev);
-		} else if (d->dev)
+		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", d->dev->name);
+					"  (%s: no entry)\n", DNAME(d->dev));
 	}
 	rcu_read_unlock();
 
