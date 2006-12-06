@@ -152,6 +152,8 @@ module_exit(can_exit);
 
 static __init int can_init(void)
 {
+	struct net_device *dev;
+
 	printk(banner);
 
 	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
@@ -169,7 +171,16 @@ static __init int can_init(void)
 
 	/* protocol register */
 	sock_register(&can_family_ops);
+
+	/* netdevice notifier register & init currently existing devices */
+	read_lock_bh(&dev_base_lock);
 	register_netdevice_notifier(&can_netdev_notifier);
+	for (dev = dev_base; dev; dev = dev->next)
+		can_netdev_notifier.notifier_call(&can_netdev_notifier,
+						  NETDEV_REGISTER,
+						  dev);
+	read_unlock_bh(&dev_base_lock);
+
 	dev_add_pack(&can_packet);
 
 	return 0;
