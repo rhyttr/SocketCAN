@@ -52,7 +52,7 @@
 
 #include <linux/can.h>
 
-#define DNAME(dev) (dev)?dev->name:"any"
+#define DNAME(dev) ((dev) ? (dev)->name : "any")
 
 void can_debug_skb(struct sk_buff *skb);
 void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);

@@ -126,7 +126,7 @@ static LIST_HEAD(notifier_list);
 static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
 
 HLIST_HEAD(rx_dev_list);
-struct dev_rcv_lists *rx_alldev_list; /* shortcut to persistent entry */
+static struct dev_rcv_lists rx_alldev_list;
 static spinlock_t rcv_lists_lock = SPIN_LOCK_UNLOCKED;
 
 static kmem_cache_t *rcv_cache;
@@ -171,15 +171,13 @@ static __init int can_init(void)
 	if (!rcv_cache)
 		return -ENOMEM;
 
-	/* create a dev_rcv_list for unbound receiption */
-	if (!(rx_alldev_list = kmalloc(sizeof(*rx_alldev_list), GFP_KERNEL))) {
-		printk(KERN_ERR "CAN: allocation of rx_alldev_list failed\n");
-		return -ENOMEM;
-	}
-	memset(rx_alldev_list, 0, sizeof(*rx_alldev_list)); /* dev = NULL */
+	/* Insert dev_rcv_list for reception on all devices.
+	   This struct is zero initialized which is correct for the 
+	   embedded hlist heads and the dev pointer.
+	*/
 
 	spin_lock(&rcv_lists_lock);
-	hlist_add_head_rcu(&rx_alldev_list->list, &rx_dev_list);
+	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
 	spin_unlock(&rcv_lists_lock);
 
 	if (stats_timer) {
@@ -678,7 +676,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	rcu_read_lock();
 
 	/* deliver the packet to sockets listening on all devices */
-	matches = can_rcv_filter(rx_alldev_list, skb);
+	matches = can_rcv_filter(&rx_alldev_list, skb);
 
 	/* find receive list for this device */
 	if ((d = find_dev_rcv_lists(dev)))
