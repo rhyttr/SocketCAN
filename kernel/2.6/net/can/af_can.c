@@ -171,7 +171,7 @@ static __init int can_init(void)
 	if (!rcv_cache)
 		return -ENOMEM;
 
-	/* Insert dev_rcv_list for reception on all devices.
+	/* Insert struct dev_rcv_lists for reception on all devices.
 	   This struct is zero initialized which is correct for the 
 	   embedded hlist heads and the dev pointer.
 	*/
@@ -198,6 +198,9 @@ static __init int can_init(void)
 
 static __exit void can_exit(void)
 {
+	struct dev_rcv_lists *d;
+	struct hlist_node *n, *next;
+
 	if (stats_timer) {
 		/* stop statistics timer */
 		del_timer(&stattimer);
@@ -211,7 +214,10 @@ static __exit void can_exit(void)
 	unregister_netdevice_notifier(&can_netdev_notifier);
 	sock_unregister(PF_CAN);
 
-	/* TODO: remove rx_dev_list */
+	/* remove rx_dev_list */
+	hlist_del(&rx_alldev_list.list);
+	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list)
+		kfree(d);
 
 	kmem_cache_destroy(rcv_cache);
 }
