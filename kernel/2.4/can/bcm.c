@@ -167,9 +167,9 @@ static struct proto_ops bcm_ops = {
 };
 
 #ifdef CONFIG_CAN_BCM_USER
-#define BCM_CAP CAP_NET_RAW
-#else
 #define BCM_CAP (-1)
+#else
+#define BCM_CAP CAP_NET_RAW
 #endif
 
 static struct can_proto bcm_can_proto = {
