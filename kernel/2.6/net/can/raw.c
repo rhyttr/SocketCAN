@@ -279,7 +279,8 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 			}
 			if (!(dev->flags & IFF_UP)) {
 				sk->sk_err = ENETDOWN;
-				sk->sk_error_report(sk);
+				if (!sock_flag(sk, SOCK_DEAD))
+					sk->sk_error_report(sk);
 				goto out;
 			}
 			can_dev_unregister(dev, raw_notifier, sk);
@@ -304,7 +305,8 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		}
 		if (!(dev->flags & IFF_UP)) {
 			sk->sk_err = ENETDOWN;
-			sk->sk_error_report(sk);
+			if (!sock_flag(sk, SOCK_DEAD))
+				sk->sk_error_report(sk);
 			goto out;
 		}
 		can_dev_register(dev, raw_notifier, sk);
