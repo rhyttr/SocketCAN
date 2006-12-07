@@ -61,6 +61,8 @@ RCSID("$Id$");
 
 #include "can.h"
 
+#define DNAME(dev) ((dev) ? (dev)->name : "any")
+
 /* CAN socket protocol family definition */
 /* to be moved to include/linux/socket.h */
 #define PF_CAN		29	/* Controller Area Network      */

@@ -241,7 +241,7 @@ void can_dev_register(struct net_device *dev,
 {
 	struct notifier *n;
 
-	DBG("called for %s\n", dev->name);
+	DBG("called for %s\n", DNAME(dev));
 
 	if (!(n = kmalloc(sizeof(*n), GFP_KERNEL)))
 		return;
@@ -260,7 +260,7 @@ void can_dev_unregister(struct net_device *dev,
 {
 	struct notifier *n, *next;
 
-	DBG("called for %s\n", dev->name);
+	DBG("called for %s\n", DNAME(dev));
 
 	write_lock(&notifier_lock);
 	list_for_each_entry_safe(n, next, &notifier_list, list) {
@@ -347,7 +347,7 @@ static int can_notifier(struct notifier_block *nb,
 	struct net_device *dev = (struct net_device *)data;
 	struct notifier *n;
 
-	DBG("called for %s, msg = %lu\n", dev->name, msg);
+	DBG("called for %s, msg = %lu\n", DNAME(dev), msg);
 
 #if 0
 	if (dev->type != ARPHRD_CAN)
@@ -362,7 +362,7 @@ static int can_notifier(struct notifier_block *nb,
 
 		/* create new dev_rcv_lists for this device */
 
-		DBG("creating new dev_rcv_lists for %s\n", dev->name);
+		DBG("creating new dev_rcv_lists for %s\n", DNAME(dev));
 		if (!(d = kmalloc(sizeof(*d), GFP_KERNEL))) {
 			printk(KERN_ERR "CAN: allocation of receive list failed\n");
 			return NOTIFY_DONE;
@@ -386,7 +386,7 @@ static int can_notifier(struct notifier_block *nb,
 
 		if (!(d = find_dev_rcv_lists(dev))) {
 			printk(KERN_ERR "CAN: notifier: receive list not "
-			       "found for dev %s\n", dev->name);
+			       "found for dev %s\n", DNAME(dev));
 			goto unreg_out;
 		}
 
@@ -497,7 +497,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!(d = find_dev_rcv_lists(dev))) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    dev->name, can_id, mask);
+		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
 		ret = -ENODEV;
 		goto out_unlock;
@@ -551,7 +551,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!(d = find_dev_rcv_lists(dev))) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    dev->name, can_id, mask);
+		    DNAME(dev), can_id, mask);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -575,7 +575,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (!r) {
 		DBG("receive list entry not found for "
-		    "dev %s, id %03X, mask %03X\n", dev->name, can_id, mask);
+		    "dev %s, id %03X, mask %03X\n", DNAME(dev), can_id, mask);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -600,7 +600,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	int matches;
 
 	DBG("received skbuff on device %s, ptype %04x\n",
-	    dev->name, ntohs(pt->type));
+	    DNAME(dev), ntohs(pt->type));
 	DBG_SKB(skb);
 	DBG_FRAME("af_can: can_rcv: received CAN frame",
 		  (struct can_frame *)skb->data);

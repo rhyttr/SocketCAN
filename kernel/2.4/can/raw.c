@@ -120,6 +120,16 @@ static struct proto_ops raw_ops = {
 	.sendpage      = sock_no_sendpage,
 };
 
+
+/* A raw socket has a list of can_filters attached to it, each receiving
+   the CAN frames matching that filter.  If the filter list is empty,
+   no CAN frames will be received by the socket.  The default after
+   opening the socket, is to have one filter which receives all frames.
+   The filter list is allocated dynamically with the exception of the
+   list containing only one item.  This common case is optimized by
+   storing the single filter in dfilter, to avoid using dynamic memory.
+*/
+
 /*  this struct is part of struct sock in the place of union tp_pinfo,
  *  which is initialized to zero for each newly allocated struct sock.
  */
@@ -127,10 +137,11 @@ static struct proto_ops raw_ops = {
 struct canraw_opt {
 	int bound;
 	int ifindex;
-	int count;
 	int loopback;
 	int recv_own_msgs;
-	struct can_filter *filter;
+	int count;                 /* number of active filters */
+	struct can_filter dfilter; /* default/single filter */
+	struct can_filter *filter; /* pointer to filter(s) */
 	can_err_mask_t err_mask;
 };
 
@@ -168,10 +179,17 @@ static __exit void raw_module_exit(void)
 
 static int raw_init(struct sock *sk)
 {
-	canraw_sk(sk)->bound         = 0;
-	canraw_sk(sk)->count         = 0;
-	canraw_sk(sk)->loopback      = 1;
-	canraw_sk(sk)->recv_own_msgs = 0;
+	canraw_sk(sk)->bound            = 0;
+
+	/* set default filter to single entry dfilter */
+	canraw_sk(sk)->dfilter.can_id   = 0;
+	canraw_sk(sk)->dfilter.can_mask = MASK_ALL;
+	canraw_sk(sk)->filter           = &canraw_sk(sk)->dfilter;
+	canraw_sk(sk)->count            = 1;
+
+	/* set default loopback behaviour */
+	canraw_sk(sk)->loopback         = 1;
+	canraw_sk(sk)->recv_own_msgs    = 0;
 
 	return 0;
 }
@@ -188,16 +206,14 @@ static int raw_release(struct socket *sock)
 		dev = dev_get_by_index(canraw_sk(sk)->ifindex);
 
 	/* remove current filters & unregister */
-	if (canraw_sk(sk)->count > 0) {
-		if (canraw_sk(sk)->bound)
-			raw_remove_filters(dev, sk);
+	if (canraw_sk(sk)->bound)
+		raw_remove_filters(dev, sk);
+	if (canraw_sk(sk)->count > 1)
 		kfree(canraw_sk(sk)->filter);
-	} else if (canraw_sk(sk)->bound)
-		can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
 
 	/* remove current error mask */
 	if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
-		can_rx_unregister(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk);
+		can_rx_unregister(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk);
 
 	if (dev) {
 		can_dev_unregister(dev, raw_notifier, sk);
@@ -224,19 +240,29 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 #if 1
 		return -EINVAL;
 #else
-		/* remove current bindings */
+		/* remove current bindings / notifier */
 		if (canraw_sk(sk)->ifindex) {
 			dev = dev_get_by_index(canraw_sk(sk)->ifindex);
-			;  /* remove notifier */
+			if (!dev) {
+				DBG("could not find device %d\n",
+				    addr->can_ifindex);
+				return -ENODEV;
+			}
+			if (!(dev->flags & IFF_UP)) {
+				sk->err = ENETDOWN;
+				sk->error_report(sk);
+				goto out;
+			}
+			can_dev_unregister(dev, raw_notifier, sk);
 		} else
 			dev = NULL;
-		if (canraw_sk(sk)->count > 0) {
-			raw_remove_filters(sk);
-		} else {
-			can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
-		}
+
+		/* unregister current filters for this device */
+		raw_remove_filters(dev, sk);
+
 		if (dev)
 			dev_put(dev);
+
 		canraw_sk(sk)->bound = 0;
 #endif
 	}
@@ -258,13 +284,10 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	canraw_sk(sk)->ifindex = addr->can_ifindex;
 
-	if (canraw_sk(sk)->count > 0)   /* filters set by setsockopt */
-		raw_add_filters(dev, sk);
-	else
-		can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
+	raw_add_filters(dev, sk); /* filters set by default/setsockopt */
 
 	if (canraw_sk(sk)->err_mask) /* error frame filter set by setsockopt */
-		can_rx_register(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk, IDENT);
+		can_rx_register(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
 
 	canraw_sk(sk)->bound = 1;
 
@@ -306,7 +329,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			  char *optval, int optlen)
 {
 	struct sock *sk = sock->sk;
-	struct can_filter *filter = NULL;
+	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
+	struct can_filter sfilter;         /* single filter */
 	struct net_device *dev = NULL;
 	can_err_mask_t err_mask = 0;
 	int count = 0;
@@ -317,38 +341,42 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 	switch (optname) {
 	case CAN_RAW_FILTER:
-		if (optlen) {
-			if (optlen % sizeof(struct can_filter) != 0)
-				return -EINVAL;
+		if (optlen % sizeof(struct can_filter) != 0)
+			return -EINVAL;
+
+		count = optlen / sizeof(struct can_filter);
+
+		if (count > 1) { /* does not fit into dfilter */
 			if (!(filter = kmalloc(optlen, GFP_KERNEL)))
 				return -ENOMEM;
 			if ((err = copy_from_user(filter, optval, optlen))) {
 				kfree(filter);
 				return err;
 			}
-			count = optlen / sizeof(struct can_filter);
+		} else if (count == 1) {
+			if ((err = copy_from_user(&sfilter, optval, optlen)))
+				return err;
 		}
 
 		if (canraw_sk(sk)->bound && canraw_sk(sk)->ifindex)
 			dev = dev_get_by_index(canraw_sk(sk)->ifindex);
 
 		/* remove current filters & unregister */
-		if (canraw_sk(sk)->count > 0) {
-
-			if (canraw_sk(sk)->bound)
-				raw_remove_filters(dev, sk);
-
+		if (canraw_sk(sk)->bound)
+			raw_remove_filters(dev, sk);
+		if (canraw_sk(sk)->count > 1)
 			kfree(canraw_sk(sk)->filter);
-		} else if (canraw_sk(sk)->bound)
-			can_rx_unregister(dev, 0, MASK_ALL, raw_rcv, sk);
+
+		if (count == 1) { /* copy data for single filter */
+			canraw_sk(sk)->dfilter = sfilter;
+			filter = &canraw_sk(sk)->dfilter;
+		}
 
 		/* add new filters & register */
 		canraw_sk(sk)->filter = filter;
 		canraw_sk(sk)->count  = count;
-		if (canraw_sk(sk)->bound && count > 0)
+		if (canraw_sk(sk)->bound)
 			raw_add_filters(dev, sk);
-		else if (canraw_sk(sk)->bound)
-			can_rx_register(dev, 0, MASK_ALL, raw_rcv, sk, IDENT);
 
 		if (dev)
 			dev_put(dev);
@@ -356,13 +384,10 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case CAN_RAW_ERR_FILTER:
-		if (optlen) {
-			if (optlen != sizeof(err_mask))
-				return -EINVAL;
-			if ((err = copy_from_user(&err_mask, optval, optlen))) {
-				return err;
-			}
-		}
+		if (optlen != sizeof(err_mask))
+			return -EINVAL;
+		if ((err = copy_from_user(&err_mask, optval, optlen)))
+			return err;
 
 		err_mask &= CAN_ERR_MASK;
 
@@ -371,18 +396,30 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		/* remove current error mask */
 		if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
-			can_rx_unregister(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk);
+			can_rx_unregister(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk);
 
 		/* add new error mask */
-		if (optlen) {
-			canraw_sk(sk)->err_mask = err_mask;
-			if (canraw_sk(sk)->err_mask & canraw_sk(sk)->bound)
-				can_rx_register(dev, 0, (canid_t)(canraw_sk(sk)->err_mask | CAN_ERR_FLAG), raw_rcv, sk, IDENT);
-		}
+		canraw_sk(sk)->err_mask = err_mask;
+		if (canraw_sk(sk)->err_mask && canraw_sk(sk)->bound)
+			can_rx_register(dev, 0, canraw_sk(sk)->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
 
 		if (dev)
 			dev_put(dev);
 
+		break;
+
+	case CAN_RAW_LOOPBACK:
+		if (optlen != sizeof(canraw_sk(sk)->loopback))
+			return -EINVAL;
+		if ((err = copy_from_user(&canraw_sk(sk)->loopback, optval, optlen)))
+			return err;
+		break;
+
+	case CAN_RAW_RECV_OWN_MSGS:
+		if (optlen != sizeof(canraw_sk(sk)->recv_own_msgs))
+			return -EINVAL;
+		if ((err = copy_from_user(&canraw_sk(sk)->recv_own_msgs, optval, optlen)))
+			return err;
 		break;
 
 	default:
@@ -396,6 +433,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 {
 	struct sock *sk = sock->sk;
 	struct can_filter *filter = canraw_sk(sk)->filter;
+	int count = canraw_sk(sk)->count;
 	int len;
 
 	if (level != SOL_CAN_RAW)
@@ -406,8 +444,8 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 		if (get_user(len, optlen))
 			return -EFAULT;
 
-		if (filter) {
-			int filter_size = canraw_sk(sk)->count * sizeof(struct can_filter);
+		if (count && filter) {
+			int filter_size = count * sizeof(struct can_filter);
 			if (len < filter_size)
 				return -EINVAL;
 			if (len > filter_size)
@@ -437,6 +475,43 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 
 		if (put_user(len, optlen))
 			return -EFAULT;
+
+		break;
+
+	case CAN_RAW_LOOPBACK:
+		if (get_user(len, optlen))
+			return -EFAULT;
+
+		if (len < sizeof(int))
+			return -EINVAL;
+
+		if (len > sizeof(int))
+			len = sizeof(int);
+
+		if (copy_to_user(optval, &canraw_sk(sk)->loopback, len))
+			return -EFAULT;
+
+		if (put_user(len, optlen))
+			return -EFAULT;
+
+		break;
+
+	case CAN_RAW_RECV_OWN_MSGS:
+		if (get_user(len, optlen))
+			return -EFAULT;
+
+		if (len < sizeof(int))
+			return -EINVAL;
+
+		if (len > sizeof(int))
+			len = sizeof(int);
+
+		if (copy_to_user(optval, &canraw_sk(sk)->recv_own_msgs, len))
+			return -EFAULT;
+
+		if (put_user(len, optlen))
+			return -EFAULT;
+
 		break;
 
 	default:
@@ -497,7 +572,11 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		return -ENXIO;
 	}
 
-	skb = alloc_skb(size, GFP_KERNEL);
+	if (!(skb = alloc_skb(size, GFP_KERNEL))) {
+		dev_put(dev);
+		return -ENOMEM;
+	}
+
 	if ((err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size)) < 0) {
 		kfree_skb(skb);
 		dev_put(dev);
@@ -531,9 +610,9 @@ static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	noblock =  flags & MSG_DONTWAIT;
 	flags   &= ~MSG_DONTWAIT;
-	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error))) {
+
+	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error)))
 		return error;
-	}
 
 	DBG("delivering skbuff %p\n", skb);
 	DBG_SKB(skb);
@@ -542,6 +621,7 @@ static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 		msg->msg_flags |= MSG_TRUNC;
 	else
 		size = skb->len;
+
 	if ((error = memcpy_toiovec(msg->msg_iov, skb->data, size)) < 0) {
 		skb_free_datagram(sk, skb);
 		return error;
