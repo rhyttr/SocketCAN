@@ -74,6 +74,7 @@ static int debug = 0;
 #define RX_RECV    0x40 /* received data for this element */
 #define RX_THR     0x80 /* this element has not been sent due to throttle functionality */
 #define BCM_CAN_DLC_MASK 0x0F /* clean flags by masking with BCM_CAN_DLC_MASK */
+#define BCM_RX_REGMASK (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG)
 
 #define NAME "Broadcast Manager (BCM) for LLCF"
 #define IDENT "bcm"
@@ -105,11 +106,10 @@ struct bcm_op {
 struct bcm_user_data {
 	struct bcm_op *rx_ops;
 	struct bcm_op *tx_ops;
+	unsigned long dropped_usr_msgs;
 	struct proc_dir_entry *bcm_proc_read;
 	char procname [9];
 };
-
-#define bcm_sk(sk) ((struct bcm_user_data *)(sk)->user_data)
 
 static struct proc_dir_entry *proc_dir = NULL;
 static int bcm_read_proc(char *page, char **start, off_t off,
@@ -172,6 +172,8 @@ static struct proto_ops bcm_ops = {
 #define BCM_CAP CAP_NET_RAW
 #endif
 
+#define bcm_sk(sk) ((struct bcm_user_data *)(sk)->user_data)
+
 static struct can_proto bcm_can_proto = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
@@ -187,7 +189,7 @@ static int __init bcm_init(void)
 
 	can_proto_register(&bcm_can_proto);
 
-	/* create /proc/can/bcm directory */
+	/* create /proc/net/can/bcm directory */
 	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
 
 	if (proc_dir)
@@ -250,7 +252,7 @@ static int bcm_release(struct socket *sock)
 			if (sk->bound_dev_if) {
 				struct net_device *dev = dev_get_by_index(sk->bound_dev_if);
 				if (dev) {
-					can_rx_unregister(dev, op->can_id, 0xFFFFFFFFU, bcm_rx_handler, op);
+					can_rx_unregister(dev, op->can_id, BCM_RX_REGMASK, bcm_rx_handler, op);
 					dev_put(dev);
 				}
 			} else
@@ -264,6 +266,7 @@ static int bcm_release(struct socket *sock)
 		}
 
 		kfree (ud);
+		sk->user_data = NULL;
 	}
 
 	if (sk->bound_dev_if) {
@@ -288,11 +291,15 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	struct net_device *dev;
 	struct bcm_user_data *ud;
 
-	/* bind a device to this socket */
+	/* create struct for BCM-specific data for this socket */
+	if (!(ud = kmalloc(sizeof(struct bcm_user_data), GFP_KERNEL)))
+		return -ENOMEM;
 
+	/* bind a device to this socket */
 	dev = dev_get_by_index(addr->can_ifindex);
 	if (!dev) {
 		DBG("could not find device %d\n", addr->can_ifindex);
+		kfree(ud);
 		return -ENODEV;
 	}
 	sk->bound_dev_if = dev->ifindex;
@@ -301,15 +308,11 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 
 	DBG("socket %p to device %s (idx %d)\n", sock, dev->name, dev->ifindex);
 
-	/* create struct for BCM-specific data for this socket */
-
-	if (!(ud = kmalloc(sizeof(struct bcm_user_data), GFP_KERNEL)))
-		return -ENOMEM;
-
 	/* intitial BCM operations */
 	ud->tx_ops = NULL;
 	ud->rx_ops = NULL;
 	ud->bcm_proc_read = NULL;
+	ud->dropped_usr_msgs = 0;
 
 	sk->user_data = ud;
 
@@ -333,6 +336,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	MOD_INC_USE_COUNT;
 
 	len += snprintf(page + len, PAGE_SIZE - len,">>> ud %p", ud);
+	len += snprintf(page + len, PAGE_SIZE - len," / dropped %lu", ud->dropped_usr_msgs);
 
 	if (ud->rx_ops) {
 		if (ud->rx_ops->sk->bound_dev_if)
@@ -355,7 +359,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 
 	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
 
-	for (op = ud->rx_ops; op && (len < PAGE_SIZE - 100); op = op->next) {
+	for (op = ud->rx_ops; op; op = op->next) {
 
 		unsigned long reduction;
 
@@ -379,11 +383,14 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
 				(reduction == 100)?"near ":"", reduction);
 
-		if (len > PAGE_SIZE - 100) /* 100 Bytes before end of buffer */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n"); /* mark output cutted off */
+		if (len >= PAGE_SIZE - 100) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		}
 	}
 
-	for (op = ud->tx_ops; op && (len < PAGE_SIZE - 100); op = op->next) {
+	for (op = ud->tx_ops; op; op = op->next) {
 
 		len += snprintf(page + len, PAGE_SIZE - len, "tx_op: %03X [%d] ",
 				op->can_id, op->nframes);
@@ -395,8 +402,11 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 
 		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n", op->frames_abs);
 
-		if (len > PAGE_SIZE - 100) /* 100 Bytes before end of buffer */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n"); /* mark output cutted off */
+		if (len >= PAGE_SIZE - 100) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		}
 	}
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -473,7 +483,12 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 			}
 
 			for (i = 0; i < msg_head.nframes; i++) {
-				memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame));
+				if ((err = memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame))) < 0) {
+					kfree(op->frames);
+					kfree(op);
+					return err;
+				}
+
 				if (msg_head.flags & TX_CP_CAN_ID)
 					op->frames[i].can_id = msg_head.can_id; /* copy can_id into frame */
 			}
@@ -649,9 +664,12 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		skb = alloc_skb(sizeof(struct can_frame), GFP_KERNEL);
 
 		if (!skb)
-			break;
+			return -ENOMEM;
 
-		memcpy_fromiovec(skb_put(skb, sizeof(struct can_frame)), msg->msg_iov, sizeof(struct can_frame));
+		if ((err = memcpy_fromiovec(skb_put(skb, sizeof(struct can_frame)), msg->msg_iov, sizeof(struct can_frame))) < 0) {
+			kfree_skb(skb);
+			return err;
+		}
 
 		DBG_FRAME("BCM: TX_SEND: sending frame",
 			  (struct can_frame *)skb->data);
@@ -659,7 +677,8 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb, 1);
+			skb->sk  = sk;
+			can_send(skb, 1); /* send with loopback */
 			dev_put(dev);
 		}
 
@@ -715,7 +734,11 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 				}
 
 				for (i = 0; i < msg_head.nframes; i++)
-					memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame));
+					if ((err = memcpy_fromiovec((unsigned char*)&op->frames[i], msg->msg_iov, sizeof(struct can_frame))) < 0) {
+						kfree(op->frames);
+						kfree(op);
+						return err;
+					}
 
 				/* create array for received can_frames */
 				if (!(op->last_frames = kmalloc(msg_head.nframes * sizeof(struct can_frame), GFP_KERNEL))) {
@@ -870,7 +893,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 			DBG("RX_SETUP: can_rx_register() for can_id <%03X>. rx_op is (%p)\n", op->can_id, op);
 
 			if (dev) {
-				can_rx_register(dev, op->can_id, 0xFFFFFFFFU, bcm_rx_handler, op, IDENT);
+				can_rx_register(dev, op->can_id, BCM_RX_REGMASK, bcm_rx_handler, op, IDENT);
 				dev_put(dev);
 			}
 		}
@@ -1260,7 +1283,8 @@ static void bcm_can_tx(struct bcm_op *op)
 
 		if (dev) {
 			skb->dev = dev;
-			can_send(skb, 1);
+			skb->sk = op->sk;
+			can_send(skb, 1); /* send with loopback */
 			dev_put(dev);
 		}
 	}
@@ -1289,6 +1313,9 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 
 	skb = alloc_skb(sizeof(*head) + datalen,
 			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	if (!skb)
+		return;
+
 	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
 	firstframe = (struct can_frame *) skb->tail; /* can_frames starting here */
 
@@ -1306,8 +1333,10 @@ static void bcm_send_to_user(struct sock *sk, struct bcm_msg_head *head,
 			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
 	}
 	if ((err = sock_queue_rcv_skb(sk, skb)) < 0) {
+		struct bcm_user_data *ud = bcm_sk(sk);
 		DBG("sock_queue_rcv_skb failed: %d\n", err);
 		kfree_skb(skb);
+		ud->dropped_usr_msgs++; /* don't care about overflows */
 	}
 }
 
@@ -1334,7 +1363,7 @@ static void bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id)
 			if (p->sk->bound_dev_if) {
 				struct net_device *dev = dev_get_by_index(p->sk->bound_dev_if);
 				if (dev) {
-					can_rx_unregister(dev, p->can_id, 0xFFFFFFFFU, bcm_rx_handler, p);
+					can_rx_unregister(dev, p->can_id, BCM_RX_REGMASK, bcm_rx_handler, p);
 					dev_put(dev);
 				}
 			} else
