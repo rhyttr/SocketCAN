@@ -173,7 +173,7 @@ static __init int can_init(void)
 
 	/* Insert struct dev_rcv_lists for reception on all devices.
 	   This struct is zero initialized which is correct for the 
-	   embedded hlist heads and the dev pointer.
+	   embedded hlist heads, the dev pointer, and the entries counter.
 	*/
 
 	spin_lock(&rcv_lists_lock);
@@ -215,6 +215,7 @@ static __exit void can_exit(void)
 	sock_unregister(PF_CAN);
 
 	/* remove rx_dev_list */
+	/* XXX: should we lock the receive list here? */
 	hlist_del(&rx_alldev_list.list);
 	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list)
 		kfree(d);

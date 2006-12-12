@@ -114,8 +114,9 @@ struct notifier {
 static LIST_HEAD(notifier_list);
 static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
 
-struct dev_rcv_lists *rx_dev_list;
+static
 struct dev_rcv_lists rx_alldev_list;
+struct dev_rcv_lists *rx_dev_list;
 rwlock_t rcv_lists_lock = RW_LOCK_UNLOCKED;
 
 static kmem_cache_t *rcv_cache;
@@ -161,6 +162,17 @@ static __init int can_init(void)
 	if (!rcv_cache)
 		return -ENOMEM;
 
+	/* Insert struct dev_rcv_lists for reception on all devices.
+	   This struct is zero initialized which is correct for the 
+	   embedded receiver list head pointer, the dev pointer,
+	   and the entries counter.
+	*/
+
+	write_lock_bh(&rcv_lists_lock);
+	rx_alldev_list.pprev = &rx_dev_list;
+	rx_dev_list          = &rx_alldev_list;
+	write_unlock_bh(&rcv_lists_lock);
+
 	if (stats_timer) {
 		/* statistics init */
 		init_timer(&stattimer);
@@ -188,6 +200,8 @@ static __init int can_init(void)
 
 static __exit void can_exit(void)
 {
+	struct dev_rcv_lists *d;
+
 	if (stats_timer) {
 		/* stop statistics timer */
 		del_timer(&stattimer);
@@ -200,6 +214,12 @@ static __exit void can_exit(void)
 	dev_remove_pack(&can_packet);
 	unregister_netdevice_notifier(&can_netdev_notifier);
 	sock_unregister(PF_CAN);
+
+	/* remove rx_dev_list */
+	/* XXX: should we lock the receive list here? */
+	for (d = rx_dev_list; d; d = d->next)
+		if (d != &rx_alldev_list)
+			kfree(d);
 
 	kmem_cache_destroy(rcv_cache);
 }
