@@ -416,7 +416,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
 				(reduction == 100)?"near ":"", reduction);
 
-		if (len >= PAGE_SIZE - 100) {
+		if (len > PAGE_SIZE - 200) {
 			/* mark output cut off */
 			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
 			break;
@@ -435,7 +435,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 
 		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n", op->frames_abs);
 
-		if (len >= PAGE_SIZE - 100) {
+		if (len > PAGE_SIZE - 100) {
 			/* mark output cut off */
 			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
 			break;

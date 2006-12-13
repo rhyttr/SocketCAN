@@ -362,6 +362,9 @@ static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 
@@ -392,6 +395,9 @@ static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 
@@ -422,6 +428,9 @@ static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 
@@ -462,6 +471,9 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 
@@ -492,6 +504,9 @@ static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 
@@ -522,6 +537,9 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
+
+		if (len > PAGE_SIZE - 100)
+			break; /* exit on end of buffer */
 	}
 	rcu_read_unlock();
 

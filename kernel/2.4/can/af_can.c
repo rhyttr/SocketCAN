@@ -114,8 +114,7 @@ struct notifier {
 static LIST_HEAD(notifier_list);
 static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
 
-static
-struct dev_rcv_lists rx_alldev_list;
+static struct dev_rcv_lists rx_alldev_list;
 struct dev_rcv_lists *rx_dev_list;
 rwlock_t rcv_lists_lock = RW_LOCK_UNLOCKED;
 
