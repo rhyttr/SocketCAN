@@ -35,11 +35,12 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/netdevice.h>
-#include <linux/can/can.h>
+#include <linux/can.h>
 #include <linux/list.h>
 #include <asm/io.h>
 
 #include <linux/can/dev.h>
+#include <linux/can/error.h>
 #include "mscan.h"
 
 #define MSCAN_NORMAL_MODE	0
@@ -401,7 +402,7 @@ static int mscan_rx_poll(struct net_device *ndev, int *budget)
 						frame->data[1] |= CAN_ERR_CRTL_TX_WARNING;
 					break;
 				  case CAN_STATE_BUS_PASSIVE:
-					frame->data[1] |= CAN_ERR_CRTL_PASSIVE;
+					frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
 					break;
 				  case CAN_STATE_BUS_OFF:
 					frame->can_id |= CAN_ERR_BUSOFF;
