@@ -129,7 +129,11 @@ HLIST_HEAD(rx_dev_list);
 static struct dev_rcv_lists rx_alldev_list;
 static spinlock_t rcv_lists_lock = SPIN_LOCK_UNLOCKED;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static struct kmem_cache *rcv_cache __read_mostly;
+#else
 static kmem_cache_t *rcv_cache;
+#endif
 
 static struct packet_type can_packet = {
 	.type = __constant_htons(ETH_P_CAN),
