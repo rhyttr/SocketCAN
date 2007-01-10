@@ -818,7 +818,12 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
 	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
 	canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
-	canid_t err = *mask & CAN_ERR_FLAG; /* mask for error frames only */
+
+	/* do not modify the error mask due to the can_id which is 0 */
+	if (*mask & CAN_ERR_FLAG) { /* filter error frames */
+		*mask &= CAN_ERR_MASK; /* clear CAN_ERR_FLAG in list entry */
+		return &d->rx_err;
+	}
 
 	/* make some paranoic operations */
 	if (*can_id & CAN_EFF_FLAG)
@@ -827,9 +832,6 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 		*mask &= (CAN_SFF_MASK | rtr);
 
 	*can_id &= *mask;
-
-	if (err) /* error frames */
-		return &d->rx_err;
 
 	if (inv) /* inverse can_id/can_mask filter and RTR */
 		return &d->rx_inv;

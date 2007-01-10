@@ -63,8 +63,6 @@ RCSID("$Id$");
 #define CAN_ERR_BUSERROR     0x00000080U /* bus error (may flood!) */
 #define CAN_ERR_RESTARTED    0x00000100U /* controller restarted */
 
-#define CAN_ERR_MASK         0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
-
 /* arbitration lost in bit ... / data[0] */
 #define CAN_ERR_LOSTARB_UNSPEC   0x00 /* unspecified */
 				      /* else bit number in bitstream */
