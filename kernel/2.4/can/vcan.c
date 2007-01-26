@@ -74,9 +74,9 @@ static int debug = 0;
 #define DBG_SKB(skb)
 #endif
 
-/* This 'undef' makes the vcan a kind of NULL device.  Since LLCF v0.6  */
-/* the local loopback is implemented in af_can.c for all interfaces.    */
-#undef  DO_LOOPBACK
+/* Indicate if this VCAN driver should do a real loopback, or if this */
+/* should be done in af_can.c */
+#define  DO_LOOPBACK
 
 #define NDEVICES 4
 
@@ -128,7 +128,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 
 #endif
 
-
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
@@ -137,27 +136,34 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	DBG_SKB(skb);
 	DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
 
-#ifdef DO_LOOPBACK
-	if (atomic_read(&skb->users) != 1) {
-		struct sk_buff *old_skb = skb;
-		skb = skb_clone(old_skb, GFP_ATOMIC);
-		DBG("  freeing old skbuff %p, using new skbuff %p\n",
-		    old_skb, skb);
-		kfree_skb(old_skb);
-		if (!skb) {
-			return 0;
-		}
-	} else
-		skb_orphan(skb);
-#endif
-
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
+
 #ifdef DO_LOOPBACK
-	vcan_rx(skb, dev);
+	if (*(struct sock **)skb->cb) { /* loopback required */
+		if (atomic_read(&skb->users) != 1) {
+			struct sk_buff *old_skb = skb;
+			skb = skb_clone(old_skb, GFP_ATOMIC);
+			DBG("  freeing old skbuff %p, using new skbuff %p\n",
+			    old_skb, skb);
+			kfree_skb(old_skb);
+			if (!skb) {
+				return 0;
+			}
+		} else
+			skb_orphan(skb);
+
+		vcan_rx(skb, dev); /* with packet counting */
+	} else {
+		/* no looped packets => no counting */
+		kfree_skb(skb);
+	}
 #else
-	stats->rx_packets++;
-	stats->rx_bytes += skb->len;
+	/* only count, when the CAN-core made a loopback */
+	if (*(struct sock **)skb->cb) {
+		stats->rx_packets++;
+		stats->rx_bytes += skb->len;
+	}
 	kfree_skb(skb);
 #endif
 	return 0;
@@ -170,7 +176,7 @@ static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 static int vcan_rebuild_header(struct sk_buff *skb)
 {
-	DBG("called on skbuff %p\n", skb);
+	DBG("skbuff %p\n", skb);
 	DBG_SKB(skb);
 	return 0;
 }
@@ -179,7 +185,7 @@ static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 		       unsigned short type, void *daddr, void *saddr,
 		       unsigned int len)
 {
-	DBG("called skbuff %p device %p\n", skb, dev);
+	DBG("skbuff %p device %p\n", skb, dev);
 	DBG_SKB(skb);
 	return 0;
 }
@@ -202,19 +208,21 @@ static int vcan_init(struct net_device *dev)
 		return -ENOMEM;
 	memset(dev->priv, 0, sizeof(struct net_device_stats));
 
+	dev->type              = ARPHRD_CAN;
+	dev->mtu               = sizeof(struct can_frame);
+#ifdef DO_LOOPBACK
+	dev->flags             = IFF_LOOPBACK;
+#endif
+
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
 	dev->set_config        = NULL;
 	dev->hard_start_xmit   = vcan_tx;
 	dev->do_ioctl          = vcan_ioctl;
 	dev->get_stats         = vcan_get_stats;
-
-	dev->mtu               = sizeof(struct can_frame);
-	dev->flags             = IFF_LOOPBACK;
 	dev->hard_header       = vcan_header;
 	dev->rebuild_header    = vcan_rebuild_header;
 	dev->hard_header_cache = NULL;
-	dev->type              = ARPHRD_LOOPBACK;
 
 	SET_MODULE_OWNER(dev);
 
