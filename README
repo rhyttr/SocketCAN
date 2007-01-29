@@ -41,7 +41,7 @@ compile the source code.  So you may have to write
 
     $ make KERNELDIR=<kernel-source> CC=gcc-<gcc-version>
 
-or something like that to call the apropriate compiler.
+or something like that to call the appropriate compiler.
 
 [ NOTE:  currently, there is no Makefile in socketcan/kernel/<version>
          you have to descend into each subdirectory and run make there.
@@ -78,7 +78,7 @@ and
     s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
 
 respectively.  After opening, you would normally use the bind(2)
-system call to bind to a CAN id, then you can read(2) and write(2)
+system call to bind to a CAN ID, then you can read(2) and write(2)
 from/to the socket or use send(2), sendto(2), sendmsg(2) and the recv*
 counterpart operations on the socket as usual.  There are also CAN
 specific socket options described in the bcm(7) and can-raw(7) manual
@@ -88,4 +88,82 @@ currently only available in German.
 
 4. Why using the socket API
 
-...
+There have been CAN implementations for Linux before Socket CAN so the
+question arises, why we have started another project.  Most existing
+implementations come as a device driver for some CAN hardware, they
+are based on character devices and provide comparatively little
+functionality.  Usually, there is only a hardware-specific device
+driver which provides a character device interface to send and
+receive raw CAN frames, directly to/from the controller hardware.
+Queueing of frames and higher-level transport protocols like ISO-TP
+have to be implemented in user space applications.  Also, most
+character-device implementation support only one single process to
+open the device at a time, similar to a serial interface.  Exchanging
+the CAN controller requires employment of another device dricer and
+often the need for apadption of large parts of the application the new
+driver's API.
+
+Socket CAN was designed to overcome all of these limitations.  A new
+protocol family has been implemented which provides a socket interface
+to user space applications and which builds upon the Linux network
+layer, so to use all of the provided queueing functionality.  Device
+drivers for CAN controller hardware register itself with the Linux
+network layer as a network device, so that CAN frames from the
+controller can be passed up to the network layer and on to the CAN
+protocol family module and also vice-versa.  Also, the protocol family
+module provides an API for transport protocol modules to register, so
+that any number of transport protocols can be loaded or unloaded
+dynamically.  In fact, the can core module alone does not provide any
+protocol and can not be used without loading at least one additional
+protocol module.  Multiple sockets can be opened at the same time,
+on different or the same protocol module and they can listen/send
+frames on different or the same CAN IDs.  Several sockets listening on
+the same interface for frames with the same CAN ID are all passed the
+same received matching CAN frames.  An application wishing to
+communicate using a specific transport protocol, e.g. ISO-TP, just
+selects that protocol when opening the socket, and then can read and
+write application data byte streams, without having to deal with
+CAN-IDs, frames, etc.
+
+Similar functionality visible from user-space could be provided by a
+character decive, too, but this would lead to a technically inelegant
+solution for a couple of reasons:
+
+* Intricate usage.  Instead of passing a protocol argument to
+  socket(2) and using bind(2) to select a CAN interface and CAN ID, an
+  application would have to do all these operations using ioctl(2)s.
+
+* Code duplication.  A character device cannot make use of the Linux
+  network queueing code, so all that code would have to be duplicated
+  for CAN networking.
+
+* Abstraction.  In most existing character-device implementations, the
+  hardware-specific device driver for a CAN controller directly
+  provides the character device for the application to work with.
+  This is at least very unusual in Unix systems, for both, char and
+  block devices.  For example you don't have a character device for a
+  certain UART of a serial interface, a certain sound chip in your
+  computer, a SCSI or IDE controller providing access to your hard
+  disk or tape streamer device.  Instead, you have abstraction layers
+  which provide a unified character or block device interface to the
+  application on the one hand, and a interface for hardware-specific
+  device drivers on the other hand.  These abstractions are provided
+  by subsystems like the tty layer, the audio subsystem or the SCSI
+  and IDE subsystems for the devices mentioned above.
+
+  The easiest way to implement a CAN device driver is as a character
+  without such a (complete) abstraction layer, as is done by some
+  existing drivers.  The right way, however, would be to add such a
+  layer with all the functionality like registering for certain CAN
+  IDs, supporting several open file descriptors and (de)multplexing
+  CAN frames between them, (sophisticated) queueing of CAN frames, and
+  providing an API for device driver to register with.  However, then
+  it would be no more difficult, or may be even easier, to use the
+  networking framework provided by the Linux kernel, and this is what
+  Socket CAN does.
+
+Although CAN is not really a well-designed networking technology and
+the 'N' in CAN feels just wrong (at least in the opinion of one
+socketcan authors), use of the networking framework of the Linux
+kernel is just the natural and most appropriate way to implement CAN
+for Linux.
