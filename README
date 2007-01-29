@@ -1,0 +1,91 @@
+$Id$
+
+
+1. What is Socket CAN
+
+The socketcan package is an implementation of CAN protocols
+(Controller Area Network) for Linux.  CAN is a networking technology
+which has wide-spread use in automation, embedded devices, and
+automotive fields.  While there have been other CAN implementations
+for Linux based on character devices, Socket CAN uses the Berkeley
+socket API, the Linux network stack and implements the CAN device
+drivers as network interfaces.  The CAN socket API has been designed
+as similar as possible to the TCP/IP protocols to allow programmers,
+familiar with network programming, to easily learn how to use CAN
+sockets.
+
+
+2. How to compile and install
+
+2a. Compile and install the kernel modules
+
+To compile the Socket CAN sources, you need the Linux kernel sources
+for the kernel running on your target system, configured like that
+kernel.
+
+Then you should chdir to the socketcan source directory and call make
+to compile all the sources:
+
+    $ cd socketcan/kernel/<version>
+    $ make KERNELDIR=<kernel-source>
+
+where version is 2.4 or 2.6, depending on the kernel version you run
+on your target, and <kernel-source> should be replaced by the
+directory where your target kernel source is installed.  If you
+compile on the target machine and the configured kernel is in
+/usr/src/linux, you can omit the KERNELDIR argument to make.
+
+Not only the kernel version and configuration must match the kernel
+runnung on your target system, but also the version of GCC used to
+compile the source code.  So you may have to write
+
+    $ make KERNELDIR=<kernel-source> CC=gcc-<gcc-version>
+
+or something like that to call the apropriate compiler.
+
+[ NOTE:  currently, there is no Makefile in socketcan/kernel/<version>
+         you have to descend into each subdirectory and run make there.
+]
+
+To install the kernel modules, you must create a directory to install
+the modules in, copy the kernel modules to that directory and run
+depmod(8) to let modprobe find the newly installed modules:
+
+    # mkdir /lib/modules/$(uname -r)/socketcan
+    # find -name \*.ko | xargs install -t /lib/modules/$(uname -r)/socketcan
+    # depmod $(uname -r)
+
+2b. Compile and install the user space utilities and test programs
+
+...
+
+[ Run make in can-utils and test dirs and cp binaries to /usr/local ]
+
+
+3. How to use socketcan
+
+Like TCP/IP, you first need to open a socket for communicating over a
+CAN network.  Since Socket CAN implements a new protocol family, you
+need to pass PF_CAN as the first argument to the socket(2) system
+call.  Currently, there are two CAN protocols to choose from, the raw
+socket protocol and the broadcast manager (BCM).  So to open a socket,
+you would write
+
+    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+
+and
+
+    s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
+
+respectively.  After opening, you would normally use the bind(2)
+system call to bind to a CAN id, then you can read(2) and write(2)
+from/to the socket or use send(2), sendto(2), sendmsg(2) and the recv*
+counterpart operations on the socket as usual.  There are also CAN
+specific socket options described in the bcm(7) and can-raw(7) manual
+pages.  Complete documentation can be found in the LaTeX file,
+currently only available in German.
+
+
+4. Why using the socket API
+
+...
