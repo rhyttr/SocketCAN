@@ -97,10 +97,10 @@ driver which provides a character device interface to send and
 receive raw CAN frames, directly to/from the controller hardware.
 Queueing of frames and higher-level transport protocols like ISO-TP
 have to be implemented in user space applications.  Also, most
-character-device implementation support only one single process to
+character-device implementations support only one single process to
 open the device at a time, similar to a serial interface.  Exchanging
-the CAN controller requires employment of another device dricer and
-often the need for apadption of large parts of the application the new
+the CAN controller requires employment of another device driver and
+often the need for adaption of large parts of the application the new
 driver's API.
 
 Socket CAN was designed to overcome all of these limitations.  A new
@@ -152,7 +152,7 @@ solution for a couple of reasons:
   and IDE subsystems for the devices mentioned above.
 
   The easiest way to implement a CAN device driver is as a character
-  without such a (complete) abstraction layer, as is done by some
+  without such a (complete) abstraction layer, as is done by most
   existing drivers.  The right way, however, would be to add such a
   layer with all the functionality like registering for certain CAN
   IDs, supporting several open file descriptors and (de)multplexing
