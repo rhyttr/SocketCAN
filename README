@@ -100,8 +100,8 @@ have to be implemented in user space applications.  Also, most
 character-device implementations support only one single process to
 open the device at a time, similar to a serial interface.  Exchanging
 the CAN controller requires employment of another device driver and
-often the need for adaption of large parts of the application the new
-driver's API.
+often the need for adaption of large parts of the application to the
+new driver's API.
 
 Socket CAN was designed to overcome all of these limitations.  A new
 protocol family has been implemented which provides a socket interface
