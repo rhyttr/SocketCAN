@@ -1,7 +1,11 @@
 /*
- * $Id$
+ *  $Id$
+ */
+
+/*
+ * tst-bcm-tx-sendto.c
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,35 +46,78 @@
  *
  */
 
-#ifndef CAN_BCM_H
-#define CAN_BCM_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
-struct bcm_msg_head {
-	int opcode;                   /* command */
-	int flags;                    /* special flags */
-	int count;                    /* run 'count' times ival1 then ival2 */
-	struct timeval ival1, ival2;  /* intervals */
-	canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
-	int nframes;                  /* number of following can_frame's */
-	struct can_frame frames[0];
-};
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/uio.h>
+#include <net/if.h>
 
-enum {
-	NO_OP,
-	TX_SETUP, TX_DELETE, TX_READ, TX_SEND, RX_SETUP, RX_DELETE, RX_READ,
-	TX_STATUS, TX_EXPIRED, RX_STATUS, RX_TIMEOUT, RX_CHANGED
-};
+#include <linux/can.h>
+#include <linux/can/bcm.h>
 
-#define SETTIMER            0x0001
-#define STARTTIMER          0x0002
-#define TX_COUNTEVT         0x0004
-#define TX_ANNOUNCE         0x0008
-#define TX_CP_CAN_ID        0x0010
-#define RX_FILTER_ID        0x0020
-#define RX_CHECK_DLC        0x0040
-#define RX_NO_AUTOTIMER     0x0080
-#define RX_ANNOUNCE_RESUME  0x0100
-#define TX_RESET_MULTI_IDX  0x0200
-#define RX_RTR_FRAME        0x0400
+#define U64_DATA(p) (*(unsigned long long*)(p)->data)
 
-#endif /* CAN_BCM_H */
+int main(int argc, char **argv)
+{
+    int s;
+    struct sockaddr_can addr;
+    struct ifreq ifr;
+
+    struct {
+      struct bcm_msg_head msg_head;
+      struct can_frame frame;
+    } txmsg;
+
+    if ((s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM)) < 0) {
+	perror("socket");
+	return 1;
+    }
+
+    addr.can_family = PF_CAN;
+    addr.can_ifindex = 0; /* bind to 'any' device */
+
+    if (connect(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+	perror("connect");
+	return 1;
+    }
+
+    txmsg.msg_head.opcode  = TX_SETUP;
+    txmsg.msg_head.can_id  = 0x42;
+    txmsg.msg_head.flags   = SETTIMER|STARTTIMER;
+    txmsg.msg_head.nframes = 1;
+    txmsg.msg_head.count = 10;
+    txmsg.msg_head.ival1.tv_sec = 1;
+    txmsg.msg_head.ival1.tv_usec = 0;
+    txmsg.msg_head.ival2.tv_sec = 0;
+    txmsg.msg_head.ival2.tv_usec = 0;
+    txmsg.frame.can_id    = 0x42;
+    txmsg.frame.can_dlc   = 8;
+    U64_DATA(&txmsg.frame) = (__u64) 0xdeadbeefdeadbeefULL;
+
+    /* should cause an error due to ifindex = 0 */
+    if (write(s, &txmsg, sizeof(txmsg)) < 0)
+      perror("write");
+
+    printf("Press any key to send on valid device ...\n");
+    getchar();
+
+    addr.can_family = PF_CAN;
+    strcpy(ifr.ifr_name, "vcan2");
+    ioctl(s, SIOCGIFINDEX, &ifr);
+    addr.can_ifindex = ifr.ifr_ifindex;
+
+    if (sendto(s, &txmsg, sizeof(txmsg), 0, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+      perror("sendto");
+
+    printf("Press any key to close the socket ...\n");
+    getchar();
+
+    close(s);
+
+    return 0;
+}
