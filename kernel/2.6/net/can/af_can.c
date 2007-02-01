@@ -400,10 +400,8 @@ static int can_notifier(struct notifier_block *nb,
 
 	DBG("called for %s, msg = %lu\n", dev->name, msg);
 
-#if 0
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
-#endif
 
 	switch (msg) {
 		struct dev_rcv_lists *d;
@@ -414,7 +412,8 @@ static int can_notifier(struct notifier_block *nb,
 		/* create new dev_rcv_lists for this device */
 
 		DBG("creating new dev_rcv_lists for %s\n", dev->name);
-		if (!(d = kmalloc(sizeof(*d), GFP_KERNEL))) {
+		if (!(d = kmalloc(sizeof(*d),
+				  in_interrupt() ? GFP_ATOMIC : GFP_KERNEL))) {
 			printk(KERN_ERR "CAN: allocation of receive list failed\n");
 			return NOTIFY_DONE;
 		}
