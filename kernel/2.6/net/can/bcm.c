@@ -1,7 +1,7 @@
 /*
  * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -306,18 +306,18 @@ static int bcm_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct bcm_opt *bo = bcm_sk(sk);
-	struct bcm_op *op, *n;
+	struct bcm_op *op, *next;
 
 	DBG("socket %p, sk %p\n", sock, sk);
 
 	/* remove bcm_ops, timer, rx_unregister(), etc. */
 
-	list_for_each_entry_safe(op, n, &bo->tx_ops, list) {
+	list_for_each_entry_safe(op, next, &bo->tx_ops, list) {
 		DBG("removing tx_op (%p) for can_id <%03X>\n", op, op->can_id);
 		bcm_remove_op(op);
 	}
 
-	list_for_each_entry_safe(op, n, &bo->rx_ops, list) {
+	list_for_each_entry_safe(op, next, &bo->rx_ops, list) {
 		DBG("removing rx_op (%p) for can_id <%03X>\n", op, op->can_id);
 
 		/* Don't care if we're bound or not (due to netdev problems) */
@@ -333,7 +333,6 @@ static int bcm_release(struct socket *sock)
 
 		bcm_remove_op(op);
 	}
-
 
 	/* remove procfs entry */
 	if ((proc_dir) && (bo->bcm_proc_read)) {
