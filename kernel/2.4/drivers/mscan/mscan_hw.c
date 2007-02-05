@@ -599,7 +599,7 @@ struct net_device* mscan_register(struct mpc5xxx_mscan *regs, int irq, int speed
     dev->header_cache_update	= NULL;
     dev->hard_header_parse	= NULL;
 
-    //	dev->type		= ARPHRD_CAN;
+    dev->type			= ARPHRD_CAN;
     dev->hard_header_len	= 4;
     dev->mtu			= 8;
     dev->addr_len		= 2;

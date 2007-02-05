@@ -838,7 +838,7 @@ int sja1000_probe(struct net_device *dev)
 	dev->header_cache_update	= NULL;
 	dev->hard_header_parse		= NULL;
 
-	//	dev->type			= ARPHRD_CAN;
+	dev->type			= ARPHRD_CAN;
 	dev->hard_header_len		= 0;
 	dev->mtu			= sizeof(struct can_frame);
 	dev->addr_len			= 0;
