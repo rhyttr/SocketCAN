@@ -215,10 +215,12 @@ static __exit void can_exit(void)
 	sock_unregister(PF_CAN);
 
 	/* remove rx_dev_list */
-	/* XXX: should we lock the receive list here? */
+	write_lock_bh(&rcv_lists_lock);
 	for (d = rx_dev_list; d; d = d->next)
 		if (d != &rx_alldev_list)
 			kfree(d);
+	rx_dev_list = NULL;
+	write_unlock_bh(&rcv_lists_lock);
 
 	kmem_cache_destroy(rcv_cache);
 }
