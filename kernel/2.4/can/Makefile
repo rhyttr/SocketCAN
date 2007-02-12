@@ -55,7 +55,7 @@ MODLIB := $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)/llcf
 
 MOD = can.o vcan.o can-bcm.o can-raw.o
 
-all-vw: $(MOD)
+all: $(MOD)
 
 ifeq "$(strip $(INSTALL_MOD_PATH))" ""
 DEPMOD_BASE :=
