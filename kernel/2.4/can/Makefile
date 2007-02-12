@@ -53,16 +53,9 @@ KERNELRELEASE = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
 MODLIB := $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)/llcf
 
-MOD_GPL = can.o vcan.o can-bcm.o can-raw.o
-MOD_VW  = can-tpgen.o can-tp20.o can-tp16.o can-mcnet.o
+MOD = can.o vcan.o can-bcm.o can-raw.o
 
-default: all-gpl
-
-all: all-gpl all-vw
-
-all-gpl: $(MOD_GPL)
-
-all-vw: $(MOD_VW)
+all-vw: $(MOD)
 
 ifeq "$(strip $(INSTALL_MOD_PATH))" ""
 DEPMOD_BASE :=
@@ -70,12 +63,7 @@ else
 DEPMOD_BASE := -r -b $(INSTALL_MOD_PATH)
 endif
 
-install: $(MOD_GPL)
-	install -m 755 -d $(MODLIB)
-	install -m 644 $^ $(MODLIB)
-	depmod -ae -F $(KERNELDIR)/System.map $(DEPMOD_BASE) $(KERNELRELEASE)
-
-install-vw: $(MOD_VW)
+install: $(MOD)
 	install -m 755 -d $(MODLIB)
 	install -m 644 $^ $(MODLIB)
 	depmod -ae -F $(KERNELDIR)/System.map $(DEPMOD_BASE) $(KERNELRELEASE)
@@ -91,16 +79,3 @@ can-bcm.o: bcm.o
 
 can-raw.o: raw.o
 	$(LD) -r -o $@ $^
-
-can-tpgen.o: tp_gen.o
-	$(LD) -r -o $@ $^
-
-can-tp20.o: tp20.o
-	$(LD) -r -o $@ $^
-
-can-tp16.o: tp16.o
-	$(LD) -r -o $@ $^
-
-can-mcnet.o: mcnet.o
-	$(LD) -r -o $@ $^
-
