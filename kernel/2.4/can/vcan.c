@@ -76,7 +76,7 @@ static int debug = 0;
 
 /* Indicate if this VCAN driver should do a real loopback, or if this */
 /* should be done in af_can.c */
-#define  DO_LOOPBACK
+#undef  DO_LOOPBACK
 
 #define NDEVICES 4
 
@@ -236,7 +236,7 @@ static __init int vcan_init_module(void)
 	printk(banner);
 
 	for (i = 0; i < NDEVICES; i++) {
-		if (result = register_netdev(vcan_devs + i))
+		if (result = register_netdev(&vcan_devs[i]))
 			printk(KERN_ERR "vcan: error %d registering interface %s\n",
 			       result, vcan_devs[i].name);
 		else {
@@ -251,8 +251,12 @@ static __init int vcan_init_module(void)
 static __exit void vcan_cleanup_module(void)
 {
 	int i;
-	for (i = 0; i < NDEVICES; i++)
-		unregister_netdev(vcan_devs + i);
+	for (i = 0; i < NDEVICES; i++) {
+		void *priv = netdev_priv(&vcan_devs[i]);
+		unregister_netdev(&vcan_devs[i]);
+		if (priv)
+			kfree(priv);
+	}
 }
 
 module_init(vcan_init_module);
