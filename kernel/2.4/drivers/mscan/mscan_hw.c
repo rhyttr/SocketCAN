@@ -424,10 +424,10 @@ static int mscan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	return -EINVAL;
 
     switch (cmd) {
-    case SIOCSRATE:
+    case SIOCSCANBAUDRATE:
 	;
 	return 0;
-    case SIOCGRATE:
+    case SIOCGCANBAUDRATE:
 	;
 	return 0;
     }

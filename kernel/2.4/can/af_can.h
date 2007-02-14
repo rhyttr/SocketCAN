@@ -45,87 +45,15 @@
 #ifndef AF_CAN_H
 #define AF_CAN_H
 
-#ifdef __KERNEL__
 #include "version.h"
 RCSID("$Id$");
-#endif
 
-#ifdef __KERNEL__
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
-#include <linux/proc_fs.h>
-#include <linux/if.h>
-#else
-#include <net/if.h>
-#endif
 
 #include "can.h"
 
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
-
-/* CAN socket protocol family definition */
-/* to be moved to include/linux/socket.h */
-#define PF_CAN		29	/* Controller Area Network      */
-#define AF_CAN		PF_CAN
-
-/* particular protocols of the protocol family PF_CAN */
-#define CAN_RAW		1 /* RAW sockets */
-#define CAN_BCM		2 /* Broadcast Manager */
-#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
-#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
-#define CAN_MCNET	5 /* Bosch MCNet */
-#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
-#define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
-#define CAN_NPROTO	8
-
-#define SOL_CAN_BASE 100
-
-struct sockaddr_can {
-	sa_family_t   can_family;
-	int           can_ifindex;
-	union {
-		struct { canid_t rx_id, tx_id; } tp16;
-		struct { canid_t rx_id, tx_id; } tp20;
-		struct { canid_t rx_id, tx_id; } mcnet;
-	} can_addr;
-};
-
-typedef canid_t can_err_mask_t;
-
-struct can_filter {
-	canid_t can_id;
-	canid_t can_mask;
-};
-
-#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
-
-#ifdef __KERNEL__
-
-#define CAN_PROC_DIR "net/can" /* /proc/... */
-
-struct can_proto {
-	int              type;
-	int              protocol;
-	int              capability;
-	struct proto_ops *ops;
-	int              (*init)(struct sock *sk);
-	size_t           obj_size;
-};
-
-void can_proto_register(struct can_proto *cp);
-void can_proto_unregister(struct can_proto *cp);
-int  can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
-		     void (*func)(struct sk_buff *, void *), void *data,
-		     char *ident);
-int  can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
-		       void (*func)(struct sk_buff *, void *), void *data);
-void can_dev_register(struct net_device *dev,
-		      void (*func)(unsigned long msg, void *), void *data);
-void can_dev_unregister(struct net_device *dev,
-			void (*func)(unsigned long msg, void *), void *data);
-int  can_send(struct sk_buff *skb, int loop);
-
-unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 
 void can_debug_skb(struct sk_buff *skb);
 void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
@@ -189,7 +117,5 @@ struct s_pstats {
 
 void can_init_proc(void);
 void can_remove_proc(void);
-
-#endif
 
 #endif /* AF_CAN_H */
