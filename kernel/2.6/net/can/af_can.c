@@ -817,31 +817,25 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 					struct dev_rcv_lists *d)
 {
-	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking values */
-	canid_t eff = *can_id & *mask & CAN_EFF_FLAG; /* correct EFF check? */
-	canid_t rtr = *can_id & *mask & CAN_RTR_FLAG; /* correct RTR check? */
+	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking */
 
-	/* do not modify the error mask due to the can_id which is 0 */
 	if (*mask & CAN_ERR_FLAG) { /* filter error frames */
 		*mask &= CAN_ERR_MASK; /* clear CAN_ERR_FLAG in list entry */
 		return &d->rx_err;
 	}
 
-	/* make some paranoic operations */
-	if (*can_id & CAN_EFF_FLAG)
-		*mask &= (CAN_EFF_MASK | eff | rtr);
+	/* ensure valid values in can_mask */
+	if (*mask & CAN_EFF_FLAG)
+		*mask &= (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG);
 	else
-		*mask &= (CAN_SFF_MASK | rtr);
+		*mask &= (CAN_SFF_MASK | CAN_RTR_FLAG);
 
-	*can_id &= *mask;
+	*can_id &= *mask; /* reduce condition testing at receive time */
 
-	if (inv) /* inverse can_id/can_mask filter and RTR */
+	if (inv) /* inverse can_id/can_mask filter */
 		return &d->rx_inv;
 
-	if (*can_id & CAN_RTR_FLAG) /* positive filter RTR */
-		return &d->rx_fil;
-
-	if (!(*mask)) /* mask == 0 => no filter */
+	if (!(*mask)) /* mask == 0 => no condition testing at receive time */
 		return &d->rx_all;
 
 	if (*can_id & CAN_EFF_FLAG) {
@@ -852,7 +846,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 			return &d->rx_sff[*can_id];
 	}
 
-	return &d->rx_fil;  /* filter via can_id/can_mask */
+	return &d->rx_fil;  /* default: filter via can_id/can_mask */
 }
 
 /**************************************************/
