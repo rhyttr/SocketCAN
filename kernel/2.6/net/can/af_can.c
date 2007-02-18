@@ -838,11 +838,12 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	if (!(*mask)) /* mask == 0 => no condition testing at receive time */
 		return &d->rx_all;
 
+	/* use extra filterset for the subscription of exactly *one* can_id */
 	if (*can_id & CAN_EFF_FLAG) {
-		if (*mask == CAN_EFF_MASK) /* filter exact EFF can_id */
-			return &d->rx_eff;
+		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG))
+			return &d->rx_eff; /* use-case for hash-table here? */
 	} else {
-		if (*mask == CAN_SFF_MASK) /* filter exact SFF can_id */
+		if (*mask == CAN_SFF_MASK)
 			return &d->rx_sff[*can_id];
 	}
 
