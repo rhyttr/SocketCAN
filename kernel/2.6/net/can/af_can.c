@@ -66,11 +66,10 @@
 
 RCSID("$Id$");
 
-#define NAME "Volkswagen AG - Low Level CAN Framework (LLCF)"
 #define IDENT "af_can"
-static __initdata const char banner[] = BANNER(NAME);
+static __initdata const char banner[] = KERN_INFO "CAN: PF_CAN core " VERSION "\n"; 
 
-MODULE_DESCRIPTION(NAME);
+MODULE_DESCRIPTION("PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 	      "Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");

@@ -62,11 +62,10 @@
 
 RCSID("$Id$");
 
-#define NAME "RAW sockets for LLCF"
 #define IDENT "raw"
-static __initdata const char banner[] = BANNER(NAME);
+static __initdata const char banner[] = KERN_INFO "CAN: raw socket protocol " VERSION "\n"; 
 
-MODULE_DESCRIPTION(NAME);
+MODULE_DESCRIPTION("PF_CAN raw sockets");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 

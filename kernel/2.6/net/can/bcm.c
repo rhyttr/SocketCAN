@@ -79,11 +79,11 @@ module_param(debug, int, S_IRUGO);
 #define BCM_CAN_DLC_MASK 0x0F /* clean flags by masking with BCM_CAN_DLC_MASK */
 #define BCM_RX_REGMASK (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG)
 
-#define NAME "Broadcast Manager (BCM) for LLCF"
 #define IDENT "bcm"
-static __initdata const char banner[] = BANNER(NAME);
+static __initdata const char banner[] =
+	KERN_INFO "CAN: broadcast manager (bcm) socket protocol " VERSION "\n"; 
 
-MODULE_DESCRIPTION(NAME);
+MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 

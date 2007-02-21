@@ -67,6 +67,5 @@ RCSID("$Id$");
 
 #define VERSION str(MAJORVERSION) "." str(MINORVERSION) "." str(PATCHLEVEL) \
 	EXTRAVERSION
-#define BANNER(name) KERN_INFO name " v" VERSION "\n"
 
 #endif /* CAN_VERSION_H */

@@ -53,11 +53,9 @@
 
 RCSID("$Id$");
 
+static __initdata const char banner[] = KERN_INFO "CAN: virtual CAN interface " VERSION "\n"; 
 
-#define NAME "VCAN loopback interface for LLCF"
-static __initdata const char banner[] = BANNER(NAME);
-
-MODULE_DESCRIPTION(NAME);
+MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
