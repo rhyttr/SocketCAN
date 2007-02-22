@@ -77,9 +77,11 @@ module_param(debug, int, S_IRUGO);
 /* should be done in af_can.c */
 #undef  DO_LOOPBACK
 
-#define NDEVICES 4
+static int numdev = 4; /* default number of virtual CAN interfaces */
+module_param(numdev, int, S_IRUGO);
+MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
 
-static struct net_device *vcan_devs[NDEVICES];
+static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
 static int vcan_open(struct net_device *dev)
 {
@@ -196,8 +198,9 @@ static void vcan_init(struct net_device *dev)
 
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
+	dev->flags             = IFF_NOARP;
 #ifdef DO_LOOPBACK
-	dev->flags             = IFF_LOOPBACK;
+	dev->flags            |= IFF_LOOPBACK;
 #endif
 
 	dev->open              = vcan_open;
@@ -215,34 +218,74 @@ static void vcan_init(struct net_device *dev)
 
 static __init int vcan_init_module(void)
 {
-	int i, ndev = 0, result;
+	int i, ndev = 0, result = 0;
 
 	printk(banner);
 
-	for (i = 0; i < NDEVICES; i++) {
+	if (numdev < 1)
+		numdev = 1; /* register at least one interface */
+
+	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces.\n", numdev );
+
+	vcan_devs = kmalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
+	if (!vcan_devs) {
+		printk(KERN_ERR "vcan: Can't allocate vcan devices array!\n");
+		return -ENOMEM;
+	}
+
+	/* Clear the pointer array */
+	memset(vcan_devs, 0, numdev * sizeof(struct net_device *));
+
+	for (i = 0; i < numdev; i++) {
 		if (!(vcan_devs[i] = alloc_netdev(sizeof(struct net_device_stats),
-						  "vcan%d", vcan_init)))
+						  "vcan%d", vcan_init))) {
 			printk(KERN_ERR "vcan: error allocating net_device\n");
-		else if ((result = register_netdev(vcan_devs[i])) < 0) {
+			result = -ENOMEM;
+			goto out;
+		} else if ((result = register_netdev(vcan_devs[i])) < 0) {
 			printk(KERN_ERR "vcan: error %d registering interface %s\n",
 			       result, vcan_devs[i]->name);
 			free_netdev(vcan_devs[i]);
+			vcan_devs[i] = NULL;
+			goto out;
 		} else {
 			DBG("successfully registered interface %s\n",
 			    vcan_devs[i]->name);
 			ndev++;
 		}
 	}
-	return ndev ? 0 : -ENODEV;
+
+	if (ndev)
+		return 0;
+
+ out:
+	for (i = 0; i < numdev; i++) {
+		if (vcan_devs[i]) {
+			unregister_netdev(vcan_devs[i]);
+			free_netdev(vcan_devs[i]);
+		}
+	}
+
+	kfree(vcan_devs);
+
+	return result;
 }
 
 static __exit void vcan_cleanup_module(void)
 {
 	int i;
-	for (i = 0; i < NDEVICES; i++) {
-		unregister_netdev(vcan_devs[i]);
-		free_netdev(vcan_devs[i]);
+
+	if (!vcan_devs)
+		return;
+
+	for (i = 0; i < numdev; i++) {
+		if (vcan_devs[i]) {
+			unregister_netdev(vcan_devs[i]);
+			free_netdev(vcan_devs[i]);
+		}
 	}
+
+	kfree(vcan_devs);
 }
 
 module_init(vcan_init_module);
