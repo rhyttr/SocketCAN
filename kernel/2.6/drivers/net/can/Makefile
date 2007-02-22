@@ -8,10 +8,13 @@ ifeq ($(KERNELRELEASE),)
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
-all: vcan sja1000 mscan
+all: vcan slcan sja1000 mscan
 
 vcan:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_VCAN=m modules
+
+slcan:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_SLCAN=m modules
 
 sja1000:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_SJA1000=m modules
@@ -22,7 +25,7 @@ mscan:
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
 
-.PHONY: clean all vcan sja1000 mscan
+.PHONY: clean all vcan slcan sja1000 mscan
 
 else
 
@@ -35,6 +38,7 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include
 endif
 
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+obj-$(CONFIG_CAN_SLCAN)		+= slcan.o
 obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
 obj-$(CONFIG_CAN_MSCAN)		+= mscan/
 
