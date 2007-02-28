@@ -168,8 +168,15 @@ static struct net_device* sja1000_mem_probe(uint32_t base, int irq, int speed,
 	priv->restart_ms = restart_ms;
 	priv->debug      = debug;
 
-	if (REG_READ(0) == 0xFF)
+	if (REG_READ(0) == 0xFF) {
+		printk(KERN_INFO "%s: probing failed\n", chip_name);
 		goto free_dev;
+	}
+
+	if (register_netdev(dev)) {
+		printk(KERN_INFO "%s: register netdev failed\n", chip_name);
+		goto free_dev;
+	}
 
 	/* set chip into reset mode */
 	set_reset_mode(dev);
@@ -184,10 +191,8 @@ static struct net_device* sja1000_mem_probe(uint32_t base, int irq, int speed,
 	printk(KERN_INFO "%s: %s found at 0x%X, irq is %d\n",
 	       dev->name, chip_name, (uint32_t)dev->base_addr, dev->irq);
 
-	if (register_netdev(dev) == 0)
-		return dev;
+	return dev;
 
-	printk(KERN_INFO "%s: probing failed\n", chip_name);
  free_dev:
 	free_netdev(dev);
 	return NULL;
