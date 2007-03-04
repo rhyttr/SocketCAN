@@ -122,6 +122,7 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
+	int loop;
 
 	DBG("sending skbuff on interface %s\n", dev->name);
 	DBG_SKB(skb);
@@ -130,8 +131,10 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
+	loop = *(struct sock **)skb->cb != NULL;   /* loopback required */
+
 #ifdef DO_LOOPBACK
-	if (*(struct sock **)skb->cb) { /* loopback required */
+	if (loop) {
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
 			skb = skb_clone(old_skb, GFP_ATOMIC);
@@ -150,8 +153,8 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		kfree_skb(skb);
 	}
 #else
-	/* only count, when the CAN-core made a loopback */
-	if (*(struct sock **)skb->cb) {
+	/* only count, when the CAN core did a loopback */
+	if (loop) {
 		stats->rx_packets++;
 		stats->rx_bytes += skb->len;
 	}
