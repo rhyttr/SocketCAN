@@ -1,5 +1,5 @@
 #
-# CAN device configuration
+# Controller Area Network (CAN) network layer core configuration
 #
 
 menuconfig CAN
@@ -10,7 +10,7 @@ menuconfig CAN
 	  communications protocol was developed by Bosch at 1991 mainly for
 	  automotive, but now widely used in marine (NMEA2000), industrial and
 	  medical applications.
-	  More information is contained in the directory <file:Documentation/can/>.
+	  More information is contained in the directory <Documentation/can/>.
 
 	  If you want CAN support, you should say Y here and also to the
 	  specific driver for your controller(s) below.
@@ -19,7 +19,7 @@ menuconfig CAN
 	  will be called can.ko.
 
 config CAN_RAW
-	tristate "Raw CAN Protocol"
+	tristate "Raw CAN Protocol (raw access with CAN-ID filtering)"
 	depends on CAN
 	default N
 	---help---
@@ -38,7 +38,7 @@ config CAN_RAW_USER
 	  sockets. This may lead to a security hole.
 
 config CAN_BCM
-	tristate "Broadcast Manager (BCM)"
+	tristate "Broadcast Manager CAN Protocol (with content filtering)"
 	depends on CAN
 	default N
 	---help---
@@ -59,12 +59,12 @@ config CAN_BCM_USER
 	  sockets. This may lead to a security hole.
 
 config CAN_DEBUG_CORE
-       bool "CAN Core debugging messages"
-       depends on CAN
-       ---help---
-         Say Y here if you want the CAN core to produce a bunch of debug
-         messages to the system log.  Select this if you are having a
-         problem with CAN support and want to see more of what is going on.
+	bool "CAN Core debugging messages"
+	depends on CAN
+	---help---
+	  Say Y here if you want the CAN core to produce a bunch of debug
+	  messages to the system log.  Select this if you are having a
+	  problem with CAN support and want to see more of what is going on.
 
 
 source "drivers/net/can/Kconfig"

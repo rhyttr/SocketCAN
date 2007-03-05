@@ -2,27 +2,42 @@ menu "CAN Device Drivers"
 	depends on CAN
 
 config CAN_VCAN
-       tristate "Virtual Local CAN Interface (vcan)"
-       depends on CAN
-       default N
-       ---help---
-         Similar to the network loopback devices, vcan offers a
-         virtual local CAN interface.
+	tristate "Virtual Local CAN Interface (vcan)"
+ 	depends on CAN
+	default N
+ 	---help---
+	  Similar to the network loopback devices, vcan offers a
+	  virtual local CAN interface.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called vcan.
+
+config CAN_SLCAN
+	tristate "Serial / USB serial CAN Adaptors (slcan)"
+	depends on CAN
+	default N
+	---help---
+	  CAN driver for several 'low cost' CAN interfaces that are attached
+	  via serial lines or via USB-to-serial adapters using the LAWICEL
+	  ASCII protocol. The driver implements the tty linediscipline N_SLCAN.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called slcan.
 
 config CAN_DEBUG_DEVICES
 	bool "CAN devices debugging messages"
 	depends on CAN
 	default N
 	---help---
-	 Say Y here if you want the CAN device drivers to produce a bunch of
-	 debug messages to the system log.  Select this if you are having
-	 a problem with CAN support and want to see more of what is going
-	 on.
+	  Say Y here if you want the CAN device drivers to produce a bunch of
+	  debug messages to the system log.  Select this if you are having
+	  a problem with CAN support and want to see more of what is going
+	  on.
 
 config CAN_SJA1000
 	depends on CAN
 	tristate "Philips SJA1000"
-	help
+	---help---
 	  The SJA1000 is one of the top CAN controllers out there. As it
 	  has a multiplexed interface it fits directly to 8051
 	  microcontrollers, but not to today's memory mapped System on
@@ -30,24 +45,24 @@ config CAN_SJA1000
 	  which handles how to access your chip registers.
 
 config CAN_MSCAN
-       depends on CAN && (PPC || M68K || M68KNOMMU)
-       tristate "Support for a Freescale MSCAN based chips"
-       ---help---
-        The Motorola Scalable Controller Area Network (MSCAN) definition
-        is based on the MSCAN12 definition which is the specific
-        implementation of the Motorola Scalable CAN concept targeted for
-        the Motorola MC68HC12 Microcontroller Family.
+	depends on CAN && (PPC || M68K || M68KNOMMU)
+	tristate "Support for a Freescale MSCAN based chips"
+	---help---
+	  The Motorola Scalable Controller Area Network (MSCAN) definition
+	  is based on the MSCAN12 definition which is the specific
+	  implementation of the Motorola Scalable CAN concept targeted for
+	  the Motorola MC68HC12 Microcontroller Family.
 
 config CAN_MPC52XX
-       tristate "Freescale MPC5200 onboard CAN controller"
-       depends on CAN_MSCAN && (PPC_MPC52xx || PPC_52xx)
-       default LITE5200
-       ---help---
-        If you say yes here you get support for Freescale MPC5200
-        onboard dualCAN controller.
+	tristate "Freescale MPC5200 onboard CAN controller"
+	depends on CAN_MSCAN && (PPC_MPC52xx || PPC_52xx)
+	default LITE5200
+	---help---
+	  If you say yes here you get support for Freescale MPC5200
+	  onboard dualCAN controller.
 
-        This driver can also be built as a module.  If so, the module
-        will be called mpc52xx_can.
+	  This driver can also be built as a module.  If so, the module
+	  will be called mpc52xx_can.
 
 endmenu
 
