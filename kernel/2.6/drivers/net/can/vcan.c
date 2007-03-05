@@ -1,5 +1,5 @@
 /*
- * vcan.c
+ * vcan.c - Virtual CAN interface
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -54,7 +54,8 @@
 
 RCSID("$Id$");
 
-static __initdata const char banner[] = KERN_INFO "CAN: virtual CAN interface " VERSION "\n"; 
+static __initdata const char banner[] = KERN_INFO "CAN: virtual CAN "
+					"interface " VERSION "\n"; 
 
 MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -77,6 +78,8 @@ module_param(debug, int, S_IRUGO);
 /* Indicate if this VCAN driver should do a real loopback, or if this */
 /* should be done in af_can.c */
 #undef  DO_LOOPBACK
+
+#define STATSIZE sizeof(struct net_device_stats)
 
 static int numdev = 4; /* default number of virtual CAN interfaces */
 module_param(numdev, int, S_IRUGO);
@@ -198,7 +201,7 @@ static void vcan_init(struct net_device *dev)
 
 	ether_setup(dev);
 
-	memset(dev->priv, 0, sizeof(struct net_device_stats));
+	memset(dev->priv, 0, STATSIZE);
 
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
@@ -229,7 +232,8 @@ static __init int vcan_init_module(void)
 	if (numdev < 1)
 		numdev = 1; /* register at least one interface */
 
-	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces.\n", numdev );
+	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces.\n",
+	       numdev );
 
 	vcan_devs = kmalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
@@ -241,13 +245,14 @@ static __init int vcan_init_module(void)
 	memset(vcan_devs, 0, numdev * sizeof(struct net_device *));
 
 	for (i = 0; i < numdev; i++) {
-		if (!(vcan_devs[i] = alloc_netdev(sizeof(struct net_device_stats),
-						  "vcan%d", vcan_init))) {
+		if (!(vcan_devs[i] = alloc_netdev(STATSIZE, "vcan%d",
+						  vcan_init))) {
 			printk(KERN_ERR "vcan: error allocating net_device\n");
 			result = -ENOMEM;
 			goto out;
 		} else if ((result = register_netdev(vcan_devs[i])) < 0) {
-			printk(KERN_ERR "vcan: error %d registering interface %s\n",
+			printk(KERN_ERR "vcan: error %d registering "
+			       "interface %s\n",
 			       result, vcan_devs[i]->name);
 			free_netdev(vcan_devs[i]);
 			vcan_devs[i] = NULL;

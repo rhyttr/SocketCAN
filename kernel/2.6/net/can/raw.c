@@ -1,7 +1,7 @@
 /*
- * raw.c
+ * raw.c - Raw sockets for protocol family CAN
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,8 @@
 RCSID("$Id$");
 
 #define IDENT "raw"
-static __initdata const char banner[] = KERN_INFO "CAN: raw socket protocol " VERSION "\n"; 
+static __initdata const char banner[] = KERN_INFO "CAN: raw socket protocol"
+					" " VERSION "\n"; 
 
 MODULE_DESCRIPTION("PF_CAN raw sockets");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -149,6 +150,8 @@ struct raw_opt {
 #else
 #define RAW_CAP CAP_NET_RAW
 #endif
+
+#undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 
@@ -244,7 +247,8 @@ static int raw_release(struct socket *sock)
 
 	/* remove current error mask */
 	if (ro->err_mask && ro->bound)
-		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG, raw_rcv, sk);
+		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+				  raw_rcv, sk);
 
 	if (dev) {
 		can_dev_unregister(dev, raw_notifier, sk);
@@ -269,9 +273,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		return -EINVAL;
 
 	if (ro->bound) {
-#if 1
-		return -EINVAL;
-#else
+#ifdef CAN_RAW_SUPPORT_REBIND
 		/* remove current bindings / notifier */
 		if (ro->ifindex) {
 			dev = dev_get_by_index(ro->ifindex);
@@ -297,6 +299,8 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 			dev_put(dev);
 
 		ro->bound = 0;
+#else
+		return -EINVAL;
 #endif
 	}
 
@@ -321,7 +325,8 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	raw_add_filters(dev, sk); /* filters set by default/setsockopt */
 
 	if (ro->err_mask) /* error frame filter set by setsockopt */
-		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
+		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+				raw_rcv, sk, IDENT);
 
 	ro->bound = 1;
 
@@ -432,12 +437,14 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		/* remove current error mask */
 		if (ro->err_mask && ro->bound)
-			can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG, raw_rcv, sk);
+			can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+					  raw_rcv, sk);
 
 		/* add new error mask */
 		ro->err_mask = err_mask;
 		if (ro->err_mask && ro->bound)
-			can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG, raw_rcv, sk, IDENT);
+			can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+					raw_rcv, sk, IDENT);
 
 		if (dev)
 			dev_put(dev);
@@ -600,7 +607,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 	DBG("socket %p, sk %p\n", sock, sk);
 
 	if (msg->msg_name) {
-		struct sockaddr_can *addr = (struct sockaddr_can *)msg->msg_name;
+		struct sockaddr_can *addr =
+			(struct sockaddr_can *)msg->msg_name;
 		if (addr->can_family != AF_CAN)
 			return -EINVAL;
 		ifindex = addr->can_ifindex;
@@ -617,7 +625,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return -ENOMEM;
 	}
 
-	if ((err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size)) < 0) {
+	if ((err = memcpy_fromiovec(skb_put(skb, size),
+				    msg->msg_iov, size)) < 0) {
 		kfree_skb(skb);
 		dev_put(dev);
 		return err;

@@ -1,7 +1,8 @@
 /*
- * af_can.c
+ * af_can.c - Protocol family CAN core module
+ *            (used by different CAN protocol modules)
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +53,8 @@
 #include <linux/spinlock.h>
 #include <linux/rcupdate.h>
 #include <linux/socket.h>
+#include <linux/if_ether.h>
+#include <linux/if_arp.h>
 #include <linux/skbuff.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
@@ -67,9 +70,10 @@
 RCSID("$Id$");
 
 #define IDENT "af_can"
-static __initdata const char banner[] = KERN_INFO "CAN: PF_CAN core " VERSION "\n"; 
+static __initdata const char banner[] = KERN_INFO "CAN: Controller Area "
+					"Network PF_CAN core " VERSION "\n"; 
 
-MODULE_DESCRIPTION("PF_CAN core");
+MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 	      "Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
@@ -237,11 +241,13 @@ void can_proto_register(struct can_proto *cp)
 {
 	int proto = cp->protocol;
 	if (proto < 0 || proto >= CAN_NPROTO) {
-		printk(KERN_ERR "CAN: protocol number %d out of range\n", proto);
+		printk(KERN_ERR "CAN: protocol number %d out "
+		       "of range\n", proto);
 		return;
 	}
 	if (proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d already registered\n", proto);
+		printk(KERN_ERR "CAN: protocol %d already "
+		       "registered\n", proto);
 		return;
 	}
 
@@ -252,7 +258,7 @@ void can_proto_register(struct can_proto *cp)
 #endif
 	proto_tab[proto] = cp;
 
-	/* use our generic ioctl function if the module doesn't bring its own */
+	/* use generic ioctl function if the module doesn't bring its own */
 	if (!cp->ops->ioctl)
 		cp->ops->ioctl = can_ioctl;
 }
@@ -340,8 +346,8 @@ static int can_create(struct socket *sock, int protocol)
 		char module_name[30];
 		sprintf(module_name, "can-proto-%d", protocol);
 		if (request_module(module_name) == -ENOSYS)
-			printk(KERN_INFO "CAN: request_module(%s) not implemented.\n",
-			       module_name);
+			printk(KERN_INFO "CAN: request_module(%s) not"
+			       " implemented.\n", module_name);
 	}
 
 	/* check for success and correct type */
@@ -416,7 +422,8 @@ static int can_notifier(struct notifier_block *nb,
 		DBG("creating new dev_rcv_lists for %s\n", dev->name);
 		if (!(d = kmalloc(sizeof(*d),
 				  in_interrupt() ? GFP_ATOMIC : GFP_KERNEL))) {
-			printk(KERN_ERR "CAN: allocation of receive list failed\n");
+			printk(KERN_ERR "CAN: allocation of receive "
+			       "list failed\n");
 			return NOTIFY_DONE;
 		}
 		/* N.B. zeroing the struct is the correct initialization
