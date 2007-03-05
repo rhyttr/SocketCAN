@@ -70,7 +70,7 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include \
 		-DETH_P_CAN=0x000C \
 		-DPF_CAN=29 \
 		-DAF_CAN=PF_CAN \
-		-DARPHRD_CAN=804
+		-DARPHRD_CAN=280
 endif
 
 obj-$(CONFIG_CAN)	+= can.o

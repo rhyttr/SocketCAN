@@ -36,7 +36,7 @@ else
 ifneq ($(KBUILD_EXTMOD),)
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
 		-DETH_P_CAN=0x000C \
-		-DARPHRD_CAN=804
+		-DARPHRD_CAN=280
 endif
 
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o

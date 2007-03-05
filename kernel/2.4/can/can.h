@@ -1,7 +1,7 @@
 /*
  * can.h
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@ RCSID("$Id$");
 #define ETH_P_CAN	0x000C	/* to be moved to include/linux/if_ether.h */
 
 /* ARP protocol identifier (dummy type for non ARP hardware) */
-#define ARPHRD_CAN	804	/* to be moved to include/linux/if_arp.h */
+#define ARPHRD_CAN	280	/* to be moved to include/linux/if_arp.h */
 
 
 
