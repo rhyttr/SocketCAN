@@ -1,7 +1,7 @@
 /*
- * af_can_proc.c
+ * proc.c - procfs support for Protocol family CAN core module
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,9 +65,9 @@ RCSID("$Id$");
 static void can_init_stats(int caller);
 static void can_stat_update(unsigned long data);
 
-static struct proc_dir_entry *can_create_proc_read_entry(const char *name,
+static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 	mode_t mode, read_proc_t* read_proc, void *data);
-static void can_remove_proc_entry(const char *name);
+static void can_remove_proc_readentry(const char *name);
 static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 			       unsigned long count);
 
@@ -122,7 +122,7 @@ void can_init_proc(void)
 	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
 
 	if (!can_dir) {
-		printk(KERN_INFO "af_can: failed to create CAN_PROC_DIR. "
+		printk(KERN_INFO "CAN: failed to create CAN_PROC_DIR. "
 		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
@@ -130,23 +130,23 @@ void can_init_proc(void)
 	can_dir->owner = THIS_MODULE;
 
 	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_read_entry(
+	pde_version     = can_create_proc_readentry(
 		CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_read_entry(
+	pde_stats       = can_create_proc_readentry(
 		CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_read_entry(
+	pde_reset_stats = can_create_proc_readentry(
 		CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_read_entry(
+	pde_rcvlist_all = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_read_entry(
+	pde_rcvlist_fil = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_read_entry(
+	pde_rcvlist_inv = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_read_entry(
+	pde_rcvlist_sff = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_read_entry(
+	pde_rcvlist_eff = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_read_entry(
+	pde_rcvlist_err = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
 
 	if (stats_timer) {
@@ -162,31 +162,31 @@ void can_remove_proc(void)
 {
 	/* procfs remove */
 	if (pde_version)
-		can_remove_proc_entry(CAN_PROC_VERSION);
+		can_remove_proc_readentry(CAN_PROC_VERSION);
 
 	if (pde_stats)
-		can_remove_proc_entry(CAN_PROC_STATS);
+		can_remove_proc_readentry(CAN_PROC_STATS);
 
 	if (pde_reset_stats)
-		can_remove_proc_entry(CAN_PROC_RESET_STATS);
+		can_remove_proc_readentry(CAN_PROC_RESET_STATS);
 
 	if (pde_rcvlist_all)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_ALL);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
 
 	if (pde_rcvlist_fil)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_FIL);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_FIL);
 
 	if (pde_rcvlist_inv)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_INV);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
 
 	if (pde_rcvlist_sff)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_SFF);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (pde_rcvlist_eff)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_EFF);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
 
 	if (pde_rcvlist_err)
-		can_remove_proc_entry(CAN_PROC_RCVLIST_ERR);
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
 
 	if (can_dir)
 		remove_proc_entry(CAN_PROC_DIR, NULL);
@@ -196,8 +196,8 @@ void can_remove_proc(void)
 /* proc read functions                            */
 /**************************************************/
 
-static int can_print_recv_list(char *page, int len, struct receiver *rx_list,
-			       struct net_device *dev)
+static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
+			     struct net_device *dev)
 {
 	struct receiver *r;
 
@@ -321,7 +321,8 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 	can_init_stats(1);
 
 	len += snprintf(page + len, PAGE_SIZE - len,
-			"CAN statistic reset #%ld done.\n", pstats.stats_reset);
+			"CAN statistic reset #%ld done.\n",
+			pstats.stats_reset);
 
 	MOD_DEC_USE_COUNT;
 
@@ -337,8 +338,8 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 	MOD_INC_USE_COUNT;
 
 	len += snprintf(page + len, PAGE_SIZE - len,
-			"%06X [ Volkswagen AG - Low Level CAN Framework (LLCF) v%s ]\n",
-			LLCF_VERSION_CODE, VERSION);
+			"%06X [ Volkswagen Group - Low Level CAN Framework"
+			" (LLCF) v%s ]\n", LLCF_VERSION_CODE, VERSION);
 
 	MOD_DEC_USE_COUNT;
 
@@ -363,7 +364,7 @@ static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
 
 		if (d->rx_all) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_recv_list(page, len, d->rx_all, d->dev);
+			len = can_print_rcvlist(page, len, d->rx_all, d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
@@ -397,7 +398,7 @@ static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
 
 		if (d->rx_fil) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_recv_list(page, len, d->rx_fil, d->dev);
+			len = can_print_rcvlist(page, len, d->rx_fil, d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
@@ -431,7 +432,7 @@ static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
 
 		if (d->rx_inv) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_recv_list(page, len, d->rx_inv, d->dev);
+			len = can_print_rcvlist(page, len, d->rx_inv, d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
@@ -474,7 +475,9 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 			len = can_print_recv_banner(page, len);
 			for (i = 0; i < 0x800; i++) {
 				if (d->rx_sff[i] && len < PAGE_SIZE - 100)
-					len = can_print_recv_list(page, len, d->rx_sff[i], d->dev);
+					len = can_print_rcvlist(page, len,
+								d->rx_sff[i],
+								d->dev);
 			}
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
@@ -509,7 +512,7 @@ static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
 
 		if (d->rx_eff) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_recv_list(page, len, d->rx_eff, d->dev);
+			len = can_print_rcvlist(page, len, d->rx_eff, d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
@@ -543,7 +546,7 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 
 		if (d->rx_err) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_recv_list(page, len, d->rx_err, d->dev);
+			len = can_print_rcvlist(page, len, d->rx_err, d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
@@ -564,15 +567,19 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 /* proc utility functions                         */
 /**************************************************/
 
-static struct proc_dir_entry *can_create_proc_read_entry(const char *name, mode_t mode, read_proc_t* read_proc, void *data)
+static struct proc_dir_entry *can_create_proc_readentry(const char *name,
+							mode_t mode,
+							read_proc_t* read_proc,
+							void *data)
 {
 	if (can_dir)
-		return create_proc_read_entry(name, mode, can_dir, read_proc, data);
+		return create_proc_read_entry(name, mode, can_dir, read_proc,
+					      data);
 	else
 		return NULL;
 }
 
-static void can_remove_proc_entry(const char *name)
+static void can_remove_proc_readentry(const char *name)
 {
 	if (can_dir)
 		remove_proc_entry(name, can_dir);
@@ -588,7 +595,8 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 
 	/* see can_rcv() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
-		printk(KERN_ERR "af_can: calc_rate: count exceeded! %ld\n", count);
+		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
+		       count);
 		return 99999999;
 	}
 
@@ -612,7 +620,7 @@ static void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
-	//DBG("af_can: can_stat_update() jiffies = %ld\n", j);
+	//DBG("CAN: can_stat_update() jiffies = %ld\n", j);
 
 	if (j < stats.jiffies_init) /* jiffies overflow */
 		can_init_stats(2);
@@ -629,10 +637,13 @@ static void can_stat_update(unsigned long data)
 
 	/* calc total values */
 	if (stats.rx_frames)
-		stats.total_rx_match_ratio = (stats.matches * 100) / stats.rx_frames;
+		stats.total_rx_match_ratio = (stats.matches * 100) / 
+						stats.rx_frames;
 
-	stats.total_tx_rate = calc_rate(stats.jiffies_init, j, stats.tx_frames);
-	stats.total_rx_rate = calc_rate(stats.jiffies_init, j, stats.rx_frames);
+	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
+					stats.tx_frames);
+	stats.total_rx_rate = calc_rate(stats.jiffies_init, j,
+					stats.rx_frames);
 
 	/* calc current values */
 	if (stats.rx_frames_delta)
