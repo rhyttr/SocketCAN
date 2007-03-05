@@ -52,6 +52,8 @@
 #include <linux/ioport.h>
 #include <linux/slab.h>
 #include <linux/netdevice.h>
+#include <linux/if_arp.h>
+#include <linux/if_ether.h>
 #include <linux/skbuff.h>
 #include <asm/io.h>
 

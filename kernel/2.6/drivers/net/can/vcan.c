@@ -47,6 +47,7 @@
 #include <linux/init.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
+#include <linux/if_ether.h>
 
 #include <linux/can.h>
 #include <linux/can/version.h>

@@ -35,6 +35,8 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/netdevice.h>
+#include <linux/if_arp.h>
+#include <linux/if_ether.h>
 #include <linux/can.h>
 #include <linux/list.h>
 #include <asm/io.h>
@@ -659,10 +661,19 @@ struct can_device *alloc_mscandev()
   priv = can->priv;
 
   ndev->watchdog_timeo	= MSCAN_WATCHDOG_TIMEOUT;
-  ndev->open			= mscan_open;
-  ndev->stop			= mscan_close;
+  ndev->open		= mscan_open;
+  ndev->stop		= mscan_close;
   ndev->hard_start_xmit	= mscan_hard_start_xmit;
   ndev->tx_timeout     	= mscan_tx_timeout;
+
+  ndev->type		= ARPHRD_CAN;
+  ndev->hard_header_len	= 0;
+  ndev->mtu		= sizeof(struct can_frame);
+  ndev->addr_len	= 0;
+  ndev->tx_queue_len	= 10;
+
+  ndev->flags		= IFF_NOARP;
+  ndev->features	= NETIF_F_NO_CSUM;
 
   ndev->poll     		= mscan_rx_poll;
   ndev->weight     		= 8;

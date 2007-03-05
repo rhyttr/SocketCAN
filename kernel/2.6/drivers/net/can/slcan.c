@@ -71,6 +71,7 @@
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_arp.h>
+#include <linux/if_ether.h>
 #include <linux/if_slip.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -109,6 +110,8 @@ module_param(debug, int, S_IRUGO);
  *        #define N_SLCAN         16 
  *
  * Increment NR_LDICS in include/linux/tty.h from 16 to 17
+ *
+ * NEW: Since Kernel 2.6.21 you only have to change include/linux/tty.h
  *
  */
 

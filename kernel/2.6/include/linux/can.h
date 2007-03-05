@@ -21,23 +21,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-#include <linux/can/error.h>
-#include <linux/can/ioctl.h>
-
 /* controller area network (CAN) kernel definitions */
-
-/* CAN socket protocol family definition */
-#define PF_CAN		29	/* to be moved to include/linux/socket.h */
-#define AF_CAN		PF_CAN
-
-/* ethernet protocol identifier */
-#define ETH_P_CAN	0x000C	/* to be moved to include/linux/if_ether.h */
-
-/* ARP protocol identifier (dummy type for non ARP hardware) */
-#define ARPHRD_CAN	804	/* to be moved to include/linux/if_arp.h */
-
-
-
 
 /* special address description flags for the CAN_ID */
 #define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
@@ -57,8 +41,6 @@ struct can_frame {
 	__u8    data[8] __attribute__ ((aligned(8)));
 };
 
-
-
 /* particular protocols of the protocol family PF_CAN */
 #define CAN_RAW		1 /* RAW sockets */
 #define CAN_BCM		2 /* Broadcast Manager */
@@ -75,9 +57,11 @@ struct sockaddr_can {
 	sa_family_t   can_family;
 	int           can_ifindex;
 	union {
-		struct { canid_t rx_id, tx_id; } tp16;
-		struct { canid_t rx_id, tx_id; } tp20;
-		struct { canid_t rx_id, tx_id; } mcnet;
+		struct { canid_t rx_id, tx_id;   } tp16;
+		struct { canid_t rx_id, tx_id;   } tp20;
+		struct { canid_t rx_id, tx_id;   } mcnet;
+		struct { canid_t rx_id, tx_id;   } isotp;
+		struct { int     sg_id, sg_type; } bap;
 	} can_addr;
 };
 
