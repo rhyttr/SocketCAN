@@ -22,7 +22,7 @@ RCSID("$Id$");
 #define MAJORVERSION 2
 #define MINORVERSION 0
 #define PATCHLEVEL   0
-#define EXTRAVERSION "-pre5"
+#define EXTRAVERSION "-pre6"
 
 #define LLCF_VERSION_CODE (((MAJORVERSION) << 16) + ((MINORVERSION) << 8) \
 				+ (PATCHLEVEL))
