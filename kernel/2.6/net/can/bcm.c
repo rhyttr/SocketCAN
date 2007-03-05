@@ -193,7 +193,6 @@ static struct proto_ops bcm_ops = {
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
-
 struct bcm_sock {
 	struct sock    sk;
 	struct bcm_opt opt;
@@ -215,9 +214,7 @@ static struct can_proto bcm_can_proto = {
 	.ops        = &bcm_ops,
 	.prot       = &bcm_proto,
 };
-
 #else
-
 #define bcm_sk(sk) ((struct bcm_opt *)(sk)->sk_protinfo)
 
 static struct can_proto bcm_can_proto = {
@@ -229,7 +226,6 @@ static struct can_proto bcm_can_proto = {
 	.obj_size   = sizeof(struct bcm_opt),
 	.init       = bcm_init,
 };
-
 #endif
 
 #define CFSIZ sizeof(struct can_frame)

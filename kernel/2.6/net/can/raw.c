@@ -154,7 +154,6 @@ struct raw_opt {
 #undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
-
 struct raw_sock {
 	struct sock    sk;
 	struct raw_opt opt;
@@ -176,9 +175,7 @@ static struct can_proto raw_can_proto = {
 	.ops        = &raw_ops,
 	.prot       = &raw_proto,
 };
-
 #else
-
 #define raw_sk(sk) ((struct raw_opt *)(sk)->sk_protinfo)
 
 static struct can_proto raw_can_proto = {
@@ -190,7 +187,6 @@ static struct can_proto raw_can_proto = {
 	.obj_size   = sizeof(struct raw_opt),
 	.init       = raw_init,
 };
-
 #endif
 
 #define MASK_ALL 0
