@@ -500,7 +500,8 @@ static void slc_setup(struct net_device *dev)
  * Routines looking at TTY side.
  ******************************************/
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#else
 static int slcan_receive_room(struct tty_struct *tty)
 {
 	return 65536;  /* We can handle an infinite amount of data. :-) */
@@ -707,7 +708,8 @@ static int slcan_open(struct tty_struct *tty)
 	sl->line = tty_devnum(tty);
 	sl->pid = current->pid;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#else
 	/* FIXME: already done before we were called - seems this can go */
 	if (tty->driver->flush_buffer)
 		tty->driver->flush_buffer(tty);
@@ -825,7 +827,8 @@ static struct tty_ldisc	slc_ldisc = {
 	.close	 	= slcan_close,
 	.ioctl		= slcan_ioctl,
 	.receive_buf	= slcan_receive_buf,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#else
 	.receive_room   = slcan_receive_room,
 #endif
 	.write_wakeup	= slcan_write_wakeup,
