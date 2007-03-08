@@ -52,10 +52,9 @@
 #include <net/sock.h>
 
 #include <linux/can.h>
+#include <linux/can/core.h>
 #include <linux/can/bcm.h>
 #include <linux/can/version.h>
-
-#include "af_can.h"
 
 RCSID("$Id$");
 

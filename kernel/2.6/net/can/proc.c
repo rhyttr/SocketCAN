@@ -47,10 +47,10 @@
 #include <linux/list.h>
 #include <linux/rcupdate.h>
 
+#include <linux/can/core.h>
 #include <linux/can/version.h>
 
 #include "af_can.h"
-
 
 RCSID("$Id$");
 
