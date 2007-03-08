@@ -60,9 +60,10 @@
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include "af_can.h"
+#include "can.h"
+#include "can_core.h"
 #include "version.h"
-
+#include "af_can.h"
 
 RCSID("$Id$");
 

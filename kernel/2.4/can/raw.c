@@ -50,7 +50,8 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include "af_can.h"
+#include "can.h"
+#include "can_core.h"
 #include "can_error.h"
 #include "version.h"
 #include "raw.h"

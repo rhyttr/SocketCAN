@@ -1,5 +1,7 @@
 /*
- * af_can.h
+ * can_core.h
+ *
+ * Protoypes and definitions for CAN protocol modules using the PF_CAN core
  *
  * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -42,8 +44,8 @@
  *
  */
 
-#ifndef AF_CAN_H
-#define AF_CAN_H
+#ifndef CAN_CORE_H
+#define CAN_CORE_H
 
 #include "version.h"
 RCSID("$Id$");
@@ -53,66 +55,37 @@ RCSID("$Id$");
 
 #include "can.h"
 
-/* af_can rx dispatcher structures */
+#define DNAME(dev) ((dev) ? (dev)->name : "any")
 
-struct receiver {
-	struct receiver *next;
-	canid_t can_id;
-	canid_t mask;
-	unsigned long matches;
-	void (*func)(struct sk_buff *, void *);
-	void *data;
-	char *ident;
+#define CAN_PROC_DIR "net/can" /* /proc/... */
+
+struct can_proto {
+	int              type;
+	int              protocol;
+	int              capability;
+	struct proto_ops *ops;
+	int              (*init)(struct sock *sk);
+	size_t           obj_size;
 };
 
-struct dev_rcv_lists {
-	struct dev_rcv_lists *next;
-	struct dev_rcv_lists **pprev;
-	struct net_device *dev;
-	struct receiver *rx_err;
-	struct receiver *rx_all;
-	struct receiver *rx_fil;
-	struct receiver *rx_inv;
-	struct receiver *rx_sff[0x800];
-	struct receiver *rx_eff;
-	int entries;
-};
+/* function prototypes for the CAN networklayer core (af_can.c) */
 
-/* statistic structures */
+void can_debug_skb(struct sk_buff *skb);
+void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 
-struct s_stats {
-	unsigned long jiffies_init;
+void can_proto_register(struct can_proto *cp);
+void can_proto_unregister(struct can_proto *cp);
+int  can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+		     void (*func)(struct sk_buff *, void *), void *data,
+		     char *ident);
+int  can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+		       void (*func)(struct sk_buff *, void *), void *data);
+void can_dev_register(struct net_device *dev,
+		      void (*func)(unsigned long msg, void *), void *data);
+void can_dev_unregister(struct net_device *dev,
+			void (*func)(unsigned long msg, void *), void *data);
+int  can_send(struct sk_buff *skb, int loop);
 
-	unsigned long rx_frames;
-	unsigned long tx_frames;
-	unsigned long matches;
+unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 
-	unsigned long total_rx_rate;
-	unsigned long total_tx_rate;
-	unsigned long total_rx_match_ratio;
-
-	unsigned long current_rx_rate;
-	unsigned long current_tx_rate;
-	unsigned long current_rx_match_ratio;
-
-	unsigned long max_rx_rate;
-	unsigned long max_tx_rate;
-	unsigned long max_rx_match_ratio;
-
-	unsigned long rx_frames_delta;
-	unsigned long tx_frames_delta;
-	unsigned long matches_delta;
-}; /* can be reset e.g. by can_init_stats() */
-
-struct s_pstats {
-	unsigned long stats_reset;
-	unsigned long rcv_entries;
-	unsigned long rcv_entries_max;
-}; /* persistent statistics */
-
-/* function prototypes for the CAN networklayer procfs (proc.c) */
-
-void can_init_proc(void);
-void can_remove_proc(void);
-
-#endif /* AF_CAN_H */
+#endif /* CAN_CORE_H */

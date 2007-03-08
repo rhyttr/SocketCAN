@@ -68,9 +68,6 @@ RCSID("$Id$");
 /* ARP protocol identifier (dummy type for non ARP hardware) */
 #define ARPHRD_CAN	280	/* to be moved to include/linux/if_arp.h */
 
-
-
-
 /* special address description flags for the CAN_ID */
 #define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
 #define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
@@ -88,8 +85,6 @@ struct can_frame {
 	__u8    can_dlc; /* data length code: 0 .. 8 */
 	__u8    data[8] __attribute__ ((aligned(8)));
 };
-
-
 
 /* particular protocols of the protocol family PF_CAN */
 #define CAN_RAW		1 /* RAW sockets */
