@@ -76,7 +76,10 @@ module_param(debug, int, S_IRUGO);
 #define RX_RECV    0x40 /* received data for this element */
 #define RX_THR     0x80 /* element not been sent due to throttle feature */
 #define BCM_CAN_DLC_MASK 0x0F /* clean private flags in can_dlc by masking */
-#define BCM_RX_REGMASK (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG)
+
+/* get best masking value for can_rx_register() for a given single can_id */
+#define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
+			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
 
 #define IDENT "bcm"
 static __initdata const char banner[] = KERN_INFO
@@ -325,12 +328,13 @@ static int bcm_release(struct socket *sock)
 			struct net_device *dev = dev_get_by_index(op->ifindex);
 			if (dev) {
 				can_rx_unregister(dev, op->can_id,
-						  BCM_RX_REGMASK,
+						  REGMASK(op->can_id),
 						  bcm_rx_handler, op);
 				dev_put(dev);
 			}
 		} else
-			can_rx_unregister(NULL, op->can_id, BCM_RX_REGMASK,
+			can_rx_unregister(NULL, op->can_id,
+					  REGMASK(op->can_id),
 					  bcm_rx_handler, op);
 
 		bcm_remove_op(op);
@@ -936,12 +940,12 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 			if (dev) {
 				can_rx_register(dev, op->can_id,
-						BCM_RX_REGMASK,
+						REGMASK(op->can_id),
 						bcm_rx_handler, op, IDENT);
 				dev_put(dev);
 			}
 		} else 
-			can_rx_register(NULL, op->can_id, BCM_RX_REGMASK,
+			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
 					bcm_rx_handler, op, IDENT);
 	}
 
@@ -1558,13 +1562,13 @@ static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
 					dev_get_by_index(op->ifindex);
 				if (dev) {
 					can_rx_unregister(dev, op->can_id,
-							  BCM_RX_REGMASK,
+							  REGMASK(op->can_id),
 							  bcm_rx_handler, op);
 					dev_put(dev);
 				}
 			} else
 				can_rx_unregister(NULL, op->can_id,
-						  BCM_RX_REGMASK,
+						  REGMASK(op->can_id),
 						  bcm_rx_handler, op);
 
 			list_del(&op->list);
