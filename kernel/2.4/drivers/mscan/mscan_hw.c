@@ -273,27 +273,15 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
     struct can_frame *cf = (struct can_frame*)skb->data;
     uint8_t dlc;
     canid_t id;
-    int	i, buf;
+    int i;
 
     netif_stop_queue(dev);
 
     dlc = cf->can_dlc;
     id  = cf->can_id;
 
-    /* Find an empty buffer */
-    for (buf = 0; buf < 3; buf++) {
-	if (regs->cantflg & (1 << buf))
-	    break; /* Buffer # buf is free */
-    }
-
-    if (buf == 3) {
-	/* No buffer is available */
-	printk(KERN_ERR "%s: %s: no buffer is available\n", DRV_NAME, __FUNCTION__);
-	return 0;
-    }
-
-    /* Select the buffer we've found */
-    regs->cantbsel = 1 << buf;
+    /* always use buffer 0 */
+    regs->cantbsel = 1;
 
     if (id & CAN_EFF_FLAG) {
 
@@ -326,10 +314,10 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
     regs->cantxfg.tbpr = 0;
 
     /* Trigger transmission */
-    regs->cantflg = (1 << buf);
+    regs->cantflg = 1;
 
     /* Enable interrupt */
-    regs->cantier |= (1 << buf);
+    regs->cantier |= 1;
 
     priv->stats.tx_bytes += dlc;
 
@@ -343,9 +331,11 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void mscan_tx_timeout(struct net_device *dev)
 {
     struct can_priv *priv = (struct can_priv*)dev->priv;
+    struct mpc5xxx_mscan *regs = priv->regs;
 
+    /* abort transmission (generates TX interrupt for netif_wake_queue()) */
+    regs->cantarq |= MPC5xxx_MSCAN_ABTRQ0;
     priv->stats.tx_errors++;
-    netif_wake_queue(dev);
 }
 
 static void mscan_rx(struct net_device *dev)
@@ -449,12 +439,15 @@ static void mscan_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	    DRV_NAME, dev->name, r_status, t_status);
 
     if (t_status & MPC5xxx_MSCAN_TXE) {
-	/* transmission complete interrupt */
+	/* transmission complete/aborted interrupt */
 
+	if (!(mscan_regs->cantaak & MPC5xxx_MSCAN_ABTAK0)){
+	    priv->stats.tx_packets++;
+	}
+	
 	/* Disable transmit interrupt here or it will constantly be pending */
 	mscan_regs->cantier &= ~MPC5xxx_MSCAN_TXIE;
 
-	priv->stats.tx_packets++;
 	netif_wake_queue(dev);
     }
 
