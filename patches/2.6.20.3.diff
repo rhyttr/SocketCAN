@@ -1,0 +1,140 @@
+diff -ruN linux-2.6.20.3/CREDITS linux/CREDITS
+--- linux-2.6.20.3/CREDITS	2007-03-19 10:11:40.000000000 +0000
++++ linux/CREDITS	2007-03-19 10:32:08.000000000 +0000
+@@ -1324,6 +1324,14 @@
+ S: 5623 HZ Eindhoven
+ S: The Netherlands
+ 
++N: Oliver Hartkopp
++E: oliver.hartkopp@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany 
++
+ N: Andrew Haylett
+ E: ajh@primag.co.uk
+ D: Selection mechanism
+@@ -3267,6 +3275,14 @@
+ S: F-35042 Rennes Cedex
+ S: France
+ 
++N: Urs Thuermann
++E: urs.thuermann@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany 
++
+ N: Jon Tombs
+ E: jon@gte.esi.us.es
+ W: http://www.esi.us.es/~jon
+diff -ruN linux-2.6.20.3/MAINTAINERS linux/MAINTAINERS
+--- linux-2.6.20.3/MAINTAINERS	2007-03-19 10:11:41.000000000 +0000
++++ linux/MAINTAINERS	2007-03-19 10:32:08.000000000 +0000
+@@ -809,6 +809,15 @@
+ T:	git kernel.org:/pub/scm/linux/kernel/git/mchehab/v4l-dvb.git
+ S:	Maintained
+ 
++CAN NETWORK LAYER
++P:	Urs Thuermann
++M:	urs.thuermann@volkswagen.de
++P:	Oliver Hartkopp
++M:	oliver.hartkopp@volkswagen.de
++L:	socketcan-core@lists.berlios.de
++W:	http://developer.berlios.de/projects/socketcan/
++S:	Maintained
++
+ CALGARY x86-64 IOMMU
+ P:	Muli Ben-Yehuda
+ M:	muli@il.ibm.com
+diff -ruN linux-2.6.20.3/drivers/net/Makefile linux/drivers/net/Makefile
+--- linux-2.6.20.3/drivers/net/Makefile	2007-03-19 10:11:45.000000000 +0000
++++ linux/drivers/net/Makefile	2007-03-19 10:32:08.000000000 +0000
+@@ -7,6 +7,7 @@
+ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
+ obj-$(CONFIG_EHEA) += ehea/
++obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ 
+diff -ruN linux-2.6.20.3/include/linux/if_arp.h linux/include/linux/if_arp.h
+--- linux-2.6.20.3/include/linux/if_arp.h	2007-03-19 10:11:25.000000000 +0000
++++ linux/include/linux/if_arp.h	2007-03-19 10:32:08.000000000 +0000
+@@ -52,6 +52,7 @@
+ #define ARPHRD_ROSE	270
+ #define ARPHRD_X25	271		/* CCITT X.25			*/
+ #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
++#define ARPHRD_CAN	280		/* Controller Area Network      */
+ #define ARPHRD_PPP	512
+ #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
+ #define ARPHRD_HDLC	ARPHRD_CISCO
+diff -ruN linux-2.6.20.3/include/linux/if_ether.h linux/include/linux/if_ether.h
+--- linux-2.6.20.3/include/linux/if_ether.h	2006-06-18 01:49:35.000000000 +0000
++++ linux/include/linux/if_ether.h	2007-03-19 10:32:08.000000000 +0000
+@@ -88,6 +88,7 @@
+ #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+ #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+ #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
++#define ETH_P_CAN	0x000C		/* Controller Area Network      */
+ #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
+ #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
+ #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
+diff -ruN linux-2.6.20.3/include/linux/socket.h linux/include/linux/socket.h
+--- linux-2.6.20.3/include/linux/socket.h	2007-03-19 10:11:50.000000000 +0000
++++ linux/include/linux/socket.h	2007-03-19 10:32:08.000000000 +0000
+@@ -185,6 +185,7 @@
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+ #define AF_MAX		32	/* For now.. */
+@@ -218,6 +219,7 @@
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+ #define PF_MAX		AF_MAX
+diff -ruN linux-2.6.20.3/net/Kconfig linux/net/Kconfig
+--- linux-2.6.20.3/net/Kconfig	2007-03-19 10:11:51.000000000 +0000
++++ linux/net/Kconfig	2007-03-19 10:32:08.000000000 +0000
+@@ -216,6 +216,7 @@
+ endmenu
+ 
+ source "net/ax25/Kconfig"
++source "net/can/Kconfig"
+ source "net/irda/Kconfig"
+ source "net/bluetooth/Kconfig"
+ source "net/ieee80211/Kconfig"
+diff -ruN linux-2.6.20.3/net/Makefile linux/net/Makefile
+--- linux-2.6.20.3/net/Makefile	2007-03-19 10:11:26.000000000 +0000
++++ linux/net/Makefile	2007-03-19 10:32:08.000000000 +0000
+@@ -34,6 +34,7 @@
+ obj-$(CONFIG_NETROM)		+= netrom/
+ obj-$(CONFIG_ROSE)		+= rose/
+ obj-$(CONFIG_AX25)		+= ax25/
++obj-$(CONFIG_CAN)		+= can/
+ obj-$(CONFIG_IRDA)		+= irda/
+ obj-$(CONFIG_BT)		+= bluetooth/
+ obj-$(CONFIG_SUNRPC)		+= sunrpc/
+diff -ruN linux-2.6.20.3/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
+--- linux-2.6.20.3/net/ipv6/addrconf.c	2007-03-19 10:29:34.000000000 +0000
++++ linux/net/ipv6/addrconf.c	2007-03-19 10:32:08.000000000 +0000
+@@ -2242,6 +2242,10 @@
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
+ 	int run_pending = 0;
+ 
++	/* more non ipv6 compatible dev types to skip here? */
++	if (dev->type == ARPHRD_CAN)
++		return NOTIFY_OK;
++
+ 	switch(event) {
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
