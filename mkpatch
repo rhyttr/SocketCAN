@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# Generate a kernel patch to add socketcan to a kernel src tree.
+# The list of files to be added is read from stdin.
+
+$version = shift;
+
+if (-r "patches/$version.diff") {
+    copy_file("patches/$version.diff");
+}
+
+while (<>) {
+    next if (/^#/);
+    my ($file, $n) = split;
+    my ($name);
+    if ($n eq "") {
+	$name = $file;
+    } else {
+	$name = $file;
+	$name =~ s/[^\/]*$/$n/;
+    }
+    $name =~ s/[^\/]*\/[^\/]*\///;
+    
+    add_file($file, $name);
+}
+
+close FILES;
+
+sub copy_file {
+    my ($file) = @_;
+
+    open file, "$file" || die "open $file\n";
+    while (<file>) {
+	print;
+    }
+    close file;
+}
+
+sub add_file {
+    my ($file, $name) = @_;
+    my (@lines, $count, $ts, $mtime);
+
+    open file, "./kv $version $file |" || die "open $file\n";
+    @lines = <file>;
+    $count = $#lines + 1;
+    use POSIX qw(strftime);
+    $mtime = (stat($file))[9];
+    $ts = strftime "%F %T", gmtime((stat($file))[9]);
+
+    print "--- a/$name 1970-01-01 00:00:00\n";
+    print "+++ b/$name $ts\n";
+    print "@@ -0,0 +1,$count @@\n";
+    for (@lines) {
+	print "+$_";
+    }
+    close file;
+}
