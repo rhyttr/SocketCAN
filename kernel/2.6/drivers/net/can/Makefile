@@ -8,7 +8,7 @@ ifeq ($(KERNELRELEASE),)
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
-all: vcan sja1000 mscan
+all: vcan slcan sja1000 mscan
 
 vcan:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_VCAN=m modules
