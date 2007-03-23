@@ -600,7 +600,11 @@ static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 /*
  * SJA1000 interrupt handler
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
 static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+#else
+static irqreturn_t can_interrupt(int irq, void *dev_id)
+#endif
 {
 	struct net_device *dev = (struct net_device*)dev_id;
 	struct can_priv *priv = netdev_priv(dev);
@@ -740,8 +744,13 @@ static int can_open(struct net_device *dev)
 	priv->state = STATE_UNINITIALIZED;
 
 	/* register interrupt handler */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
 	if (request_irq(dev->irq, &can_interrupt, SA_SHIRQ,
 			dev->name, (void*)dev)) {
+#else
+	if (request_irq(dev->irq, &can_interrupt, IRQF_SHARED,
+			dev->name, (void*)dev)) {
+#endif
 		return -EAGAIN;
 	}
 
