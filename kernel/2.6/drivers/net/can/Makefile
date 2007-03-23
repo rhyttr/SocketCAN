@@ -24,6 +24,7 @@ mscan:
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+	rm -f Module.symvers
 
 .PHONY: clean all vcan slcan sja1000 mscan
 

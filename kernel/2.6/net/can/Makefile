@@ -60,6 +60,7 @@ bcm: can
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+	rm -f Module.symvers
 
 .PHONY: clean all can raw bcm
 
