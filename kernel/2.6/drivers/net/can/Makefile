@@ -5,16 +5,22 @@
 
 ifeq ($(KERNELRELEASE),)
 
+ifdef $(CONFIG_CAN_SLCAN)
+SLCAN_MOD = slcan
+else
+SLCAN_MOD =
+endif
+
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
-all: vcan slcan sja1000 mscan
+all: vcan $(SLCAN_MOD) sja1000 mscan
 
 vcan:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_VCAN=m modules
 
 slcan:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_SLCAN=m modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_SLCAN=$(CONFIG_CAN_SLCAN) modules
 
 sja1000:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_SJA1000=m modules
