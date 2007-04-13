@@ -69,8 +69,6 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("LLCF/socketcan '" CHIP_NAME "' network device driver");
 
-#define CONFIG_CAN_DEBUG_DEVICES
-
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((priv->debug > 0) ? printk(args) : 0)
 /* logging in interrupt context! */
@@ -513,15 +511,17 @@ static int set_normal_mode(struct net_device *dev)
 	// Configure message objects for receiption
 	if (priv->mo15 == MO15_SFF) {
 		enable_rx_obj(base, 4); /* rx via obj15 SFF */
-		printk(KERN_INFO "%s: using msg object 15 for SFF receiption.\n",
-		       dev->name);
+		printk(KERN_INFO "%s: %s: using msg object 15 for "
+		       "SFF receiption.\n",
+		       dev->name, CHIP_NAME);
 	} else
 		enable_rx_obj(base, 0); /* rx via obj10 SFF */
 
 	if (priv->mo15 == MO15_EFF) {
 		enable_rx_obj(base, 5); /* rx via obj15 EFF */
-		printk(KERN_INFO "%s: using msg object 15 for EFF receiption.\n",
-		       dev->name);
+		printk(KERN_INFO "%s: %s: using msg object 15 for "
+		       "EFF receiption.\n",
+		       dev->name, CHIP_NAME);
 	} else
 		enable_rx_obj(base, 1); /* rx via obj11 EFF */
 
