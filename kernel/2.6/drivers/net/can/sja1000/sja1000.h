@@ -51,13 +51,22 @@
 #define SJA1000_H
 
 #define SJA1000_IO_SIZE_BASIC   0x20
-#define SJA1000_IO_SIZE_PELICAN 0x80
+#define SJA1000_IO_SIZE_PELICAN 0x80 /* unused */
 
-#define DEFAULT_SPEED	100 /* kBit/s */
+#define CHIP_NAME	"sja1000"
 
-#define TX_TIMEOUT	(HZ/20) /* 50ms */
-#define RESTART_MS      100     /* restart chip on persistent errors in 100ms */
-#define MAX_BUS_ERRORS  200     /* prevent from flooding bus error interrupts */
+#define DRV_NAME_LEN	30 /* for "<chip_name>-<hal_name>" */
+
+#define PROCBASE          "driver" /* /proc/ ... */
+
+#define DEFAULT_HW_CLK	16000000
+#define DEFAULT_SPEED	500 /* kBit/s */
+
+#define CAN_NETDEV_NAME	"can%d"
+
+#define TX_TIMEOUT      (50*HZ/1000) /* 50ms */ 
+#define RESTART_MS      100  /* restart chip on persistent errors in 100ms */
+#define MAX_BUS_ERRORS  200  /* prevent from flooding bus error interrupts */
 
 /* SJA1000 registers - manual section 6.4 (Pelican Mode) */
 #define REG_MOD		0x00
@@ -150,30 +159,20 @@
 #define SAMPLE_POINT	75
 #define JUMPWIDTH     0x40
 
+/* CAN private data structure */
 
-#define REG_READ(addr)		((struct can_priv*)netdev_priv(dev))->reg_read(dev,addr)
-#define REG_WRITE(addr,data)	((struct can_priv*)netdev_priv(dev))->reg_write(dev,addr,data)
-
-#define SJA1000_CHIP_NAME "sja1000"
-#define PROCBASE          "net/drivers" /* /proc/ ... */
-
-/*
- * private data structure:
- * reg_read and reg_write are functions to access the sja1000 registers
- */
 struct can_priv {
 	struct net_device_stats	stats;
+	struct can_device_stats	can_stats;
 	long			open_time;
 	int			clock;
+	int			hw_regs;
 	int			restart_ms;
 	int			debug;
 	int			speed;
 	int			btr;
 	int			rx_probe;
 	struct timer_list       timer;
-	uint8_t			(*reg_read)(struct net_device *dev, int reg);
-	void			(*reg_write)(struct net_device *dev, int reg, uint8_t val);
-	struct can_device_stats	can_stats;
 	int			state;
 };
 
@@ -185,10 +184,7 @@ struct can_priv {
 #define STATE_BUS_OFF		5
 #define STATE_RESET_MODE	6
 
-void sja1000_setup(struct net_device *dev);
-void sja1000_proc_init(const char *drv_name, struct net_device **dev, int max);
-void sja1000_proc_delete(const char *drv_name);
-
-int set_reset_mode(struct net_device *dev);
+void can_proc_create(const char *drv_name);
+void can_proc_remove(const char *drv_name);
 
 #endif /* SJA1000_H */

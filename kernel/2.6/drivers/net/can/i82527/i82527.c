@@ -1,10 +1,7 @@
 /*
  * $Id$
  *
- * sja1000.c -  Philips SJA1000 network device driver
- *
- * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
- * 38106 Braunschweig, GERMANY
+ * i82527.c -  Intel I82527 network device driver
  *
  * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -65,12 +62,14 @@
 
 #include <linux/can.h>
 #include <linux/can/ioctl.h> /* for struct can_device_stats */
-#include "sja1000.h"
 #include "hal.h"
+#include "i82527.h"
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("LLCF/socketcan '" CHIP_NAME "' network device driver");
+
+#define CONFIG_CAN_DEBUG_DEVICES
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((priv->debug > 0) ? printk(args) : 0)
@@ -86,52 +85,13 @@ MODULE_DESCRIPTION("LLCF/socketcan '" CHIP_NAME "' network device driver");
 char drv_name[DRV_NAME_LEN] = "undefined";
 
 /* driver and version information */
-static const char *drv_version	= "0.1.1";
-static const char *drv_reldate	= "2007-04-13";
+static const char *drv_version	= "0.0.3";
+static const char *drv_reldate	= "2007-04-11";
 
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-static const char *ecc_errors[] = {
-	NULL,
-	NULL,
-	"ID.28 to ID.28",
-	"start of frame",
-	"bit SRTR",
-	"bit IDE",
-	"ID.20 to ID.18",
-	"ID.17 to ID.13",
-	"CRC sequence",
-	"reserved bit 0",
-	"data field",
-	"data length code",
-	"bit RTR",
-	"reserved bit 1",
-	"ID.4 to ID.0",
-	"ID.12 to ID.5",
-	NULL,
-	"active error flag",
-	"intermission",
-	"tolerate dominant bits",
-	NULL,
-	NULL,
-	"passive error flag",
-	"error delimiter",
-	"CRC delimiter",
-	"acknowledge slot",
-	"end of frame",
-	"acknowledge delimiter",
-	"overload flag",
-	NULL,
-	NULL,
-	NULL
-};
-
-static const char *ecc_types[] = {
-	"bit error",
-	"form error",
-	"stuff error",
-	"other type of error"
-};
-#endif
+static const canid_t rxobjflags[] = {0, CAN_EFF_FLAG,
+				     CAN_RTR_FLAG, CAN_RTR_FLAG | CAN_EFF_FLAG,
+				     0, CAN_EFF_FLAG}; 
+#define RXOBJBASE 10
 
 /* array of all can chips */
 struct net_device *can_dev[MAXDEV];
@@ -143,9 +103,13 @@ unsigned int  irq[MAXDEV]	= { 0 };
 
 unsigned int speed[MAXDEV]	= { DEFAULT_SPEED, DEFAULT_SPEED };
 unsigned int btr[MAXDEV]	= { 0 };
+unsigned int bcr[MAXDEV]	= { 0 }; /* bus configuration register */
+unsigned int cdv[MAXDEV]	= { 0 }; /* CLKOUT clock divider */
+unsigned int mo15[MAXDEV]	= { MO15_DEFLT, MO15_DEFLT }; /* msg obj 15 */
 
 static int rx_probe[MAXDEV]	= { 0 };
 static int clk			= DEFAULT_HW_CLK;
+static int force_dmc		= DEFAULT_FORCE_DMC;
 static int debug		= 0;
 static int restart_ms		= 100;
 
@@ -153,15 +117,25 @@ static int base_n;
 static int irq_n;
 static int speed_n;
 static int btr_n;
+static int bcr_n;
+static int cdv_n;
+static int mo15_n;
 static int rx_probe_n;
+
+static u8 dsc = 0; /* devide system clock */
+static u8 dmc = 0; /* devide memory clock */
 
 module_param_array(base, int, &base_n, 0);
 module_param_array(irq, int, &irq_n, 0);
 module_param_array(speed, int, &speed_n, 0);
 module_param_array(btr, int, &btr_n, 0);
+module_param_array(bcr, int, &bcr_n, 0);
+module_param_array(cdv, int, &cdv_n, 0);
+module_param_array(mo15, int, &mo15_n, 0);
 module_param_array(rx_probe, int, &rx_probe_n, 0);
 
 module_param(clk, int, 0);
+module_param(force_dmc, int, 0);
 module_param(debug, int, 0);
 module_param(restart_ms, int, 0);
 
@@ -169,15 +143,18 @@ MODULE_PARM_DESC(base, "CAN controller base address");
 MODULE_PARM_DESC(irq, "CAN controller interrupt");
 MODULE_PARM_DESC(speed, "CAN bus bitrate");
 MODULE_PARM_DESC(btr, "Bit Timing Register value 0x<btr0><btr1>, e.g. 0x4014");
+MODULE_PARM_DESC(bcr, "i82527 bus configuration register value (default: 0)");
+MODULE_PARM_DESC(cdv, "clockout devider value (0-14) (default: 0)");
+MODULE_PARM_DESC(mo15, "rx message object 15 usage. 0:none 1:sff(default) 2:eff");
 MODULE_PARM_DESC(rx_probe, "switch to trx mode after correct msg receiption. (default off)");
 
 MODULE_PARM_DESC(clk, "CAN controller chip clock (default: 16MHz)");
+MODULE_PARM_DESC(force_dmc, "set i82527 DMC bit (default: calculate from clk)"); 
 MODULE_PARM_DESC(debug, "set debug mask (default: 0)");
 MODULE_PARM_DESC(restart_ms, "restart chip on heavy bus errors / bus off after x ms (default 100ms)");
 
 /* function declarations */
 
-static void can_restart_dev(unsigned long data);
 static void chipset_init(struct net_device *dev, int wake);
 static void chipset_init_rx(struct net_device *dev);
 static void chipset_init_trx(struct net_device *dev);
@@ -185,9 +162,9 @@ static void can_netdev_setup(struct net_device *dev);
 static struct net_device* can_create_netdev(int dev_num, int hw_regs);
 static int  can_set_drv_name(void);
 int set_reset_mode(struct net_device *dev);
-static int sja1000_probe_chip(unsigned long base);
+static int i82527_probe_chip(unsigned long base);
 
-static __exit void sja1000_exit_module(void)
+static __exit void i82527_exit_module(void)
 {
 	int i, ret;
 
@@ -196,7 +173,7 @@ static __exit void sja1000_exit_module(void)
 			struct can_priv *priv = netdev_priv(can_dev[i]);
 			unregister_netdev(can_dev[i]);
 			del_timer(&priv->timer);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
+			hal_release_region(i, I82527_IO_SIZE);
 			free_netdev(can_dev[i]);
 		}
 	}
@@ -206,10 +183,16 @@ static __exit void sja1000_exit_module(void)
 		printk(KERN_INFO "%s: hal_exit error %d.\n", drv_name, ret);
 }
 
-static __init int sja1000_init_module(void)
+static __init int i82527_init_module(void)
 {
 	int i, ret;
 	struct net_device *dev;
+
+	if ((sizeof(canmessage_t) != 15) || (sizeof(canregs_t) != 256)) {
+		printk(KERN_WARNING "%s sizes: canmessage_t %d canregs_t %d\n",
+		       CHIP_NAME, sizeof(canmessage_t), sizeof(canregs_t));
+		return -EBUSY;
+	}
 
 	if ((ret = hal_init()))
 		return ret;
@@ -234,29 +217,74 @@ static __init int sja1000_init_module(void)
 		hal_use_defaults();
 	}
 		
+	/* to ensure the proper access to the i82527 registers */
+	/* the timing dependend settings have to be done first */
+	if (clk > 10000000)
+		dsc = iCPU_DSC; /* devide system clock => MCLK is 8MHz save */
+	else if (clk > 8000000) /* 8MHz < clk <= 10MHz */
+		dmc = iCPU_DMC; /* devide memory clock */
+
+	/* devide memory clock even if it's not needed (regarding the spec) */
+	if (force_dmc)
+		dmc = iCPU_DMC;
+
 	for (i = 0; base[i]; i++) {
+		int clkout;
+		u8 clockdiv;
+
 		printk(KERN_DEBUG "%s: checking for %s on address 0x%lX ...\n",
 		       drv_name, CHIP_NAME, base[i]);
 
-		if (!hal_request_region(i, SJA1000_IO_SIZE_BASIC, drv_name)) {
+		if (!hal_request_region(i, I82527_IO_SIZE, drv_name)) {
 			printk(KERN_ERR "%s: memory already in use\n",
 			       drv_name);
-			sja1000_exit_module();
+			i82527_exit_module();
 			return -EBUSY;
 		}
 
 		hw_attach(i);
 		hw_reset_dev(i);
 
-		if (!sja1000_probe_chip(base[i])) {
+		// Enable configuration, put chip in bus-off, disable ints
+		CANout(rbase[i], controlReg, iCTL_CCE | iCTL_INI);
+
+		// Configure cpu interface / CLKOUT disable
+		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc));
+
+		if (!i82527_probe_chip(rbase[i])) {
 			printk(KERN_ERR "%s: probably missing controller"
 			       " hardware\n", drv_name);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
-			sja1000_exit_module();
+			hal_release_region(i, I82527_IO_SIZE);
+			i82527_exit_module();
 			return -ENODEV;
 		}
 
-		dev = can_create_netdev(i, SJA1000_IO_SIZE_BASIC);
+		/* CLKOUT devider and slew rate calculation */
+		if ((cdv[i] < 0) || (cdv[i] > 14)) {
+			printk(KERN_WARNING "%s: adjusted cdv[%d]=%d to 0.\n",
+			       drv_name, i, cdv[i]);
+			cdv[i] = 0;
+		}
+
+		clkout = clk / (cdv[i] + 1); /* CLKOUT frequency */
+		clockdiv = (u8)cdv[i]; /* devider value (see i82527 spec) */
+
+		if (clkout <= 16000000) {
+			clockdiv |= iCLK_SL1;
+			if (clkout <= 8000000)
+				clockdiv |= iCLK_SL0;
+		} else if (clkout <= 24000000)
+				clockdiv |= iCLK_SL0;
+
+		// Set CLKOUT devider and slew rates
+		CANout(rbase[i], clkOutReg, clockdiv);
+
+		// Configure cpu interface / CLKOUT enable
+		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc | iCPU_CEN));
+
+		CANout(rbase[i], busConfigReg, bcr[i]);
+
+		dev = can_create_netdev(i, I82527_IO_SIZE);
 
 		if (dev != NULL) {
 			can_dev[i] = dev;
@@ -265,19 +293,36 @@ static __init int sja1000_init_module(void)
 		} else {
 			can_dev[i] = NULL;
 			hw_detach(i);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
+			hal_release_region(i, I82527_IO_SIZE);
 		}
 	}
 	return 0;
 }
 
-static int sja1000_probe_chip(unsigned long base)
+static int i82527_probe_chip(unsigned long base)
 {
-	if (base && (hw_readreg(base, 0) == 0xFF)) {
-		printk(KERN_INFO "%s: probing @0x%lX failed\n",
+	// Check if hardware reset is still inactive OR
+	// maybe there is no chip in this address space
+	if (CANin(base, cpuInterfaceReg) & iCPU_RST) {
+		printk(KERN_INFO "%s: probing @ 0x%lX failed (reset)\n",
 		       drv_name, base);
 		return 0;
 	}
+
+	// Write test pattern
+	CANout(base, message1Reg.dataReg[1], 0x25);
+	CANout(base, message2Reg.dataReg[3], 0x52);
+	CANout(base, message10Reg.dataReg[6], 0xc3);
+
+	// Read back test pattern
+	if ((CANin(base, message1Reg.dataReg[1]) != 0x25 ) ||
+	    (CANin(base, message2Reg.dataReg[3]) != 0x52 ) ||
+	    (CANin(base, message10Reg.dataReg[6]) != 0xc3 )) {
+		printk(KERN_INFO "%s: probing @ 0x%lX failed (pattern)\n",
+		       drv_name, base);
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -287,14 +332,15 @@ static int sja1000_probe_chip(unsigned long base)
 static void set_btr(struct net_device *dev, int btr0, int btr1)
 {
 	struct can_priv *priv = netdev_priv(dev);
+	unsigned long base = dev->base_addr;
 
 	/* no bla bla when restarting the device */
 	if (priv->state == STATE_UNINITIALIZED)
 		printk(KERN_INFO "%s: setting BTR0=%02X BTR1=%02X\n",
 		       dev->name, btr0, btr1);
 
-	hw_writereg(dev->base_addr, REG_BTR0, btr0);
-	hw_writereg(dev->base_addr, REG_BTR1, btr1);
+	CANout(base, bitTiming0Reg, btr0);
+	CANout(base, bitTiming1Reg, btr1);
 }
 
 /*
@@ -317,7 +363,8 @@ static void set_baud(struct net_device *dev, int baud, int clock)
 
 	int SAM = (baud > 100000 ? 0 : 1);
 
-	clock >>= 1;
+	if (dsc) /* devide system clock */
+		clock >>= 1; /* calculate BTR with this value */
 
 	for (tseg = (0 + 0 + 2) * 2;
 	     tseg <= (MAX_TSEG2 + MAX_TSEG1 + 2) * 2 + 1;
@@ -364,99 +411,165 @@ static void set_baud(struct net_device *dev, int baud, int clock)
 //	set_btr(dev, best_brp | JUMPWIDTH, (SAM << 7) | (tseg2 << 4) | tseg1);
 }
 
+static inline int obj2rxo(int obj)
+{
+	/* obj4 = obj15 SFF, obj5 = obj15 EFF */ 
+	if (obj < 4)
+		return RXOBJBASE + obj;
+	else
+		return 15;
+}
+
+void enable_rx_obj(unsigned long base, int obj)
+{
+	u8 mcfg = 0;
+	int rxo = obj2rxo(obj);
+
+	// Configure message object for receiption
+	if (rxobjflags[obj] & CAN_EFF_FLAG)
+		mcfg = MCFG_XTD;
+
+	if (rxobjflags[obj] & CAN_RTR_FLAG) {
+		CANout(base, msgArr[rxo].messageReg.messageConfigReg,
+		       mcfg | MCFG_DIR);
+		CANout(base, msgArr[rxo].messageReg.msgCtrl0Reg,
+		       MVAL_SET | TXIE_RES | RXIE_SET | INTPD_RES);
+		CANout(base, msgArr[rxo].messageReg.msgCtrl1Reg,
+		       NEWD_RES | CPUU_SET | TXRQ_RES | RMPD_RES);
+	} else {
+		CANout(base, msgArr[rxo].messageReg.messageConfigReg, mcfg);
+		CANout(base, msgArr[rxo].messageReg.msgCtrl0Reg,
+		       MVAL_SET | TXIE_RES | RXIE_SET | INTPD_RES);
+		CANout(base, msgArr[rxo].messageReg.msgCtrl1Reg,
+		       NEWD_RES | MLST_RES | TXRQ_RES | RMPD_RES);
+	}
+}
+
+void disable_rx_obj(unsigned long base, int obj)
+{
+	int rxo = obj2rxo(obj);
+
+	CANout(base, msgArr[rxo].messageReg.msgCtrl1Reg,
+	       NEWD_RES | MLST_RES | TXRQ_RES | RMPD_RES);
+	CANout(base, msgArr[rxo].messageReg.msgCtrl0Reg,
+	       MVAL_RES | TXIE_RES | RXIE_RES | INTPD_RES);
+}
+
 int set_reset_mode(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
-	unsigned char status = hw_readreg(dev->base_addr, REG_MOD);
-	int i;
+	unsigned long base = dev->base_addr;
 
-	priv->can_stats.bus_error_at_init = priv->can_stats.bus_error;
+	// Configure cpu interface
+	CANout(base, cpuInterfaceReg,(dsc | dmc | iCPU_CEN));
 
-	/* disable interrupts */
-	hw_writereg(dev->base_addr, REG_IER, IRQ_OFF);
+	// Enable configuration and puts chip in bus-off, disable interrupts
+	CANout(base, controlReg, iCTL_CCE | iCTL_INI);
 
-	for (i = 0; i < 10; i++) {
-		/* check reset bit */
-		if (status & MOD_RM) {
-			if (i > 1) {
-				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __FUNCTION__, i);
-			}
-			priv->state = STATE_RESET_MODE;
-			return 0;
-		}
+	// Clear interrupts
+	CANin(base, interruptReg);
 
-		hw_writereg(dev->base_addr, REG_MOD, MOD_RM); /* reset chip */
-		status = hw_readreg(dev->base_addr, REG_MOD);
+	// Clear status register
+	CANout(base, statusReg, 0);
 
-	}
+	// Clear message objects for receiption
+	if (priv->mo15 == MO15_SFF)
+		disable_rx_obj(base, 4); /* rx via obj15 SFF */
+	else
+		disable_rx_obj(base, 0); /* rx via obj10 SFF */
 
-	printk(KERN_ERR "%s: setting sja1000 into reset mode failed!\n",
-	       dev->name);
-	return 1;
+	if (priv->mo15 == MO15_EFF)
+		disable_rx_obj(base, 5); /* rx via obj15 EFF */
+	else
+		disable_rx_obj(base, 1); /* rx via obj11 EFF */
 
+	disable_rx_obj(base, 2);
+	disable_rx_obj(base, 3);
+
+	// Clear message object for send
+	CANout(base, message1Reg.msgCtrl1Reg,
+	       RMPD_RES | TXRQ_RES | CPUU_RES | NEWD_RES);
+	CANout(base, message1Reg.msgCtrl0Reg,
+	       MVAL_RES | TXIE_RES | RXIE_RES | INTPD_RES);
+
+	DBG(KERN_INFO "%s: %s: CtrlReg 0x%x CPUifReg 0x%x\n",
+	    dev->name, __FUNCTION__,
+	    CANin(base, controlReg), CANin(base, cpuInterfaceReg));
+
+	return 0;
 }
 
 static int set_normal_mode(struct net_device *dev)
 {
-	unsigned char status = hw_readreg(dev->base_addr, REG_MOD);
-	int i;
+	struct can_priv *priv = netdev_priv(dev);
+	unsigned long base = dev->base_addr;
 
-	for (i = 0; i < 10; i++) {
-		/* check reset bit */
-		if ((status & MOD_RM) == 0) {
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-			if (i > 1) {
-				struct can_priv *priv = netdev_priv(dev);
-				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __FUNCTION__, i);
-			}
-#endif
-			return 0;
-		}
+	// Clear interrupts
+	CANin(base, interruptReg);
 
-		/* set chip to normal mode */
-		hw_writereg(dev->base_addr, REG_MOD, 0x00);
-		status = hw_readreg(dev->base_addr, REG_MOD);
-	}
+	// Clear status register
+	CANout(base, statusReg, 0);
 
-	printk(KERN_ERR "%s: setting sja1000 into normal mode failed!\n",
-	       dev->name);
-	return 1;
+	// Configure message objects for receiption
+	if (priv->mo15 == MO15_SFF) {
+		enable_rx_obj(base, 4); /* rx via obj15 SFF */
+		printk(KERN_INFO "%s: using msg object 15 for SFF receiption.\n",
+		       dev->name);
+	} else
+		enable_rx_obj(base, 0); /* rx via obj10 SFF */
 
+	if (priv->mo15 == MO15_EFF) {
+		enable_rx_obj(base, 5); /* rx via obj15 EFF */
+		printk(KERN_INFO "%s: using msg object 15 for EFF receiption.\n",
+		       dev->name);
+	} else
+		enable_rx_obj(base, 1); /* rx via obj11 EFF */
+
+	enable_rx_obj(base, 2);
+	enable_rx_obj(base, 3);
+
+	// Clear message object for send
+	CANout(base, message1Reg.msgCtrl1Reg,
+	       RMPD_RES | TXRQ_RES | CPUU_RES | NEWD_RES);
+	CANout(base, message1Reg.msgCtrl0Reg,
+	       MVAL_RES | TXIE_RES | RXIE_RES | INTPD_RES);
+
+	return 0;
 }
 
 static int set_listen_mode(struct net_device *dev)
 {
-	unsigned char status = hw_readreg(dev->base_addr, REG_MOD);
-	int i;
-
-	for (i = 0; i < 10; i++) {
-		/* check reset mode bit */
-		if ((status & MOD_RM) == 0) {
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-			if (i > 1) {
-				struct can_priv *priv = netdev_priv(dev);
-				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __FUNCTION__, i);
-			}
-#endif
-			return 0;
-		}
-
-		/* set listen only mode, clear reset */
-		hw_writereg(dev->base_addr, REG_MOD, MOD_LOM);
-		status = hw_readreg(dev->base_addr, REG_MOD);
-	}
-
-	printk(KERN_ERR "%s: setting sja1000 into listen mode failed!\n",
-	       dev->name);
-	return 1;
-
+	return set_normal_mode(dev); /* for now */
 }
 
 /*
- * initialize SJA1000 chip:
+ * Clear and invalidate message objects
+ */
+int i82527_clear_msg_objects(unsigned long base)
+{
+    int i;
+    int id;
+    int data;
+
+    for (i = 1; i <= 15; i++) {
+	    CANout(base, msgArr[i].messageReg.msgCtrl0Reg,
+		   INTPD_UNC | RXIE_RES | TXIE_RES | MVAL_RES);
+	    CANout(base, msgArr[i].messageReg.msgCtrl0Reg,
+		   INTPD_RES | RXIE_RES | TXIE_RES | MVAL_RES);
+	    CANout(base, msgArr[i].messageReg.msgCtrl1Reg,
+		   NEWD_RES | MLST_RES | TXRQ_RES | RMPD_RES);
+	    for (data = 0; data < 8; data++)
+		    CANout(base, msgArr[i].messageReg.dataReg[data], 0);
+	    for (id = 0; id < 4; id++)
+		    CANout(base, msgArr[i].messageReg.idReg[id], 0);
+	    CANout(base, msgArr[i].messageReg.messageConfigReg, 0);
+    }
+
+    return 0;
+}
+
+/*
+ * initialize I82527 chip:
  *   - reset chip
  *   - set output mode
  *   - set baudrate
@@ -468,23 +581,35 @@ static void chipset_init_regs(struct net_device *dev)
 	struct can_priv *priv = netdev_priv(dev);
 	unsigned long base = dev->base_addr;
 
-	/* go into Pelican mode, disable clkout, disable comparator */
-	hw_writereg(base, REG_CDR, 0xCF);
+	// Enable configuration and puts chip in bus-off, disable interrupts
+	CANout(base, controlReg, (iCTL_CCE | iCTL_INI));
 
-	/* output control */
-	/* connected to external transceiver */
-	hw_writereg(base, REG_OCR, 0x1A);
+	// Set CLKOUT devider and slew rates is was done in i82527_init_module
 
-	/* set acceptance filter (accept all) */
-	hw_writereg(base, REG_ACCC0, 0x00);
-	hw_writereg(base, REG_ACCC1, 0x00);
-	hw_writereg(base, REG_ACCC2, 0x00);
-	hw_writereg(base, REG_ACCC3, 0x00);
+	// Bus configuration was done in i82527_init_module
 
-	hw_writereg(base, REG_ACCM0, 0xFF);
-	hw_writereg(base, REG_ACCM1, 0xFF);
-	hw_writereg(base, REG_ACCM2, 0xFF);
-	hw_writereg(base, REG_ACCM3, 0xFF);
+	// Clear interrupts
+	CANin(base, interruptReg);
+
+	// Clear status register
+	CANout(base, statusReg, 0);
+
+	i82527_clear_msg_objects(base);
+
+	// Set all global ID masks to "don't care"
+	CANout(base, globalMaskStandardReg[0], 0);	
+	CANout(base, globalMaskStandardReg[1], 0);
+	CANout(base, globalMaskExtendedReg[0], 0);
+	CANout(base, globalMaskExtendedReg[1], 0);
+	CANout(base, globalMaskExtendedReg[2], 0);
+	CANout(base, globalMaskExtendedReg[3], 0);
+
+	DBG(KERN_INFO "%s: %s: CtrlReg 0x%x CPUifReg 0x%x\n",
+	    dev->name, __FUNCTION__,
+	    CANin(base, controlReg), CANin(base, cpuInterfaceReg));
+
+	// Note: At this stage the CAN ship is still in bus-off condition
+	// and must be started using StartChip()
 
 	/* set baudrate */
 	if (priv->btr) { /* no calculation when btr is provided */
@@ -496,9 +621,6 @@ static void chipset_init_regs(struct net_device *dev)
 		set_baud(dev, priv->speed * 1000, priv->clock);
 	}
 
-	/* output control */
-	/* connected to external transceiver */
-	hw_writereg(base, REG_OCR, 0x1A);
 }
 
 static void chipset_init(struct net_device *dev, int wake)
@@ -517,6 +639,7 @@ static void chipset_init(struct net_device *dev, int wake)
 static void chipset_init_rx(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
+	unsigned long base    = dev->base_addr;
 
 	iDBG(KERN_INFO "%s: %s()\n", dev->name, __FUNCTION__);
 
@@ -531,13 +654,18 @@ static void chipset_init_rx(struct net_device *dev)
 
 	priv->state = STATE_PROBE;
 
-	/* enable receive and error interrupts */
-	hw_writereg(dev->base_addr, REG_IER, IRQ_RI | IRQ_EI);
+	// Clear bus-off, Interrupts only for errors, not for status change
+	CANout(base, controlReg, iCTL_IE | iCTL_EIE);
+
+	DBG(KERN_INFO "%s: %s: CtrlReg 0x%x CPUifReg 0x%x\n",
+	    dev->name, __FUNCTION__,
+	    CANin(base, controlReg), CANin(base, cpuInterfaceReg));
 }
 
 static void chipset_init_trx(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
+	unsigned long base    = dev->base_addr;
 
 	iDBG(KERN_INFO "%s: %s()\n", dev->name, __FUNCTION__);
 
@@ -552,55 +680,82 @@ static void chipset_init_trx(struct net_device *dev)
 
 	priv->state = STATE_ACTIVE;
 
-	/* enable all interrupts */
-	hw_writereg(dev->base_addr, REG_IER, IRQ_ALL);
+	// Clear bus-off, Interrupts only for errors, not for status change
+	CANout(base, controlReg, iCTL_IE | iCTL_EIE);
+
+	DBG(KERN_INFO "%s: %s: CtrlReg 0x%x CPUifReg 0x%x\n",
+	    dev->name, __FUNCTION__,
+	    CANin(base, controlReg), CANin(base, cpuInterfaceReg));
 }
 
 /*
  * transmit a CAN message
  * message layout in the sk_buff should be like this:
- * xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
- * [  can-id ] [flags] [len] [can data (up to 8 bytes]
+ * xx xx xx xx  ll   00 11 22 33 44 55 66 77
+ * [  can-id ] [len] [can data (up to 8 bytes]
  */
 static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct can_priv  *priv	= netdev_priv(dev);
 	struct can_frame *cf	= (struct can_frame*)skb->data;
 	unsigned long base	= dev->base_addr;
-	uint8_t	fi;
 	uint8_t	dlc;
+	uint8_t	rtr;
 	canid_t	id;
-	uint8_t	dreg;
 	int	i;
+
+	if ((CANin(base, message1Reg.msgCtrl1Reg) & TXRQ_UNC) == TXRQ_SET) {
+		printk(KERN_ERR "%s: %s: TX register is occupied!\n",
+		       dev->name, drv_name);
+		return 0;
+	}
 
 	netif_stop_queue(dev);
 
-	fi = dlc = cf->can_dlc;
-	id = cf->can_id;
+	dlc = cf->can_dlc;
+	id  = cf->can_id;
 
-	if (id & CAN_RTR_FLAG)
-		fi |= FI_RTR;
+	if ( cf->can_id & CAN_RTR_FLAG )
+		rtr = 0;
+	else
+		rtr = MCFG_DIR;
+
+	CANout(base, message1Reg.msgCtrl1Reg,
+	       RMPD_RES | TXRQ_RES | CPUU_SET | NEWD_RES);
+	CANout(base, message1Reg.msgCtrl0Reg,
+	       MVAL_SET | TXIE_SET | RXIE_RES | INTPD_RES);
 
 	if (id & CAN_EFF_FLAG) {
-		fi |= FI_FF;
-		dreg = EFF_BUF;
-		hw_writereg(base, REG_FI, fi);
-		hw_writereg(base, REG_ID1, (id & 0x1fe00000) >> (5 + 16));
-		hw_writereg(base, REG_ID2, (id & 0x001fe000) >> (5 + 8));
-		hw_writereg(base, REG_ID3, (id & 0x00001fe0) >> 5);
-		hw_writereg(base, REG_ID4, (id & 0x0000001f) << 3);
-	} else {
-		dreg = SFF_BUF;
-		hw_writereg(base, REG_FI, fi);
-		hw_writereg(base, REG_ID1, (id & 0x000007f8) >> 3);
-		hw_writereg(base, REG_ID2, (id & 0x00000007) << 5);
+		id &= CAN_EFF_MASK;
+		CANout(base, message1Reg.messageConfigReg,
+		       (dlc << 4) + rtr + MCFG_XTD);
+		CANout(base, message1Reg.idReg[3], (id << 3) & 0xFFU);
+		CANout(base, message1Reg.idReg[2], (id >> 5) & 0xFFU);
+		CANout(base, message1Reg.idReg[1], (id >> 13) & 0xFFU);
+		CANout(base, message1Reg.idReg[0], (id >> 21) & 0xFFU);
+	}
+	else {
+		id &= CAN_SFF_MASK;
+		CANout(base, message1Reg.messageConfigReg,
+		       ( dlc << 4 ) + rtr);
+		CANout(base, message1Reg.idReg[0], (id >> 3) & 0xFFU);
+		CANout(base, message1Reg.idReg[1], (id << 5) & 0xFFU);
 	}
 
-	for (i = 0; i < dlc; i++) {
-		hw_writereg(base, dreg++, cf->data[i]);
+	dlc &= 0x0f; //restore length only
+	for ( i=0; i < dlc; i++ ) {
+		CANout(base, message1Reg.dataReg[i],
+		       cf->data[i]);
 	}
 
-	hw_writereg(base, REG_CMR, CMD_TR);
+	CANout(base, message1Reg.msgCtrl1Reg,
+	       (RMPD_RES | TXRQ_SET | CPUU_RES | NEWD_UNC));
+
+	// HM: We had some cases of repeated IRQs
+	// so make sure the INT is acknowledged
+	// I know it's already further up, but doing again fixed the issue
+	CANout(base, message1Reg.msgCtrl0Reg,
+	       (MVAL_UNC | TXIE_UNC | RXIE_UNC | INTPD_RES));
 
 	priv->stats.tx_bytes += dlc;
 
@@ -628,6 +783,7 @@ static void can_tx_timeout(struct net_device *dev)
 
 }
 
+# if 0
 static void can_restart_on(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -669,6 +825,7 @@ static void can_restart_dev(unsigned long data)
 		chipset_init(dev, 1);
 	}
 }
+#endif
 
 #if 0
 /* the timerless version */
@@ -687,17 +844,22 @@ static void can_restart_now(struct net_device *dev)
 }
 #endif
 
-static void can_rx(struct net_device *dev)
+/*
+ * Subroutine of ISR for RX interrupts.
+ *
+ */
+static void can_rx(struct net_device *dev, int obj)
 {
 	struct can_priv *priv	= netdev_priv(dev);
 	unsigned long base	= dev->base_addr;
 	struct can_frame *cf;
 	struct sk_buff	*skb;
-	uint8_t	fi;
-	uint8_t	dreg;
+	uint8_t msgctlreg;
+	uint8_t ctl1reg;
 	canid_t	id;
 	uint8_t	dlc;
 	int	i;
+	int	rxo = obj2rxo(obj);
 
 	skb = dev_alloc_skb(sizeof(struct can_frame));
 	if (skb == NULL) {
@@ -706,39 +868,40 @@ static void can_rx(struct net_device *dev)
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_CAN);
 
-	fi = hw_readreg(base, REG_FI);
-	dlc = fi & 0x0F;
+	ctl1reg = CANin(base, msgArr[rxo].messageReg.msgCtrl1Reg);
+	msgctlreg = CANin(base, msgArr[rxo].messageReg.messageConfigReg);
 
-	if (fi & FI_FF) {
-		/* extended frame format (EFF) */
-		dreg = EFF_BUF;
-		id = (hw_readreg(base, REG_ID1) << (5+16))
-			| (hw_readreg(base, REG_ID2) << (5+8))
-			| (hw_readreg(base, REG_ID3) << 5)
-			| (hw_readreg(base, REG_ID4) >> 3);
+	if( msgctlreg & MCFG_XTD ) {
+		id = CANin(base, msgArr[rxo].messageReg.idReg[3])
+			| (CANin(base, msgArr[rxo].messageReg.idReg[2]) << 8)
+			| (CANin(base, msgArr[rxo].messageReg.idReg[1]) << 16)
+			| (CANin(base, msgArr[rxo].messageReg.idReg[0]) << 24);
+		id >>= 3;
 		id |= CAN_EFF_FLAG;
 	} else {
-		/* standard frame format (SFF) */
-		dreg = SFF_BUF;
-		id = (hw_readreg(base, REG_ID1) << 3)
-			| (hw_readreg(base, REG_ID2) >> 5);
+		id = CANin(base, msgArr[rxo].messageReg.idReg[1])
+			|(CANin(base, msgArr[rxo].messageReg.idReg[0]) << 8);
+		id >>= 5;
 	}
 
-	if (fi & FI_RTR)
+	if (ctl1reg & RMPD_SET) {
 		id |= CAN_RTR_FLAG;
+	}
+
+	msgctlreg  &= 0xf0;/* strip length code */
+	dlc  = msgctlreg >> 4;
+	dlc %= 9;	/* limit count to 8 bytes */
 
 	cf = (struct can_frame*)skb_put(skb, sizeof(struct can_frame));
 	memset(cf, 0, sizeof(struct can_frame));
 	cf->can_id    = id;
 	cf->can_dlc   = dlc;
 	for (i = 0; i < dlc; i++) {
-		cf->data[i] = hw_readreg(base, dreg++);
+		cf->data[i] = CANin(base, msgArr[rxo].messageReg.dataReg[i]);
 	}
-	while (i < 8)
-		cf->data[i++] = 0;
 
-	/* release receive buffer */
-	hw_writereg(base, REG_CMR, CMD_RRB);
+	// Make the chip ready to receive the next message
+	enable_rx_obj(base, obj);
 
 	netif_rx(skb);
 
@@ -772,7 +935,7 @@ static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 }
 
 /*
- * SJA1000 interrupt handler
+ * I82527 interrupt handler
  */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
 static irqreturn_t can_interrupt(int irq, void *dev_id, struct pt_regs *regs)
@@ -783,7 +946,8 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 	struct net_device *dev	= (struct net_device*)dev_id;
 	struct can_priv *priv	= netdev_priv(dev);
 	unsigned long base	= dev->base_addr;
-	uint8_t isrc, status, ecc, alc;
+	uint8_t irqreg;
+	uint8_t lastIrqreg;
 	int n = 0;
 
 	hw_preirq(dev);
@@ -791,139 +955,165 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 	if (priv->state == STATE_UNINITIALIZED) {
 		printk(KERN_ERR "%s: %s: uninitialized controller!\n",
 		       dev->name, __FUNCTION__);
-		chipset_init(dev, 1); /* should be possible at this stage */
+		//chipset_init(dev, 1); /* should be possible at this stage */
 		return IRQ_NONE;
 	}
 
 	if (priv->state == STATE_RESET_MODE) {
-		iiDBG(KERN_ERR "%s: %s: controller is in reset mode! "
-		      "MOD=0x%02X IER=0x%02X IR=0x%02X SR=0x%02X!\n",
-		      dev->name, __FUNCTION__, hw_readreg(base, REG_MOD),
-		      hw_readreg(base, REG_IER), hw_readreg(base, REG_IR),
-		      hw_readreg(base, REG_SR));
+		iiDBG(KERN_ERR "%s: %s: controller is in reset mode!\n",
+		      dev->name, __FUNCTION__);
 		return IRQ_NONE;
 	}
 
-	while ((isrc = hw_readreg(base, REG_IR)) && (n < 20)) {
+     
+	// Read the highest pending interrupt request
+	irqreg = CANin(base, interruptReg);
+	lastIrqreg = irqreg;
+    
+	while ( irqreg ) {
 		n++;
-		status = hw_readreg(base, REG_SR);
+		switch (irqreg)	{
 
-		if (isrc & IRQ_WUI) {
-			/* wake-up interrupt */
-			priv->can_stats.wakeup++;
-		}
-		if (isrc & IRQ_TI) {
-			/* transmission complete interrupt */
-			priv->stats.tx_packets++;
-			netif_wake_queue(dev);
-		}
-		if (isrc & IRQ_RI) {
-			/* receive interrupt */
+		case 1: // Status register
+		{
+			uint8_t status;
 
-			while (status & SR_RBS) {
-				can_rx(dev);
-				status = hw_readreg(base, REG_SR);
+			// Read the STATUS reg
+			status = CANin(base, statusReg);
+			CANout (base, statusReg, 0);
+
+			if ( status & iSTAT_RXOK ) {
+				// Intel: Software must clear this bit in ISR
+				CANout (base, statusReg, status & ~iSTAT_RXOK);
 			}
+			if ( status & iSTAT_TXOK ) {
+				// Intel: Software must clear this bit in ISR
+				CANout (base, statusReg, status & ~iSTAT_TXOK);
+			}
+			if ( status & iSTAT_WARN ) {
+				// Note: status bit is read-only, don't clear
+				/* error warning interrupt */
+				iDBG(KERN_INFO "%s: error warning\n",
+				     dev->name);
+				priv->can_stats.error_warning++;
+			}
+			if ( status & iSTAT_BOFF ) {
+				uint8_t flags;
+
+				// Note: status bit is read-only, don't clear
+
+				priv->can_stats.bus_error++;
+
+				// Clear init flag and reenable interrupts
+				flags = CANin(base, controlReg) |
+					( iCTL_IE | iCTL_EIE );
+
+				flags &= ~iCTL_INI; // Reset init flag
+				CANout(base, controlReg, flags);
+			}
+		}
+		break;
+
+		case 0x2: // Receiption, message object 15
+		{
+			uint8_t ctl1reg;
+
+			ctl1reg = CANin(base, message15Reg.msgCtrl1Reg);
+			while (ctl1reg & NEWD_SET) {
+				if (ctl1reg & MLST_SET)
+					priv->can_stats.data_overrun++;
+
+				if (priv->mo15 == MO15_SFF)
+					can_rx(dev, 4); /* rx via obj15 SFF */
+				else
+					can_rx(dev, 5); /* rx via obj15 EFF */
+
+				ctl1reg = CANin(base, message15Reg.msgCtrl1Reg);
+			}
+
 			if (priv->state == STATE_PROBE) {
 				/* valid RX -> switch to trx-mode */
-				iDBG(KERN_INFO "%s: RI #%d#\n", dev->name, n);
 				chipset_init_trx(dev); /* no tx queue wakeup */
 				break; /* check again after init controller */
 			}
 		}
-		if (isrc & IRQ_DOI) {
-			/* data overrun interrupt */
-			iiDBG(KERN_INFO "%s: data overrun isrc=0x%02X "
-			      "status=0x%02X\n",
-			      dev->name, isrc, status);
-			iDBG(KERN_INFO "%s: DOI #%d#\n", dev->name, n);
-			priv->can_stats.data_overrun++;
-			hw_writereg(base, REG_CMR, CMD_CDO); /* clear bit */
-		}
-		if (isrc & IRQ_EI) {
-			/* error warning interrupt */
-			iiDBG(KERN_INFO "%s: error warning isrc=0x%02X "
-			      "status=0x%02X\n",
-			      dev->name, isrc, status);
-			iDBG(KERN_INFO "%s: EI #%d#\n", dev->name, n);
-			priv->can_stats.error_warning++;
-			if (status & SR_BS) {
-				printk(KERN_INFO "%s: BUS OFF, "
-				       "restarting device\n", dev->name);
-				can_restart_on(dev);
-				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
-			} else if (status & SR_ES) {
-				iDBG(KERN_INFO "%s: error\n", dev->name);
-			}
-		}
-		if (isrc & IRQ_BEI) {
-			/* bus error interrupt */
-			iiDBG(KERN_INFO "%s: bus error isrc=0x%02X "
-			      "status=0x%02X\n",
-			      dev->name, isrc, status);
-			iDBG(KERN_INFO "%s: BEI #%d# [%d]\n", dev->name, n,
-			     priv->can_stats.bus_error - 
-			     priv->can_stats.bus_error_at_init);
-			priv->can_stats.bus_error++;
-			ecc = hw_readreg(base, REG_ECC);
-			iDBG(KERN_INFO "%s: ECC = 0x%02X (%s, %s, %s)\n",
-			     dev->name, ecc,
-			     (ecc & ECC_DIR) ? "RX" : "TX",
-			     ecc_types[ecc >> ECC_ERR],
-			     ecc_errors[ecc & ECC_SEG]);
+		break;
 
-			/* when the bus errors flood the system, */
-			/* restart the controller                */
-			if (priv->can_stats.bus_error_at_init +
-			    MAX_BUS_ERRORS < priv->can_stats.bus_error) {
-				iDBG(KERN_INFO "%s: heavy bus errors,"
-				     " restarting device\n", dev->name);
-				can_restart_on(dev);
-				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+		case 0xC: // Receiption, message object 10
+		case 0xD: // Receiption, message object 11
+		{
+			int obj = irqreg - 0xC;
+			int rxo = obj2rxo(obj);
+			uint8_t ctl1reg;
+			ctl1reg = CANin(base, msgArr[rxo].messageReg.msgCtrl1Reg);
+			while (ctl1reg & NEWD_SET) {
+				if (ctl1reg & MLST_SET)
+					priv->can_stats.data_overrun++;
+				CANout(base, msgArr[rxo].messageReg.msgCtrl1Reg,
+				       NEWD_RES | MLST_RES | TXRQ_UNC | RMPD_UNC);
+				can_rx(dev, obj);
+				ctl1reg = CANin(base,
+						msgArr[rxo].messageReg.msgCtrl1Reg);
 			}
-#if 1
-			/* don't know, if this is a good idea, */
-			/* but it works fine ...               */
-			if (hw_readreg(base, REG_RXERR) > 128) {
-				iDBG(KERN_INFO "%s: RX_ERR > 128,"
-				     " restarting device\n", dev->name);
-				can_restart_on(dev);
-				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
-			}
-#endif
-		}
-		if (isrc & IRQ_EPI) {
-			/* error passive interrupt */
-			iiDBG(KERN_INFO "%s: error passive isrc=0x%02X"
-			      " status=0x%02X\n",
-			      dev->name, isrc, status);
-			iDBG(KERN_INFO "%s: EPI #%d#\n", dev->name, n);
-			priv->can_stats.error_passive++;
-			if (status & SR_ES) {
-				iDBG(KERN_INFO "%s: -> ERROR PASSIVE, "
-				     "restarting device\n", dev->name);
-				can_restart_on(dev);
-				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
-			} else {
-				iDBG(KERN_INFO "%s: -> ERROR ACTIVE\n",
-				     dev->name);
+
+			if (priv->state == STATE_PROBE) {
+				/* valid RX -> switch to trx-mode */
+				chipset_init_trx(dev); /* no tx queue wakeup */
+				break; /* check again after init controller */
 			}
 		}
-		if (isrc & IRQ_ALI) {
-			/* arbitration lost interrupt */
-			iiDBG(KERN_INFO "%s: error arbitration lost "
-			      "isrc=0x%02X status=0x%02X\n",
-			      dev->name, isrc, status);
-			iDBG(KERN_INFO "%s: ALI #%d#\n", dev->name, n);
-			priv->can_stats.arbitration_lost++;
-			alc = hw_readreg(base, REG_ALC);
-			iDBG(KERN_INFO "%s: ALC = 0x%02X\n", dev->name, alc);
+		break;
+
+		case 0xE: // Receiption, message object 12 (RTR)
+		case 0xF: // Receiption, message object 13 (RTR)
+		{
+			int obj = irqreg - 0xC;
+			int rxo = obj2rxo(obj);
+			uint8_t ctl0reg;
+			ctl0reg = CANin(base, msgArr[rxo].messageReg.msgCtrl0Reg);
+			while (ctl0reg & INTPD_SET) {
+				can_rx(dev, obj);
+				ctl0reg = CANin(base, msgArr[rxo].messageReg.msgCtrl0Reg);
+			}
+
+			if (priv->state == STATE_PROBE) {
+				/* valid RX -> switch to trx-mode */
+				chipset_init_trx(dev); /* no tx queue wakeup */
+				break; /* check again after init controller */
+			}
 		}
-	}
+		break;
+
+		case 3: // Message object 1 (our write object)
+			/* transmission complete interrupt */
+
+			// Nothing more to send, switch off interrupts
+			CANout(base, message1Reg.msgCtrl0Reg,
+			       (MVAL_RES | TXIE_RES | RXIE_RES | INTPD_RES));
+			// We had some cases of repeated IRQ
+			// so make sure the INT is acknowledged
+			CANout(base, message1Reg.msgCtrl0Reg,
+			       (MVAL_UNC | TXIE_UNC | RXIE_UNC | INTPD_RES));
+
+			priv->stats.tx_packets++;
+			netif_wake_queue(dev);
+			break;
+
+		default: // Unexpected
+			iDBG(KERN_INFO "%s: Unexpected i82527 interrupt: "
+			     "irqreq=0x%X\n", dev->name, irqreg);
+			break;
+		}
+
+		// Get irq status again for next loop iteration
+		irqreg = CANin(base, interruptReg);
+		if (irqreg == lastIrqreg)
+			iDBG(KERN_INFO "%s: i82527 interrupt repeated: "
+			     "irqreq=0x%X\n", dev->name, irqreg);
+
+		lastIrqreg = irqreg;
+	} /* end while (irqreq) */
+
 	if (n > 1) {
 		iDBG(KERN_INFO "%s: handled %d IRQs\n", dev->name, n);
 	}
@@ -993,27 +1183,6 @@ static int can_close(struct net_device *dev)
 	return 0;
 }
 
-#if 0
-static void test_if(struct net_device *dev)
-{
-	int i;
-	int j;
-	int x;
-
-	hw_writereg(base, REG_CDR, 0xCF);
-	for (i = 0; i < 10000; i++) {
-		for (j = 0; j < 256; j++) {
-			hw_writereg(base, REG_EWL, j);
-			x = hw_readreg(base, REG_EWL);
-			if (x != j) {
-				printk(KERN_INFO "%s: is: %02X expected: "
-				       "%02X (%d)\n", dev->name, x, j, i);
-			}
-		}
-	}
-}
-#endif
-
 void can_netdev_setup(struct net_device *dev)
 {
 	/* Fill in the the fields of the device structure
@@ -1053,6 +1222,8 @@ static struct net_device* can_create_netdev(int dev_num, int hw_regs)
 	struct net_device	*dev;
 	struct can_priv		*priv;
 
+	const char mo15mode [3][6] = {"none", "sff", "eff"};
+
 	if (!(dev = alloc_netdev(sizeof(struct can_priv), CAN_NETDEV_NAME,
 				 can_netdev_setup))) {
 		printk(KERN_ERR "%s: out of memory\n", CHIP_NAME);
@@ -1060,9 +1231,10 @@ static struct net_device* can_create_netdev(int dev_num, int hw_regs)
 	}
 
 	printk(KERN_INFO "%s: base 0x%lX / irq %d / speed %d / "
-	       "btr 0x%X / rx_probe %d\n",
+	       "btr 0x%X / rx_probe %d / mo15 %s\n",
 	       drv_name, rbase[dev_num], irq[dev_num],
-	       speed[dev_num], btr[dev_num], rx_probe[dev_num]);
+	       speed[dev_num], btr[dev_num], rx_probe[dev_num],
+	       mo15mode[mo15[dev_num]]);
 
 	/* fill net_device structure */
 
@@ -1074,6 +1246,7 @@ static struct net_device* can_create_netdev(int dev_num, int hw_regs)
 	priv->speed      = speed[dev_num];
 	priv->btr        = btr[dev_num];
 	priv->rx_probe   = rx_probe[dev_num];
+	priv->mo15       = mo15[dev_num];
 	priv->clock      = clk;
 	priv->hw_regs    = hw_regs;
 	priv->restart_ms = restart_ms;
@@ -1103,6 +1276,6 @@ int can_set_drv_name(void)
 	return 0;
 }
 
-module_init(sja1000_init_module);
-module_exit(sja1000_exit_module);
+module_init(i82527_init_module);
+module_exit(i82527_exit_module);
 

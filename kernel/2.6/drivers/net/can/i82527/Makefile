@@ -1,7 +1,7 @@
 #
 #  $Id$
 #
-#  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+#  Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -60,11 +60,9 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
 		-DARPHRD_CAN=280
 endif
 
-obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o
+obj-m := i82527-pc7io.o i82527-iomem.o
 
-sja1000-io-objs    := sja1000.o proc.o ../hal/io.o
-sja1000-iomem-objs := sja1000.o proc.o ../hal/iomem.o
-sja1000-iomux-objs := sja1000.o proc.o ../hal/iomux.o
-sja1000-gw2-objs   := sja1000.o proc.o ../hal/gw2.o
+i82527-pc7io-objs := i82527.o proc.o ../hal/pc7io.o
+i82527-iomem-objs := i82527.o proc.o ../hal/iomem.o
 
 endif

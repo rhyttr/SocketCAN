@@ -40,9 +40,26 @@ config CAN_SJA1000
 	---help---
 	  The SJA1000 is one of the top CAN controllers out there. As it
 	  has a multiplexed interface it fits directly to 8051
-	  microcontrollers, but not to today's memory mapped System on
-	  Chip processors. You probably need a bus driver (see below)
-	  which handles how to access your chip registers.
+	  microcontrollers or into the PC I/O port space. The SJA1000
+	  is a full CAN controller, with shadow registers for RX and TX.
+	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
+	  with a single (simple) filter setup.
+
+config CAN_I82527
+	depends on CAN
+	tristate "Intel 82527"
+	---help---
+	  The i82527 is a complex CAN controller that can handle RTR
+	  frame replies on it's own. This feature (and diffent RX filters)  
+	  lead to an amount of 15 message objects (for RX & TX). Message
+	  object 15 has (as only) a shadow register for a reliable
+	  receiption of EFF or(!) SFF frames at high CAN traffic.
+	  This driver can send each type of CAN frames (SFF/EFF/RTR).
+	  Using 4 message objects it can also receive each type of CAN
+	  frames. But due to the onchip filter matching trigger method
+	  it is not possible to determine the received RTR CAN-ID.
+	  The reliable message object 15 receives SFF frames by default.
+	  This message object 15 usage maybe changed with the mo15 param.
 
 config CAN_MSCAN
 	depends on CAN && (PPC || M68K || M68KNOMMU)

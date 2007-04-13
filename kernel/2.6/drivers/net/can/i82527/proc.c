@@ -1,7 +1,7 @@
 /*
  * $Id$
  *
- * proc.c -  proc file system functions for SJA1000 CAN driver.
+ * proc.c -  proc file system functions for I82527 CAN driver.
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
  * All rights reserved.
@@ -52,7 +52,7 @@
 
 #include <linux/can.h>
 #include <linux/can/ioctl.h>
-#include "sja1000.h"
+#include "i82527.h"
 #include "hal.h"
 
 extern struct net_device *can_dev[];
@@ -76,27 +76,6 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 		if (can_dev[i]) {
 			struct net_device *dev = can_dev[i];
 			struct can_priv *priv  = netdev_priv(dev);
-#ifdef SJA1000_H
-			u8 stat = hw_readreg(dev->base_addr, REG_SR);
-
-			if (stat & 0x80) {
-				len += snprintf(page + len, PAGE_SIZE - len,
-						"%s: bus status: "
-						"BUS OFF, ", dev->name);
-			} else if (stat & 0x40) {
-				len += snprintf(page + len, PAGE_SIZE - len,
-						"%s: bus status: ERROR "
-						"PASSIVE, ", dev->name);
-			} else {
-				len += snprintf(page + len, PAGE_SIZE - len,
-						"%s: bus status: OK, ",
-						dev->name);
-			}
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"RXERR: %d, TXERR: %d\n",
-					hw_readreg(dev->base_addr, REG_RXERR),
-					hw_readreg(dev->base_addr, REG_TXERR));
-#endif
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"%s: %8d %8d %8d %8d %8d "
 					"%8d %8d %10d %8d\n", dev->name,
