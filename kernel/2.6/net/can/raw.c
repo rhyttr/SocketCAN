@@ -123,14 +123,15 @@ static struct proto_ops raw_ops = {
 };
 
 
-/* A raw socket has a list of can_filters attached to it, each receiving
-   the CAN frames matching that filter.  If the filter list is empty,
-   no CAN frames will be received by the socket.  The default after
-   opening the socket, is to have one filter which receives all frames.
-   The filter list is allocated dynamically with the exception of the
-   list containing only one item.  This common case is optimized by
-   storing the single filter in dfilter, to avoid using dynamic memory.
-*/
+/*
+ * A raw socket has a list of can_filters attached to it, each receiving
+ * the CAN frames matching that filter.  If the filter list is empty,
+ * no CAN frames will be received by the socket.  The default after
+ * opening the socket, is to have one filter which receives all frames.
+ * The filter list is allocated dynamically with the exception of the
+ * list containing only one item.  This common case is optimized by
+ * storing the single filter in dfilter, to avoid using dynamic memory.
+ */
 
 struct raw_opt {
 	int bound;
@@ -149,7 +150,7 @@ struct raw_opt {
 #define RAW_CAP CAP_NET_RAW
 #endif
 
-#undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
+#undef CAN_RAW_SUPPORT_REBIND /* allow bind on already bound socket */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 struct raw_sock {
@@ -236,6 +237,7 @@ static int raw_release(struct socket *sock)
 	/* remove current filters & unregister */
 	if (ro->bound)
 		raw_remove_filters(dev, sk);
+
 	if (ro->count > 1)
 		kfree(ro->filter);
 
@@ -316,9 +318,11 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	ro->ifindex = addr->can_ifindex;
 
-	raw_add_filters(dev, sk); /* filters set by default/setsockopt */
+	/* filters set by default/setsockopt */
+	raw_add_filters(dev, sk);
 
-	if (ro->err_mask) /* error frame filter set by setsockopt */
+	/* error frame filter set by setsockopt */
+	if (ro->err_mask)
 		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
 				raw_rcv, sk, IDENT);
 
@@ -381,15 +385,20 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		count = optlen / sizeof(struct can_filter);
 
-		if (count > 1) { /* does not fit into dfilter */
-			if (!(filter = kmalloc(optlen, GFP_KERNEL)))
+		if (count > 1) {
+			/* filter does not fit into dfilter => alloc space */
+			filter = kmalloc(optlen, GFP_KERNEL);
+			if (!filter)
 				return -ENOMEM;
-			if ((err = copy_from_user(filter, optval, optlen))) {
+
+			err = copy_from_user(filter, optval, optlen);
+			if (err) {
 				kfree(filter);
 				return err;
 			}
 		} else if (count == 1) {
-			if ((err = copy_from_user(&sfilter, optval, optlen)))
+			err = copy_from_user(&sfilter, optval, optlen);
+			if (err)
 				return err;
 		}
 
@@ -399,10 +408,12 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		/* remove current filters & unregister */
 		if (ro->bound)
 			raw_remove_filters(dev, sk);
+
 		if (ro->count > 1)
 			kfree(ro->filter);
 
-		if (count == 1) { /* copy data for single filter */
+		if (count == 1) {
+			/* copy filter data for single filter */
 			ro->dfilter = sfilter;
 			filter = &ro->dfilter;
 		}
@@ -421,7 +432,9 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	case CAN_RAW_ERR_FILTER:
 		if (optlen != sizeof(err_mask))
 			return -EINVAL;
-		if ((err = copy_from_user(&err_mask, optval, optlen)))
+
+		err = copy_from_user(&err_mask, optval, optlen);
+		if (err)
 			return err;
 
 		err_mask &= CAN_ERR_MASK;
@@ -448,15 +461,21 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	case CAN_RAW_LOOPBACK:
 		if (optlen != sizeof(ro->loopback))
 			return -EINVAL;
-		if ((err = copy_from_user(&ro->loopback, optval, optlen)))
+
+		err = copy_from_user(&ro->loopback, optval, optlen);
+		if (err)
 			return err;
+
 		break;
 
 	case CAN_RAW_RECV_OWN_MSGS:
 		if (optlen != sizeof(ro->recv_own_msgs))
 			return -EINVAL;
-		if ((err = copy_from_user(&ro->recv_own_msgs, optval, optlen)))
+
+		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
+		if (err)
 			return err;
+
 		break;
 
 	default:
@@ -603,24 +622,28 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (msg->msg_name) {
 		struct sockaddr_can *addr =
 			(struct sockaddr_can *)msg->msg_name;
+
 		if (addr->can_family != AF_CAN)
 			return -EINVAL;
+
 		ifindex = addr->can_ifindex;
 	} else
 		ifindex = ro->ifindex;
 
-	if (!(dev = dev_get_by_index(ifindex))) {
+	dev = dev_get_by_index(ifindex);
+	if (!dev) {
 		DBG("device %d not found\n", ifindex);
 		return -ENXIO;
 	}
 
-	if (!(skb = alloc_skb(size, GFP_KERNEL))) {
+	skb = alloc_skb(size, GFP_KERNEL);
+	if (!skb) {
 		dev_put(dev);
 		return -ENOMEM;
 	}
 
-	if ((err = memcpy_fromiovec(skb_put(skb, size),
-				    msg->msg_iov, size)) < 0) {
+	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+	if (err < 0) {
 		kfree_skb(skb);
 		dev_put(dev);
 		return err;
@@ -654,7 +677,8 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 	noblock =  flags & MSG_DONTWAIT;
 	flags   &= ~MSG_DONTWAIT;
 
-	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error)))
+	skb = skb_recv_datagram(sk, flags, noblock, &error);
+	if (!skb)
 		return error;
 
 	DBG("delivering skbuff %p\n", skb);
@@ -665,7 +689,8 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 	else
 		size = skb->len;
 
-	if ((error = memcpy_toiovec(msg->msg_iov, skb->data, size)) < 0) {
+	error = memcpy_toiovec(msg->msg_iov, skb->data, size);
+	if (error < 0) {
 		skb_free_datagram(sk, skb);
 		return error;
 	}
@@ -694,7 +719,8 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	DBG_SKB(skb);
 
 	if (!ro->recv_own_msgs) {
-		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
+		/* check the received tx sock reference */
+		if (*(struct sock **)skb->cb == sk) {
 			DBG("trashed own tx msg\n");
 			kfree_skb(skb);
 			return;
@@ -706,7 +732,8 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	addr->can_family  = AF_CAN;
 	addr->can_ifindex = skb->dev->ifindex;
 
-	if ((error = sock_queue_rcv_skb(sk, skb)) < 0) {
+	error = sock_queue_rcv_skb(sk, skb);
+	if (error < 0) {
 		DBG("sock_queue_rcv_skb failed: %d\n", error);
 		DBG("freeing skbuff %p\n", skb);
 		kfree_skb(skb);

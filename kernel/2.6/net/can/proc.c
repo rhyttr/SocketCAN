@@ -157,8 +157,10 @@ void can_init_proc(void)
 		/* the statistics are updated every second (timer triggered) */
 		stattimer.function = can_stat_update;
 		stattimer.data = 0;
-		stattimer.expires = jiffies + HZ; /* every second */
-		add_timer(&stattimer); /* start statistics timer */
+		/* update every second */
+		stattimer.expires = jiffies + HZ;
+		/* start statistics timer */
+		add_timer(&stattimer);
 	}
 }
 
@@ -208,7 +210,7 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(r, n, rx_list, list) {
-		char *fmt = r->can_id & CAN_EFF_FLAG ? /* EFF & CAN_ID_ALL */
+		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
 			"   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
 
@@ -218,6 +220,7 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 				r->matches, r->ident);
 
 		/* does a typical line fit into the current buffer? */
+
 		/* 100 Bytes before end of buffer */
 		if (len > PAGE_SIZE - 100) {
 			/* mark output cut off */
@@ -233,8 +236,10 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 
 static int can_print_recv_banner(char *page, int len)
 {
-	/*                  can1.  00000000  00000000  00000000
-			   .......          0  tp20 */
+	/*
+	 *                  can1.  00000000  00000000  00000000
+	 *                 .......          0  tp20
+	 */
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"  device   can_id   can_mask  function"
 			"  userdata   matches  ident\n");
@@ -363,8 +368,9 @@ static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -396,8 +402,9 @@ static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -429,8 +436,9 @@ static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -475,8 +483,9 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -508,8 +517,9 @@ static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -541,8 +551,9 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 	rcu_read_unlock();
 
@@ -609,8 +620,6 @@ static void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
-	//DBG("CAN: can_stat_update() jiffies = %ld\n", j);
-
 	if (j < stats.jiffies_init) /* jiffies overflow */
 		can_init_stats(2);
 
@@ -618,7 +627,7 @@ static void can_stat_update(unsigned long data)
 
 	/* prevent overflow in calc_rate() */
 	if (stats.rx_frames > (ULONG_MAX / HZ))
-		can_init_stats(3); /* restart */
+		can_init_stats(3);
 
 	/* matches overflow - very improbable */
 	if (stats.matches > (ULONG_MAX / 100))
