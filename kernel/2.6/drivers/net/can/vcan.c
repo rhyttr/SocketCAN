@@ -135,12 +135,14 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
-	loop = *(struct sock **)skb->cb != NULL;   /* loopback required */
+	/* loopback (on driver level) required? */
+	loop = *(struct sock **)skb->cb != NULL;
 
 #ifdef DO_LOOPBACK
 	if (loop) {
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
+
 			skb = skb_clone(old_skb, GFP_ATOMIC);
 			DBG("  freeing old skbuff %p, using new skbuff %p\n",
 			    old_skb, skb);
@@ -151,13 +153,14 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		} else
 			skb_orphan(skb);
 
-		vcan_rx(skb, dev); /* with packet counting */
+		/* receive with packet counting */
+		vcan_rx(skb, dev);
 	} else {
 		/* no looped packets => no counting */
 		kfree_skb(skb);
 	}
 #else
-	/* only count, when the CAN core did a loopback */
+	/* only count here, because the CAN core already did the loopback */
 	if (loop) {
 		stats->rx_packets++;
 		stats->rx_bytes += skb->len;
@@ -229,34 +232,36 @@ static __init int vcan_init_module(void)
 
 	printk(banner);
 
+	/* register at least one interface */
 	if (numdev < 1)
-		numdev = 1; /* register at least one interface */
+		numdev = 1;
 
 	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces.\n",
 	       numdev );
 
-	vcan_devs = kmalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
+	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
 		printk(KERN_ERR "vcan: Can't allocate vcan devices array!\n");
 		return -ENOMEM;
 	}
 
-	/* Clear the pointer array */
-	memset(vcan_devs, 0, numdev * sizeof(struct net_device *));
-
 	for (i = 0; i < numdev; i++) {
-		if (!(vcan_devs[i] = alloc_netdev(STATSIZE, "vcan%d",
-						  vcan_init))) {
+		vcan_devs[i] = alloc_netdev(STATSIZE, "vcan%d", vcan_init);
+		if (!vcan_devs[i]) {
 			printk(KERN_ERR "vcan: error allocating net_device\n");
 			result = -ENOMEM;
 			goto out;
-		} else if ((result = register_netdev(vcan_devs[i])) < 0) {
+		}
+
+		result = register_netdev(vcan_devs[i]);
+		if (result < 0) {
 			printk(KERN_ERR "vcan: error %d registering "
 			       "interface %s\n",
 			       result, vcan_devs[i]->name);
 			free_netdev(vcan_devs[i]);
 			vcan_devs[i] = NULL;
 			goto out;
+
 		} else {
 			DBG("successfully registered interface %s\n",
 			    vcan_devs[i]->name);
