@@ -251,7 +251,10 @@ static __init int vcan_init_module(void)
 			printk(KERN_ERR "vcan: error allocating net_device\n");
 			result = -ENOMEM;
 			goto out;
-		} else if ((result = register_netdev(vcan_devs[i])) < 0) {
+		}
+
+		result = register_netdev(vcan_devs[i]);
+		if (result < 0) {
 			printk(KERN_ERR "vcan: error %d registering "
 			       "interface %s\n",
 			       result, vcan_devs[i]->name);
