@@ -228,7 +228,9 @@ static void vcan_init(struct net_device *dev)
 
 static __init int vcan_init_module(void)
 {
-	int i, ndev = 0, result = 0;
+	int i;
+	int ndev = 0;
+	int result = 0;
 
 	printk(banner);
 

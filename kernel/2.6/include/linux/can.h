@@ -35,6 +35,13 @@
 
 typedef __u32 canid_t;
 
+/**
+ * struct can_frame - basic CAN frame structure
+ * @can_id:  the CAN ID of the frame and CAN_*_FLAG flags, see above.
+ * @can_dlc: the data length field of the CAN frame
+ * @data:    the CAN frame payload.
+ */
+
 struct can_frame {
 	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
 	__u8    can_dlc; /* data length code: 0 .. 8 */
@@ -53,19 +60,40 @@ struct can_frame {
 
 #define SOL_CAN_BASE 100
 
+/**
+ * struct sockaddr_can - the sockaddr structure for CAN sockets
+ * @can_family:  address family number AF_CAN.
+ * @can_ifindex: CAN network interface index.
+ * @can_addr:    transport protocol specific address, mostly CAN IDs.
+ */
+
 struct sockaddr_can {
 	sa_family_t   can_family;
 	int           can_ifindex;
 	union {
-		struct { canid_t rx_id, tx_id;   } tp16;
-		struct { canid_t rx_id, tx_id;   } tp20;
-		struct { canid_t rx_id, tx_id;   } mcnet;
-		struct { canid_t rx_id, tx_id;   } isotp;
-		struct { int     sg_id, sg_type; } bap;
+		struct { canid_t rx_id, tx_id; } tp16;
+		struct { canid_t rx_id, tx_id; } tp20;
+		struct { canid_t rx_id, tx_id; } mcnet;
+		struct { canid_t rx_id, tx_id; } isotp;
+		struct { int     lcu,   type;  } bap;
 	} can_addr;
 };
 
 typedef canid_t can_err_mask_t;
+
+/**
+ * struct can_filter - CAN ID based filter in can_register().
+ * @can_id:   relevant bits of CAN ID which are not masked out.
+ * @can_mask: CAN mask (see description)
+ *
+ * Description:
+ * A filter matches, when
+ *
+ *          <received_can_id> & mask == can_id & mask
+ *
+ * The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
+ * filter for error frames (CAN_ERR_FLAG bit set in mask).
+ */
 
 struct can_filter {
 	canid_t can_id;

@@ -16,13 +16,25 @@
 #ifndef CAN_BCM_H
 #define CAN_BCM_H
 
+/**
+ * struct bcm_msg_head - head of messages to/from the broadcast manager
+ * @opcode:    opcode, see enum below.
+ * @flags:     special flags, see below.
+ * @count:     number of frames to send before changing interval.
+ * @ival1:     interval for the first @count frames.
+ * @ival2:     interval for the following frames.
+ * @can_id:    CAN ID of frames to be sent.
+ * @nframes:   number of frames appended to the message head.
+ * @frames:    array of CAN frames.
+ */
+
 struct bcm_msg_head {
-	int opcode;                   /* command */
-	int flags;                    /* special flags */
-	int count;                    /* run 'count' times ival1 then ival2 */
-	struct timeval ival1, ival2;  /* intervals */
-	canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
-	int nframes;                  /* number of following can_frame's */
+	int opcode;
+	int flags;
+	int count;
+	struct timeval ival1, ival2;
+	canid_t can_id;
+	int nframes;
 	struct can_frame frames[0];
 };
 

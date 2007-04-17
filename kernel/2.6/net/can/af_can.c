@@ -235,46 +235,71 @@ static __exit void can_exit(void)
  * af_can protocol functions
  */
 
-void can_proto_register(struct can_proto *cp)
+/**
+ * can_proto_register - register CAN transport protocol
+ * @cp: pointer to CAN protocol structure
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL invalid (out of range) protocol number
+ *  -EBUSY  protocol already in use
+ *  -ENOBUF if proto_register() fails
+ **/
+
+int can_proto_register(struct can_proto *cp)
 {
 	int proto = cp->protocol;
+	int err = 0;
 
 	if (proto < 0 || proto >= CAN_NPROTO) {
 		printk(KERN_ERR "CAN: protocol number %d out "
 		       "of range\n", proto);
-		return;
+		return -EINVAL;
 	}
 	if (proto_tab[proto]) {
 		printk(KERN_ERR "CAN: protocol %d already "
 		       "registered\n", proto);
-		return;
+		return -EBUSY;
 	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
-	if (proto_register(cp->prot, 0) != 0) {
-		return;
-	}
+	err = proto_register(cp->prot, 0);
+	if (err < 0)
+		return err;
 #endif
 	proto_tab[proto] = cp;
 
 	/* use generic ioctl function if the module doesn't bring its own */
 	if (!cp->ops->ioctl)
 		cp->ops->ioctl = can_ioctl;
+
+	return err;
 }
 EXPORT_SYMBOL(can_proto_register);
 
-void can_proto_unregister(struct can_proto *cp)
+/**
+ * can_proto_unregister - unregister CAN transport protocol
+ * @cp: pointer to CAN protocol structure
+ *
+ * Return:
+ *  0 on success
+ *  -ESRCH protocol number was not registered
+ **/
+
+int can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
 
 	if (!proto_tab[proto]) {
 		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
-		return;
+		return -ESRCH;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
 	proto_unregister(cp->prot);
 #endif
 	proto_tab[proto] = NULL;
+
+	return 0;
 }
 EXPORT_SYMBOL(can_proto_unregister);
 
@@ -587,13 +612,13 @@ int can_send(struct sk_buff *skb, int loop)
 		*(struct sock **)skb->cb = NULL;
 	}
 
-	if (skb->dev->flags & IFF_UP) {
-		/* send to netdevice */
-		err = dev_queue_xmit(skb);
-		if (err > 0)
-			err = net_xmit_errno(err);
-	} else
-		err = -ENETDOWN;
+	if (!(skb->dev->flags & IFF_UP))
+		return -ENETDOWN;
+
+	/* send to netdevice */
+	err = dev_queue_xmit(skb);
+	if (err > 0)
+		err = net_xmit_errno(err);
 
 	/* update statistics */
 	stats.tx_frames++;

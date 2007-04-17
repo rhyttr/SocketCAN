@@ -25,6 +25,15 @@
 
 #define CAN_PROC_DIR "net/can" /* /proc/... */
 
+/**
+ * struct can_proto - CAN protocol structure
+ * @type:       type argument in socket() syscall, e.g. SOCK_DGRAM.
+ * @protocol:   protocol number in socket() syscall.
+ * @capability: capability needed to open the socket, or -1 for no restriction.
+ * @ops:        pointer to struct proto_ops for sock->ops.
+ * @prot:       pointer to struct proto structure.
+ */
+
 struct can_proto {
 	int              type;
 	int              protocol;
@@ -44,18 +53,20 @@ struct can_proto {
 void can_debug_skb(struct sk_buff *skb);
 void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 
-void can_proto_register(struct can_proto *cp);
-void can_proto_unregister(struct can_proto *cp);
+int can_proto_register(struct can_proto *cp);
+int can_proto_unregister(struct can_proto *cp);
 
 int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		    void (*func)(struct sk_buff *, void *), void *data,
 		    char *ident);
 int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		      void (*func)(struct sk_buff *, void *), void *data);
+
 int can_dev_register(struct net_device *dev,
 		     void (*func)(unsigned long msg, void *), void *data);
 int can_dev_unregister(struct net_device *dev,
 		       void (*func)(unsigned long msg, void *), void *data);
+
 int can_send(struct sk_buff *skb, int loop);
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up);
