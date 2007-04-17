@@ -166,7 +166,9 @@ extern struct s_pstats pstats;      /* receive list statistics */
 module_init(can_init);
 module_exit(can_exit);
 
-/* af_can module init/exit functions */
+/*
+ * af_can module init/exit functions
+ */
 
 static __init int can_init(void)
 {
@@ -229,7 +231,9 @@ static __exit void can_exit(void)
 	kmem_cache_destroy(rcv_cache);
 }
 
-/* af_can protocol functions */
+/*
+ * af_can protocol functions
+ */
 
 void can_proto_register(struct can_proto *cp)
 {
@@ -257,6 +261,7 @@ void can_proto_register(struct can_proto *cp)
 	if (!cp->ops->ioctl)
 		cp->ops->ioctl = can_ioctl;
 }
+EXPORT_SYMBOL(can_proto_register);
 
 void can_proto_unregister(struct can_proto *cp)
 {
@@ -271,17 +276,37 @@ void can_proto_unregister(struct can_proto *cp)
 #endif
 	proto_tab[proto] = NULL;
 }
+EXPORT_SYMBOL(can_proto_unregister);
 
-void can_dev_register(struct net_device *dev,
-		      void (*func)(unsigned long msg, void *), void *data)
+/**
+ * can_dev_register - subscribe notifier for CAN device status changes
+ * @dev: pointer to netdevice
+ * @func: callback function on status change
+ * @data: returned parameter for callback function
+ *
+ * Description:
+ *  Invokes the callback function with the status 'msg' and the given
+ *  parameter 'data' on a status change of the given CAN network device.
+ *
+ * Return:
+ *  0 on success
+ *  -ENOMEM on missing mem to create subscription entry
+ *  -ENODEV unknown device
+ **/
+
+int can_dev_register(struct net_device *dev,
+		     void (*func)(unsigned long msg, void *), void *data)
 {
 	struct notifier *n;
 
 	DBG("called for %s\n", dev->name);
 
+	if (!dev || dev->type != ARPHRD_CAN)
+		return -ENODEV;
+
 	n = kmalloc(sizeof(*n), GFP_KERNEL);
 	if (!n)
-		return;
+		return -ENOMEM;
 
 	n->dev  = dev;
 	n->func = func;
@@ -290,12 +315,30 @@ void can_dev_register(struct net_device *dev,
 	write_lock(&notifier_lock);
 	list_add(&n->list, &notifier_list);
 	write_unlock(&notifier_lock);
-}
 
-void can_dev_unregister(struct net_device *dev,
-			void (*func)(unsigned long msg, void *), void *data)
+	return 0;
+}
+EXPORT_SYMBOL(can_dev_register);
+
+/**
+ * can_dev_unregister - unsubscribe notifier for CAN device status changes
+ * @dev: pointer to netdevice
+ * @func: callback function on filter match
+ * @data: returned parameter for callback function
+ *
+ * Description:
+ *  Removes subscription entry depending on given (subscription) values.
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL on missing subscription entry
+ **/
+
+int can_dev_unregister(struct net_device *dev,
+		       void (*func)(unsigned long msg, void *), void *data)
 {
 	struct notifier *n, *next;
+	int ret = -EINVAL;
 
 	DBG("called for %s\n", dev->name);
 
@@ -304,13 +347,19 @@ void can_dev_unregister(struct net_device *dev,
 		if (n->dev == dev && n->func == func && n->data == data) {
 			list_del(&n->list);
 			kfree(n);
+			ret = 0;
 			break;
 		}
 	}
 	write_unlock(&notifier_lock);
-}
 
-/* af_can socket functions */
+	return ret;
+}
+EXPORT_SYMBOL(can_dev_unregister);
+
+/*
+ * af_can socket functions
+ */
 
 static void can_sock_destruct(struct sock *sk)
 {
@@ -493,7 +542,20 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	}
 }
 
-/* af_can tx path */
+/*
+ * af_can tx path
+ */
+
+/**
+ * can_send - transmit a CAN frame (optional with local loopback)
+ * @skb: pointer to socket buffer with CAN frame in data section
+ * @loop: loopback for listeners on local CAN sockets (recommended default!)
+ *
+ * Return:
+ *  0 on success
+ *  -ENETDOWN when the selected interface is down
+ *  -ENOBUFS on full driver queue (see net_xmit_errno())
+ **/
 
 int can_send(struct sk_buff *skb, int loop)
 {
@@ -539,8 +601,35 @@ int can_send(struct sk_buff *skb, int loop)
 
 	return err;
 }
+EXPORT_SYMBOL(can_send);
 
-/* af_can rx path */
+/*
+ * af_can rx path
+ */
+
+/**
+ * can_rx_register - subscribe CAN frames from a specific interface
+ * @dev: pointer to netdevice (NULL => subcribe from 'all' CAN devices list)
+ * @can_id: CAN identifier (see description)
+ * @mask: CAN mask (see description)
+ * @func: callback function on filter match
+ * @data: returned parameter for callback function
+ * @ident: string for calling module indentification
+ *
+ * Description:
+ *  Invokes the callback function with the received sk_buff and the given
+ *  parameter 'data' on a matching receive filter. A filter matches, when
+ *
+ *          <received_can_id> & mask == can_id & mask
+ *
+ *  The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
+ *  filter for error frames (CAN_ERR_FLAG bit set in mask).
+ *
+ * Return:
+ *  0 on success
+ *  -ENOMEM on missing cache mem to create subscription entry
+ *  -ENODEV unknown device
+ **/
 
 int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		    void (*func)(struct sk_buff *, void *), void *data,
@@ -590,6 +679,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	return ret;
 }
+EXPORT_SYMBOL(can_rx_register);
 
 static void can_rcv_lists_delete(struct rcu_head *rp)
 {
@@ -613,6 +703,23 @@ static void can_rx_delete_all(struct hlist_head *rl)
 		call_rcu(&r->rcu, can_rx_delete);
 	}
 }
+
+/**
+ * can_rx_unregister - unsubscribe CAN frames from a specific interface
+ * @dev: pointer to netdevice (NULL => unsubcribe from 'all' CAN devices list)
+ * @can_id: CAN identifier
+ * @mask: CAN mask
+ * @func: callback function on filter match
+ * @data: returned parameter for callback function
+ *
+ * Description:
+ *  Removes subscription entry depending on given (subscription) values.
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL on missing subscription entry
+ *  -ENODEV unknown device
+ **/
 
 int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		      void (*func)(struct sk_buff *, void *), void *data)
@@ -679,6 +786,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	return ret;
 }
+EXPORT_SYMBOL(can_rx_unregister);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
 static int can_rcv(struct sk_buff *skb, struct net_device *dev,
@@ -870,7 +978,18 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	return &d->rx_fil;  /* default: filter via can_id/can_mask */
 }
 
-/* af_can utility stuff */
+/*
+ * af_can utility stuff
+ */
+
+/**
+ * timeval2jiffies - calculate jiffies from timeval including optional round up
+ * @tv: pointer to timeval
+ * @round_up: return at least 1 jiffie
+ *
+ * Return:
+ *  calculated jiffies (max: ULONG_MAX)
+ **/
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 {
@@ -894,11 +1013,19 @@ unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 	else
 		return jif + sec * HZ;
 }
+EXPORT_SYMBOL(timeval2jiffies);
 
-
-/* af_can debugging stuff */
+/*
+ * af_can debugging stuff
+ */
 
 #ifdef CONFIG_CAN_DEBUG_CORE
+
+/**
+ * can_debug_cframe - print CAN frame
+ * @msg: pointer to message printed before the given CAN frame
+ * @cf: pointer to CAN frame
+ **/
 
 void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 {
@@ -935,6 +1062,12 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	buf[len]   = '\0';
 	printk(buf);
 }
+EXPORT_SYMBOL(can_debug_cframe);
+
+/**
+ * can_debug_skb - print socket buffer content to kernel log
+ * @skb: pointer to socket buffer
+ **/
 
 void can_debug_skb(struct sk_buff *skb)
 {
@@ -967,20 +1100,6 @@ void can_debug_skb(struct sk_buff *skb)
 	buf[len]   = '\0';
 	printk(buf);
 }
-
-EXPORT_SYMBOL(can_debug_cframe);
 EXPORT_SYMBOL(can_debug_skb);
 
 #endif
-
-/**************************************************/
-/* Exported symbols                               */
-/**************************************************/
-EXPORT_SYMBOL(can_proto_register);
-EXPORT_SYMBOL(can_proto_unregister);
-EXPORT_SYMBOL(can_rx_register);
-EXPORT_SYMBOL(can_rx_unregister);
-EXPORT_SYMBOL(can_dev_register);
-EXPORT_SYMBOL(can_dev_unregister);
-EXPORT_SYMBOL(can_send);
-EXPORT_SYMBOL(timeval2jiffies);
