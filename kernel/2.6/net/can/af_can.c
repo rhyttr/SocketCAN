@@ -71,8 +71,8 @@
 RCSID("$Id$");
 
 #define IDENT "af_can"
-static __initdata const char banner[] = KERN_INFO "CAN: Controller Area "
-					"Network PF_CAN core " VERSION "\n"; 
+static __initdata const char banner[] =
+	KERN_INFO "CAN: Controller Area Network PF_CAN core " CAN_VERSION "\n";
 
 MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");

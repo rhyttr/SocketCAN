@@ -19,22 +19,4 @@
 
 RCSID("$Id$");
 
-#define MAJORVERSION 2
-#define MINORVERSION 0
-#define PATCHLEVEL   0
-#define EXTRAVERSION "-pre6"
-
-#define LLCF_VERSION_CODE (((MAJORVERSION) << 16) + ((MINORVERSION) << 8) \
-				+ (PATCHLEVEL))
-
-/* stringification:  these are the usual macros to stringify with macro
-   expansion.   The str() macro does the expansion, the xstr() macro is
-   for the actual stringification.
-*/
-#define str(arg) xstr(arg)
-#define xstr(arg) #arg
-
-#define VERSION str(MAJORVERSION) "." str(MINORVERSION) "." str(PATCHLEVEL) \
-	EXTRAVERSION
-
 #endif /* CAN_VERSION_H */

@@ -61,8 +61,8 @@
 RCSID("$Id$");
 
 #define IDENT "raw"
-static __initdata const char banner[] = KERN_INFO "CAN: raw socket protocol"
-					" " VERSION "\n"; 
+static __initdata const char banner[] =
+	KERN_INFO "CAN: raw socket protocol " CAN_VERSION "\n";
 
 MODULE_DESCRIPTION("PF_CAN raw sockets");
 MODULE_LICENSE("Dual BSD/GPL");

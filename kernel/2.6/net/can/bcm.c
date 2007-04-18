@@ -83,7 +83,7 @@ module_param(debug, int, S_IRUGO);
 
 #define IDENT "bcm"
 static __initdata const char banner[] = KERN_INFO
-	"CAN: broadcast manager (bcm) socket protocol " VERSION "\n"; 
+	"CAN: broadcast manager (bcm) socket protocol " CAN_VERSION "\n";
 
 MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");

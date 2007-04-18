@@ -5,6 +5,8 @@
 # Generate a kernel patch to add socketcan to a kernel src tree.
 # The list of files to be added is read from stdin.
 
+use POSIX qw(strftime);
+
 $version = shift;
 
 if (-r "patches/$version.diff") {
@@ -43,15 +45,29 @@ sub add_file {
     open file, "./kv $version $file |" || die "open $file\n";
     @lines = <file>;
     $count = $#lines + 1;
-    use POSIX qw(strftime);
     $mtime = (stat($file))[9];
     $ts = strftime "%F %T", gmtime((stat($file))[9]);
+
+    for $i (0..$#lines) {
+	if ($lines[$i] =~ /include.*linux\/can\/version\.h/) {
+	    undef($lines[$i]);
+	    $count--;
+	}
+	if ($lines[$i] =~ /RCSID/) {
+	    undef($lines[$i]);
+	    $count--;
+	    while ($lines[++$i] eq "\n") {
+		undef($lines[$i]);
+		$count--;
+	    }
+	}
+    }
 
     print "--- a/$name 1970-01-01 00:00:00\n";
     print "+++ b/$name $ts\n";
     print "@@ -0,0 +1,$count @@\n";
     for (@lines) {
-	print "+$_";
+	print "+$_" if (defined($_));
     }
     close file;
 }

@@ -340,8 +340,8 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 	int len = 0;
 
 	len += snprintf(page + len, PAGE_SIZE - len,
-			"%06X [ Volkswagen Group - Low Level CAN Framework"
-			" (LLCF) v%s ]\n", LLCF_VERSION_CODE, VERSION);
+			"CAN version %s, ABI version %d",
+			CAN_VERSION, CAN_ABI_VERSION);
 	*eof = 1;
 	return len;
 }

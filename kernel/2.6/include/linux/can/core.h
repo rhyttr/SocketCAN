@@ -21,6 +21,12 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
+
+#define CAN_VERSION "2.0.0-pre6"
+
+/* increment this number each time you change some user-space interface */
+#define CAN_ABI_VERSION 8
+
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
 #define CAN_PROC_DIR "net/can" /* /proc/... */

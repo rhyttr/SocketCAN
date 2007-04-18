@@ -54,8 +54,8 @@
 
 RCSID("$Id$");
 
-static __initdata const char banner[] = KERN_INFO "CAN: virtual CAN "
-					"interface " VERSION "\n"; 
+static __initdata const char banner[] =
+	KERN_INFO "CAN: virtual CAN interface " CAN_VERSION "\n"; 
 
 MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
