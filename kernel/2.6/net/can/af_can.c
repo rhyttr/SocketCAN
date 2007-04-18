@@ -162,6 +162,15 @@ static struct can_proto *proto_tab[CAN_NPROTO];
 extern struct timer_list stattimer; /* timer for statistics update */
 extern struct s_stats  stats;       /* packet statistics */
 extern struct s_pstats pstats;      /* receive list statistics */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
+static void *kzalloc(size_t size, unsigned int __nocast flags)
+{
+	void *ret = kmalloc(size, flags);
+	if (ret)
+		memset(ret, 0, size);
+	return ret;
+}
+#endif
 
 module_init(can_init);
 module_exit(can_exit);
