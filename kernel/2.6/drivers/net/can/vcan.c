@@ -55,7 +55,7 @@
 RCSID("$Id$");
 
 static __initdata const char banner[] =
-	KERN_INFO "CAN: virtual CAN interface " CAN_VERSION "\n"; 
+	KERN_INFO "vcan: Virtual CAN interface driver\n"; 
 
 MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -65,7 +65,7 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "VCAN %s: ", __func__), \
+			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
 				printk(args)) : 0)
 #define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
 #define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
@@ -139,7 +139,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 
 	DBG("sending skbuff on interface %s\n", dev->name);
 	DBG_SKB(skb);
-	DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
+	DBG_FRAME("vcan: transmit CAN frame", (struct can_frame *)skb->data);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
