@@ -237,6 +237,20 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 		memset(ret, 0, size);
 	return ret;
 }
+
+static inline void skb_get_timestamp(const struct sk_buff *skb,
+				     struct timeval *stamp)
+{
+	stamp->tv_sec  = skb->stamp.tv_sec;
+	stamp->tv_usec = skb->stamp.tv_usec;
+}
+
+static inline void skb_set_timestamp(struct sk_buff *skb,
+				     const struct timeval *stamp)
+{
+	skb->stamp.tv_sec  = stamp->tv_sec;
+	skb->stamp.tv_usec = stamp->tv_usec;
+}
 #endif
 
 #define CFSIZ sizeof(struct can_frame)
