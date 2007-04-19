@@ -82,7 +82,7 @@
 RCSID("$Id$");
 
 static __initdata const char banner[] =
-	KERN_INFO "CAN: serial line CAN interface " CAN_VERSION "\n";
+	KERN_INFO "slcan: serial line CAN interface driver\n";
 
 MODULE_ALIAS_LDISC(N_SLCAN);
 MODULE_DESCRIPTION("serial line CAN interface");
