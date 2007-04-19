@@ -67,12 +67,8 @@ module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
 			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
 				printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
 #else
 #define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
@@ -126,7 +122,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	DBG("received skbuff on interface %d\n", dev->ifindex);
-	DBG_SKB(skb);
 
 	netif_rx(skb);
 }
@@ -139,8 +134,6 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	int loop;
 
 	DBG("sending skbuff on interface %s\n", dev->name);
-	DBG_SKB(skb);
-	DBG_FRAME("vcan: transmit CAN frame", (struct can_frame *)skb->data);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
@@ -188,7 +181,6 @@ static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 static int vcan_rebuild_header(struct sk_buff *skb)
 {
 	DBG("skbuff %p\n", skb);
-	DBG_SKB(skb);
 	return 0;
 }
 
@@ -197,7 +189,6 @@ static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 		       unsigned int len)
 {
 	DBG("skbuff %p, device %p\n", skb, dev);
-	DBG_SKB(skb);
 	return 0;
 }
 
