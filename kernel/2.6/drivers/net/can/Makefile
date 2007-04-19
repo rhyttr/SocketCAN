@@ -11,10 +11,16 @@ else
 SLCAN_MOD =
 endif
 
+ifdef $(CONFIG_CAN_MSCAN)
+MSCAN_MOD = mscan
+else
+MSCAN_MOD =
+endif
+
 KERNELDIR = /usr/src/linux
 PWD       = $(shell pwd)
 
-all: vcan $(SLCAN_MOD) sja1000 i82527 mscan
+all: vcan $(SLCAN_MOD) sja1000 i82527 $(MSCAN_MOD)
 
 vcan:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_VCAN=m modules
@@ -29,7 +35,7 @@ i82527:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_I82527=m modules
 
 mscan:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_MSCAN=m modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN_MSCAN=$(CONFIG_CAN_MSCAN) modules
 
 clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
