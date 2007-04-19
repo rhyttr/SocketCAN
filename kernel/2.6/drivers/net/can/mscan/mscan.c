@@ -438,7 +438,11 @@ static int mscan_rx_poll(struct net_device *ndev, int *budget)
 }
 
 static irqreturn_t
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
 mscan_isr(int irq, void *dev_id, struct pt_regs *r)
+#else
+mscan_isr(int irq, void *dev_id)
+#endif
 {
 	struct net_device *ndev = (struct net_device *) dev_id;
 	struct can_device *can = ND2CAN(ndev);

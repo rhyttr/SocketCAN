@@ -55,7 +55,11 @@ struct can_device {
 	void *priv;
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
 #define ND2D(_ndev)		(_ndev->class_dev.dev)
+#else
+#define ND2D(_ndev)		(_ndev->dev.parent)
+#endif
 #define CAN2ND(can)		((can)->net_dev)
 #define ND2CAN(ndev)	((struct can_device *)netdev_priv(ndev))
 
