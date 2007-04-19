@@ -506,6 +506,7 @@ static int slcan_receive_room(struct tty_struct *tty)
 	return 65536;  /* We can handle an infinite amount of data. :-) */
 }
 #endif
+
 /*
  * Handle the 'receiver data ready' interrupt.
  * This function is called by the 'tty_io' module in the kernel when
@@ -711,6 +712,7 @@ static int slcan_open(struct tty_struct *tty)
 	if (tty->driver->flush_buffer)
 		tty->driver->flush_buffer(tty);
 #endif
+
 	if (!test_bit(SLF_INUSE, &sl->flags)) {
 		/* Perform the low-level SLCAN initialization. */
 		sl->rcount   = 0;
@@ -724,9 +726,11 @@ static int slcan_open(struct tty_struct *tty)
 
 	/* Done.  We have linked the TTY line to a channel. */
 	rtnl_unlock();
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 	tty->receive_room = 65536;	/* We don't flow control */
 #endif
+
 	return sl->dev->base_addr;
 
 err_free_chan:

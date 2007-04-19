@@ -229,6 +229,7 @@ static struct can_proto bcm_can_proto = {
 	.init       = bcm_init,
 };
 #endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
 {
