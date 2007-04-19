@@ -56,8 +56,8 @@
 #include <linux/can/error.h>
 #include <linux/can/core.h>
 #include <linux/can/raw.h>
-#include <linux/can/version.h>
 
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #define IDENT "raw"

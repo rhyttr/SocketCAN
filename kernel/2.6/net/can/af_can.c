@@ -63,11 +63,9 @@
 
 #include <linux/can.h>
 #include <linux/can/core.h>
-#include <linux/can/version.h>
-
 #include "af_can.h"
 
-
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #define IDENT "af_can"

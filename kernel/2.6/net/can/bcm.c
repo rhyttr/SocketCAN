@@ -54,8 +54,8 @@
 #include <linux/can.h>
 #include <linux/can/core.h>
 #include <linux/can/bcm.h>
-#include <linux/can/version.h>
 
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #ifdef CONFIG_CAN_DEBUG_CORE

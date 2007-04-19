@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * mscan.c
  *
  * DESCRIPTION:
@@ -44,6 +42,9 @@
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
 #include "mscan.h"
+
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+RCSID("$Id$");
 
 #define MSCAN_NORMAL_MODE	0
 #define MSCAN_SLEEP_MODE	 MSCAN_SLPRQ

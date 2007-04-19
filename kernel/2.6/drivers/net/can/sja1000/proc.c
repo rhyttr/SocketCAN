@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * proc.c -  proc file system functions for SJA1000 CAN driver.
  *
  * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
@@ -54,6 +52,9 @@
 #include <linux/can/ioctl.h>
 #include "sja1000.h"
 #include "hal.h"
+
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+RCSID("$Id$");
 
 extern struct net_device *can_dev[];
 

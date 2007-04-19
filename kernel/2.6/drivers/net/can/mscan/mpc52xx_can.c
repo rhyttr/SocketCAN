@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * DESCRIPTION:
  *  CAN bus driver for the Freescale MPC52xx embedded CPU.
  *
@@ -42,6 +40,9 @@
 #include <asm/mpc52xx.h>
 
 #include "mscan.h"
+
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+RCSID("$Id$");
 
 static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 {

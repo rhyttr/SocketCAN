@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * i82527.c -  Intel I82527 network device driver
  *
  * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
@@ -64,6 +62,9 @@
 #include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include "hal.h"
 #include "i82527.h"
+
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+RCSID("$Id$");
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");

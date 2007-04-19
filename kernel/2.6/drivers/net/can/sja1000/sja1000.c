@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * sja1000.c -  Philips SJA1000 network device driver
  *
  * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
@@ -67,6 +65,9 @@
 #include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include "sja1000.h"
 #include "hal.h"
+
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+RCSID("$Id$");
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");

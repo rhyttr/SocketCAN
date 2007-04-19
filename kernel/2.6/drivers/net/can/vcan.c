@@ -50,8 +50,8 @@
 #include <linux/if_ether.h>
 
 #include <linux/can.h>
-#include <linux/can/version.h>
 
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 static __initdata const char banner[] =
