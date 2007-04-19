@@ -45,7 +45,7 @@ struct can_proto {
 	int              protocol;
 	int              capability;
 	struct proto_ops *ops;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	struct proto     *prot;
 #else
 	struct module    *owner;

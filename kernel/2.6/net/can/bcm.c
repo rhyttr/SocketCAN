@@ -194,7 +194,7 @@ static struct proto_ops bcm_ops = {
 #define BCM_CAP CAP_NET_RAW
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 struct bcm_sock {
 	struct sock    sk;
 	struct bcm_opt opt;

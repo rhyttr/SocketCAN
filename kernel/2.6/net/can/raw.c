@@ -152,7 +152,7 @@ struct raw_opt {
 
 #undef CAN_RAW_SUPPORT_REBIND /* allow bind on already bound socket */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 struct raw_sock {
 	struct sock    sk;
 	struct raw_opt opt;

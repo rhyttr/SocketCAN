@@ -270,7 +270,7 @@ int can_proto_register(struct can_proto *cp)
 		return -EBUSY;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	err = proto_register(cp->prot, 0);
 	if (err < 0)
 		return err;
@@ -303,7 +303,7 @@ int can_proto_unregister(struct can_proto *cp)
 		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
 		return -ESRCH;
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	proto_unregister(cp->prot);
 #endif
 	proto_tab[proto] = NULL;
@@ -438,7 +438,7 @@ static int can_create(struct socket *sock, int protocol)
 
 	sock->ops = cp->ops;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, cp->prot, 1);
 	if (!sk)
 		return -ENOMEM;
@@ -462,7 +462,7 @@ static int can_create(struct socket *sock, int protocol)
 
 	DBG("created sock: %p\n", sk);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	if (sk->sk_prot->init)
 		ret = sk->sk_prot->init(sk);
 
