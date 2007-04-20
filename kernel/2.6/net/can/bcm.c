@@ -114,7 +114,6 @@ struct bcm_opt {
 
 static struct proc_dir_entry *proc_dir = NULL;
 
-
 #ifdef CONFIG_CAN_BCM_USER
 #define BCM_CAP (-1)
 #else
@@ -329,56 +328,6 @@ static void bcm_can_tx(struct bcm_op *op)
 
 /* bcm_op handling rx path */
 
-static void bcm_rx_update_and_send(struct bcm_op *op,
-				   struct can_frame *lastdata,
-				   struct can_frame *rxdata);
-
-static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
-				struct can_frame *rxdata)
-{
-	/*
-	 * no one uses the MSBs of can_dlc for comparation,
-	 * so we use it here to detect the first time of reception
-	 */
-
-	if (!(op->last_frames[index].can_dlc & RX_RECV)) {
-		/* received data for the first time => send update to user */
-		DBG("first time :)\n");
-		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-		return;
-	}
-
-	/* do a real check in can_data */
-
-	DBG("op->frames[index].data = 0x%016llx\n",
-	    GET_U64(&op->frames[index]));
-	DBG("op->last_frames[index].data = 0x%016llx\n",
-	    GET_U64(&op->last_frames[index]));
-	DBG("rxdata->data = 0x%016llx\n", GET_U64(rxdata));
-
-	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
-	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
-		DBG("relevant data change :)\n");
-		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-		return;
-	}
-
-
-	if (op->flags & RX_CHECK_DLC) {
-
-		/* do a real check in dlc */
-
-		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
-					BCM_CAN_DLC_MASK)) {
-			DBG("dlc change :)\n");
-			bcm_rx_update_and_send(op, &op->last_frames[index],
-					       rxdata);
-			return;
-		}
-	}
-	DBG("no relevant change :(\n");
-}
-
 static void bcm_rx_starttimer(struct bcm_op *op)
 {
 	if (op->flags & RX_NO_AUTOTIMER)
@@ -395,91 +344,6 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 		    (unsigned int) op->timer.expires);
 
 		add_timer(&op->timer);
-	}
-}
-
-static void bcm_rx_handler(struct sk_buff *skb, void *data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	struct can_frame rxframe;
-	int i;
-
-	/* disable timeout */
-	del_timer(&op->timer);
-
-	DBG("Called with bcm_op %p\n", op);
-
-	if (skb->len == sizeof(rxframe)) {
-		memcpy(&rxframe, skb->data, sizeof(rxframe));
-		/* save rx timestamp */
-		skb_get_timestamp(skb, &op->rx_stamp);
-		/* save originator for recvfrom() */
-		op->rx_ifindex = skb->dev->ifindex;
-		/* update statistics */
-		op->frames_abs++;
-		kfree_skb(skb);
-		DBG("got can_frame with can_id %03X\n", rxframe.can_id);
-	} else {
-		DBG("Wrong skb->len = %d\n", skb->len);
-		kfree_skb(skb);
-		return;
-	}
-
-	DBG_FRAME("BCM: bcm_rx_handler: CAN frame", &rxframe);
-
-	if (op->can_id != rxframe.can_id) {
-		DBG("ERROR! Got wrong can_id %03X! Expected %03X.\n",
-		    rxframe.can_id, op->can_id);
-		return;
-	}
-
-	if (op->flags & RX_RTR_FRAME) {
-		/* send reply for RTR-request */
-		DBG("RTR-request\n");
-
-		/* send op->frames[0] to CAN device */
-		bcm_can_tx(op);
-		return;
-	}
-
-	if (op->flags & RX_FILTER_ID) {
-		/* the easiest case */
-		DBG("Easy does it with RX_FILTER_ID\n");
-
-		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
-		bcm_rx_starttimer(op);
-		return;
-	}
-
-	if (op->nframes == 1) {
-		/* simple compare with index 0 */
-		DBG("Simple compare\n");
-
-		bcm_rx_cmp_to_index(op, 0, &rxframe);
-		bcm_rx_starttimer(op);
-		return;
-	}
-
-	if (op->nframes > 1) {
-		/* multiplex compare */
-		DBG("Multiplex compare\n");
-
-		/*
-		 * find the first multiplex mask that fits.
-		 * Remark: The MUX-mask is stored in index 0
-		 */
-
-		for (i=1; i < op->nframes; i++) {
-
-			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
-			    (GET_U64(&op->frames[0]) &
-			     GET_U64(&op->frames[i]))) {
-				DBG("found MUX index %d\n", i);
-				bcm_rx_cmp_to_index(op, i, &rxframe);
-				break;
-			}
-		}
-		bcm_rx_starttimer(op);
 	}
 }
 
@@ -599,7 +463,136 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 	}
 }
 
+static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
+				struct can_frame *rxdata)
+{
+	/*
+	 * no one uses the MSBs of can_dlc for comparation,
+	 * so we use it here to detect the first time of reception
+	 */
 
+	if (!(op->last_frames[index].can_dlc & RX_RECV)) {
+		/* received data for the first time => send update to user */
+		DBG("first time :)\n");
+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
+		return;
+	}
+
+	/* do a real check in can_data */
+
+	DBG("op->frames[index].data = 0x%016llx\n",
+	    GET_U64(&op->frames[index]));
+	DBG("op->last_frames[index].data = 0x%016llx\n",
+	    GET_U64(&op->last_frames[index]));
+	DBG("rxdata->data = 0x%016llx\n", GET_U64(rxdata));
+
+	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
+	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
+		DBG("relevant data change :)\n");
+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
+		return;
+	}
+
+
+	if (op->flags & RX_CHECK_DLC) {
+
+		/* do a real check in dlc */
+
+		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
+					BCM_CAN_DLC_MASK)) {
+			DBG("dlc change :)\n");
+			bcm_rx_update_and_send(op, &op->last_frames[index],
+					       rxdata);
+			return;
+		}
+	}
+	DBG("no relevant change :(\n");
+}
+
+static void bcm_rx_handler(struct sk_buff *skb, void *data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	struct can_frame rxframe;
+	int i;
+
+	/* disable timeout */
+	del_timer(&op->timer);
+
+	DBG("Called with bcm_op %p\n", op);
+
+	if (skb->len == sizeof(rxframe)) {
+		memcpy(&rxframe, skb->data, sizeof(rxframe));
+		/* save rx timestamp */
+		skb_get_timestamp(skb, &op->rx_stamp);
+		/* save originator for recvfrom() */
+		op->rx_ifindex = skb->dev->ifindex;
+		/* update statistics */
+		op->frames_abs++;
+		kfree_skb(skb);
+		DBG("got can_frame with can_id %03X\n", rxframe.can_id);
+	} else {
+		DBG("Wrong skb->len = %d\n", skb->len);
+		kfree_skb(skb);
+		return;
+	}
+
+	DBG_FRAME("BCM: bcm_rx_handler: CAN frame", &rxframe);
+
+	if (op->can_id != rxframe.can_id) {
+		DBG("ERROR! Got wrong can_id %03X! Expected %03X.\n",
+		    rxframe.can_id, op->can_id);
+		return;
+	}
+
+	if (op->flags & RX_RTR_FRAME) {
+		/* send reply for RTR-request */
+		DBG("RTR-request\n");
+
+		/* send op->frames[0] to CAN device */
+		bcm_can_tx(op);
+		return;
+	}
+
+	if (op->flags & RX_FILTER_ID) {
+		/* the easiest case */
+		DBG("Easy does it with RX_FILTER_ID\n");
+
+		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
+		bcm_rx_starttimer(op);
+		return;
+	}
+
+	if (op->nframes == 1) {
+		/* simple compare with index 0 */
+		DBG("Simple compare\n");
+
+		bcm_rx_cmp_to_index(op, 0, &rxframe);
+		bcm_rx_starttimer(op);
+		return;
+	}
+
+	if (op->nframes > 1) {
+		/* multiplex compare */
+		DBG("Multiplex compare\n");
+
+		/*
+		 * find the first multiplex mask that fits.
+		 * Remark: The MUX-mask is stored in index 0
+		 */
+
+		for (i=1; i < op->nframes; i++) {
+
+			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
+			    (GET_U64(&op->frames[0]) &
+			     GET_U64(&op->frames[i]))) {
+				DBG("found MUX index %d\n", i);
+				bcm_rx_cmp_to_index(op, i, &rxframe);
+				break;
+			}
+		}
+		bcm_rx_starttimer(op);
+	}
+}
 
 static void bcm_rx_timeout_handler(unsigned long data)
 {
@@ -1562,7 +1555,6 @@ static unsigned int bcm_poll(struct file *file, struct socket *sock,
 	mask = datagram_poll(file, sock, wait);
 	return mask;
 }
-
 
 static struct proto_ops bcm_ops = {
 	.family        = PF_CAN,
