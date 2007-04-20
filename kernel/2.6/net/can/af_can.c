@@ -458,11 +458,9 @@ static int can_create(struct socket *sock, int protocol)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	if (sk->sk_prot->init)
 		ret = sk->sk_prot->init(sk);
-
 #else
 	if (cp->init)
 		ret = cp->init(sk);
-
 #endif
 
 	if (ret) {
