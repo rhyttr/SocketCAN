@@ -87,28 +87,6 @@ module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
-static __init int  can_init(void);
-static __exit void can_exit(void);
-
-static int can_create(struct socket *sock, int protocol);
-static int can_notifier(struct notifier_block *nb,
-			unsigned long msg, void *data);
-static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
-static int can_rcv(struct sk_buff *skb, struct net_device *dev,
-		   struct packet_type *pt, struct net_device *orig_dev);
-#else
-static int can_rcv(struct sk_buff *skb, struct net_device *dev,
-		   struct packet_type *pt);
-#endif
-static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb);
-static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev);
-static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-					struct dev_rcv_lists *d);
-static void can_rcv_lists_delete(struct rcu_head *rp);
-static void can_rx_delete(struct rcu_head *rp);
-static void can_rx_delete_all(struct hlist_head *rl);
-
 
 struct notifier {
 	struct list_head list;
@@ -130,23 +108,6 @@ static struct kmem_cache *rcv_cache __read_mostly;
 static kmem_cache_t *rcv_cache;
 #endif
 
-static struct packet_type can_packet = {
-	.type = __constant_htons(ETH_P_CAN),
-	.dev  = NULL,
-	.func = can_rcv,
-};
-
-static struct net_proto_family can_family_ops = {
-	.family = PF_CAN,
-	.create = can_create,
-	.owner  = THIS_MODULE,
-};
-
-/* notifier block for netdevice event */
-static struct notifier_block can_netdev_notifier = {
-	.notifier_call = can_notifier,
-};
-
 /* table of registered CAN protocols */
 static struct can_proto *proto_tab[CAN_NPROTO];
 
@@ -164,229 +125,27 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 }
 #endif
 
-module_init(can_init);
-module_exit(can_exit);
-
-/*
- * af_can module init/exit functions
- */
-
-static __init int can_init(void)
-{
-	printk(banner);
-
-	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
-				      0, 0, NULL, NULL);
-	if (!rcv_cache)
-		return -ENOMEM;
-
-	/*
-	 * Insert struct dev_rcv_lists for reception on all devices.
-	 * This struct is zero initialized which is correct for the 
-	 * embedded hlist heads, the dev pointer, and the entries counter.
-	 */
-
-	spin_lock_bh(&rcv_lists_lock);
-	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
-	spin_unlock_bh(&rcv_lists_lock);
-
-	if (stats_timer)
-		init_timer(&stattimer);
-
-	/* procfs init */
-	can_init_proc();
-
-	/* protocol register */
-	sock_register(&can_family_ops);
-	register_netdevice_notifier(&can_netdev_notifier);
-	dev_add_pack(&can_packet);
-
-	return 0;
-}
-
-static __exit void can_exit(void)
-{
-	struct dev_rcv_lists *d;
-	struct hlist_node *n, *next;
-
-	if (stats_timer)
-		del_timer(&stattimer);
-
-	/* procfs remove */
-	can_remove_proc();
-
-	/* protocol unregister */
-	dev_remove_pack(&can_packet);
-	unregister_netdevice_notifier(&can_netdev_notifier);
-	sock_unregister(PF_CAN);
-
-	/* remove rx_dev_list */
-	spin_lock_bh(&rcv_lists_lock);
-	hlist_del(&rx_alldev_list.list);
-	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list) {
-		hlist_del(&d->list);
-		kfree(d);
-	}
-	spin_unlock_bh(&rcv_lists_lock);
-
-	kmem_cache_destroy(rcv_cache);
-}
-
-/*
- * af_can protocol functions
- */
-
-/**
- * can_proto_register - register CAN transport protocol
- * @cp: pointer to CAN protocol structure
- *
- * Return:
- *  0 on success
- *  -EINVAL invalid (out of range) protocol number
- *  -EBUSY  protocol already in use
- *  -ENOBUF if proto_register() fails
- **/
-
-int can_proto_register(struct can_proto *cp)
-{
-	int proto = cp->protocol;
-	int err = 0;
-
-	if (proto < 0 || proto >= CAN_NPROTO) {
-		printk(KERN_ERR "CAN: protocol number %d out "
-		       "of range\n", proto);
-		return -EINVAL;
-	}
-	if (proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d already "
-		       "registered\n", proto);
-		return -EBUSY;
-	}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	err = proto_register(cp->prot, 0);
-	if (err < 0)
-		return err;
-#endif
-
-	proto_tab[proto] = cp;
-
-	/* use generic ioctl function if the module doesn't bring its own */
-	if (!cp->ops->ioctl)
-		cp->ops->ioctl = can_ioctl;
-
-	return err;
-}
-EXPORT_SYMBOL(can_proto_register);
-
-/**
- * can_proto_unregister - unregister CAN transport protocol
- * @cp: pointer to CAN protocol structure
- *
- * Return:
- *  0 on success
- *  -ESRCH protocol number was not registered
- **/
-
-int can_proto_unregister(struct can_proto *cp)
-{
-	int proto = cp->protocol;
-
-	if (!proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
-		return -ESRCH;
-	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	proto_unregister(cp->prot);
-#endif
-	proto_tab[proto] = NULL;
-
-	return 0;
-}
-EXPORT_SYMBOL(can_proto_unregister);
-
-/**
- * can_dev_register - subscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
- * @func: callback function on status change
- * @data: returned parameter for callback function
- *
- * Description:
- *  Invokes the callback function with the status 'msg' and the given
- *  parameter 'data' on a status change of the given CAN network device.
- *
- * Return:
- *  0 on success
- *  -ENOMEM on missing mem to create subscription entry
- *  -ENODEV unknown device
- **/
-
-int can_dev_register(struct net_device *dev,
-		     void (*func)(unsigned long msg, void *), void *data)
-{
-	struct notifier *n;
-
-	DBG("called for %s\n", dev->name);
-
-	if (!dev || dev->type != ARPHRD_CAN)
-		return -ENODEV;
-
-	n = kmalloc(sizeof(*n), GFP_KERNEL);
-	if (!n)
-		return -ENOMEM;
-
-	n->dev  = dev;
-	n->func = func;
-	n->data = data;
-
-	write_lock(&notifier_lock);
-	list_add(&n->list, &notifier_list);
-	write_unlock(&notifier_lock);
-
-	return 0;
-}
-EXPORT_SYMBOL(can_dev_register);
-
-/**
- * can_dev_unregister - unsubscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
- * @func: callback function on filter match
- * @data: returned parameter for callback function
- *
- * Description:
- *  Removes subscription entry depending on given (subscription) values.
- *
- * Return:
- *  0 on success
- *  -EINVAL on missing subscription entry
- **/
-
-int can_dev_unregister(struct net_device *dev,
-		       void (*func)(unsigned long msg, void *), void *data)
-{
-	struct notifier *n, *next;
-	int ret = -EINVAL;
-
-	DBG("called for %s\n", dev->name);
-
-	write_lock(&notifier_lock);
-	list_for_each_entry_safe(n, next, &notifier_list, list) {
-		if (n->dev == dev && n->func == func && n->data == data) {
-			list_del(&n->list);
-			kfree(n);
-			ret = 0;
-			break;
-		}
-	}
-	write_unlock(&notifier_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL(can_dev_unregister);
-
 /*
  * af_can socket functions
  */
+
+static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+{
+	struct sock *sk = sock->sk;
+
+	switch (cmd) {
+
+	case SIOCGSTAMP:
+		return sock_get_timestamp(sk, (struct timeval __user *)arg);
+
+	default:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+		return -ENOIOCTLCMD;
+#else
+		return dev_ioctl(cmd, (void __user *)arg);
+#endif
+	}
+}
 
 static void can_sock_destruct(struct sock *sk)
 {
@@ -472,103 +231,6 @@ static int can_create(struct socket *sock, int protocol)
 	return ret;
 }
 
-static int can_notifier(struct notifier_block *nb,
-			unsigned long msg, void *data)
-{
-	struct net_device *dev = (struct net_device *)data;
-	struct notifier *n;
-	struct dev_rcv_lists *d;
-	int i;
-
-	DBG("called for %s, msg = %lu\n", dev->name, msg);
-
-	if (dev->type != ARPHRD_CAN)
-		return NOTIFY_DONE;
-
-	switch (msg) {
-
-	case NETDEV_REGISTER:
-
-		/*
-		 * create new dev_rcv_lists for this device
-		 *
-		 * N.B. zeroing the struct is the correct initialization
-		 * for the embedded hlist_head structs.
-		 * Another list type, e.g. list_head, would require
-		 * explicit initialization.
-		 */
-
-		DBG("creating new dev_rcv_lists for %s\n", dev->name);
-
-		d = kzalloc(sizeof(*d),
-			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-		if (!d) {
-			printk(KERN_ERR "CAN: allocation of receive "
-			       "list failed\n");
-			return NOTIFY_DONE;
-		}
-		d->dev = dev;
-
-		spin_lock_bh(&rcv_lists_lock);
-		hlist_add_head_rcu(&d->list, &rx_dev_list);
-		spin_unlock_bh(&rcv_lists_lock);
-
-		break;
-
-	case NETDEV_UNREGISTER:
-		spin_lock_bh(&rcv_lists_lock);
-
-		d = find_dev_rcv_lists(dev);
-		if (d) {
-			hlist_del_rcu(&d->list);
-
-			/* remove all receivers hooked at this netdevice */
-			can_rx_delete_all(&d->rx_err);
-			can_rx_delete_all(&d->rx_all);
-			can_rx_delete_all(&d->rx_fil);
-			can_rx_delete_all(&d->rx_inv);
-			can_rx_delete_all(&d->rx_eff);
-			for (i = 0; i < 2048; i++)
-				can_rx_delete_all(&d->rx_sff[i]);
-		} else
-			printk(KERN_ERR "CAN: notifier: receive list not "
-			       "found for dev %s\n", dev->name);
-
-		spin_unlock_bh(&rcv_lists_lock);
-
-		if (d)
-			call_rcu(&d->rcu, can_rcv_lists_delete);
-
-		break;
-	}
-
-	read_lock(&notifier_lock);
-	list_for_each_entry(n, &notifier_list, list) {
-		if (n->dev == dev)
-			n->func(msg, n->data);
-	}
-	read_unlock(&notifier_lock);
-
-	return NOTIFY_DONE;
-}
-
-static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-{
-	struct sock *sk = sock->sk;
-
-	switch (cmd) {
-
-	case SIOCGSTAMP:
-		return sock_get_timestamp(sk, (struct timeval __user *)arg);
-
-	default:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-		return -ENOIOCTLCMD;
-#else
-		return dev_ioctl(cmd, (void __user *)arg);
-#endif
-	}
-}
 
 /*
  * af_can tx path
@@ -631,9 +293,74 @@ int can_send(struct sk_buff *skb, int loop)
 }
 EXPORT_SYMBOL(can_send);
 
+
 /*
  * af_can rx path
  */
+
+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
+{
+	struct dev_rcv_lists *d;
+	struct hlist_node *n;
+
+	/*
+	 * find receive list for this device
+	 *
+	 * The hlist_for_each_entry*() macros curse through the list
+	 * using the pointer variable n and set d to the containing
+	 * struct in each list iteration.  Therefore, after list
+	 * iteration, d is unmodified when the list is empty, and it
+	 * points to last list element, when the list is non-empty
+	 * but no match in the loop body is found.  I.e. d is *not*
+	 * NULL when no match is found.  We can, however, use the
+	 * cursor variable n to decide if a match was found.
+	 */
+
+	hlist_for_each_entry(d, n, &rx_dev_list, list) {
+		if (d->dev == dev)
+			break;
+	}
+
+	return n ? d : NULL;
+}
+
+static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
+					struct dev_rcv_lists *d)
+{
+	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking */
+
+	if (*mask & CAN_ERR_FLAG) { /* filter error frames */
+		*mask &= CAN_ERR_MASK; /* clear CAN_ERR_FLAG in list entry */
+		return &d->rx_err;
+	}
+
+	/* ensure valid values in can_mask */
+	if (*mask & CAN_EFF_FLAG)
+		*mask &= (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG);
+	else
+		*mask &= (CAN_SFF_MASK | CAN_RTR_FLAG);
+
+	*can_id &= *mask; /* reduce condition testing at receive time */
+
+	if (inv) /* inverse can_id/can_mask filter */
+		return &d->rx_inv;
+
+	if (!(*mask)) /* mask == 0 => no condition testing at receive time */
+		return &d->rx_all;
+
+	/* use extra filterset for the subscription of exactly *ONE* can_id */
+	if (*can_id & CAN_EFF_FLAG) {
+		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG)) {
+			/* RFC: a use-case for hash-tables in the future? */
+			return &d->rx_eff;
+		}
+	} else {
+		if (*mask == CAN_SFF_MASK)
+			return &d->rx_sff[*can_id];
+	}
+
+	return &d->rx_fil;  /* default: filter via can_id/can_mask */
+}
 
 /**
  * can_rx_register - subscribe CAN frames from a specific interface
@@ -816,52 +543,6 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 }
 EXPORT_SYMBOL(can_rx_unregister);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
-static int can_rcv(struct sk_buff *skb, struct net_device *dev,
-		   struct packet_type *pt, struct net_device *orig_dev)
-#else
-static int can_rcv(struct sk_buff *skb, struct net_device *dev,
-		   struct packet_type *pt)
-#endif
-{
-	struct dev_rcv_lists *d;
-	int matches;
-
-	DBG("received skbuff on device %s, ptype %04x\n",
-	    dev->name, ntohs(pt->type));
-	DBG_SKB(skb);
-	DBG_FRAME("af_can: can_rcv: received CAN frame",
-		  (struct can_frame *)skb->data);
-
-	/* update statistics */
-	stats.rx_frames++;
-	stats.rx_frames_delta++;
-
-	rcu_read_lock();
-
-	/* deliver the packet to sockets listening on all devices */
-	matches = can_rcv_filter(&rx_alldev_list, skb);
-
-	/* find receive list for this device */
-	d = find_dev_rcv_lists(dev);
-	if (d)
-		matches += can_rcv_filter(d, skb);
-
-	rcu_read_unlock();
-
-	/* free the skbuff allocated by the netdevice driver */
-	DBG("freeing skbuff %p\n", skb);
-	kfree_skb(skb);
-
-	if (matches > 0) {
-		stats.matches++;
-		stats.matches_delta++;
-	}
-
-	return 0;
-}
-
-
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
 	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
@@ -942,69 +623,51 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	return matches;
 }
 
-static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
+static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+		   struct packet_type *pt, struct net_device *orig_dev)
+#else
+static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+		   struct packet_type *pt)
+#endif
 {
 	struct dev_rcv_lists *d;
-	struct hlist_node *n;
+	int matches;
 
-	/*
-	 * find receive list for this device
-	 *
-	 * The hlist_for_each_entry*() macros curse through the list
-	 * using the pointer variable n and set d to the containing
-	 * struct in each list iteration.  Therefore, after list
-	 * iteration, d is unmodified when the list is empty, and it
-	 * points to last list element, when the list is non-empty
-	 * but no match in the loop body is found.  I.e. d is *not*
-	 * NULL when no match is found.  We can, however, use the
-	 * cursor variable n to decide if a match was found.
-	 */
+	DBG("received skbuff on device %s, ptype %04x\n",
+	    dev->name, ntohs(pt->type));
+	DBG_SKB(skb);
+	DBG_FRAME("af_can: can_rcv: received CAN frame",
+		  (struct can_frame *)skb->data);
 
-	hlist_for_each_entry(d, n, &rx_dev_list, list) {
-		if (d->dev == dev)
-			break;
+	/* update statistics */
+	stats.rx_frames++;
+	stats.rx_frames_delta++;
+
+	rcu_read_lock();
+
+	/* deliver the packet to sockets listening on all devices */
+	matches = can_rcv_filter(&rx_alldev_list, skb);
+
+	/* find receive list for this device */
+	d = find_dev_rcv_lists(dev);
+	if (d)
+		matches += can_rcv_filter(d, skb);
+
+	rcu_read_unlock();
+
+	/* free the skbuff allocated by the netdevice driver */
+	DBG("freeing skbuff %p\n", skb);
+	kfree_skb(skb);
+
+	if (matches > 0) {
+		stats.matches++;
+		stats.matches_delta++;
 	}
 
-	return n ? d : NULL;
+	return 0;
 }
 
-static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
-					struct dev_rcv_lists *d)
-{
-	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking */
-
-	if (*mask & CAN_ERR_FLAG) { /* filter error frames */
-		*mask &= CAN_ERR_MASK; /* clear CAN_ERR_FLAG in list entry */
-		return &d->rx_err;
-	}
-
-	/* ensure valid values in can_mask */
-	if (*mask & CAN_EFF_FLAG)
-		*mask &= (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG);
-	else
-		*mask &= (CAN_SFF_MASK | CAN_RTR_FLAG);
-
-	*can_id &= *mask; /* reduce condition testing at receive time */
-
-	if (inv) /* inverse can_id/can_mask filter */
-		return &d->rx_inv;
-
-	if (!(*mask)) /* mask == 0 => no condition testing at receive time */
-		return &d->rx_all;
-
-	/* use extra filterset for the subscription of exactly *ONE* can_id */
-	if (*can_id & CAN_EFF_FLAG) {
-		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG)) {
-			/* RFC: a use-case for hash-tables in the future? */
-			return &d->rx_eff;
-		}
-	} else {
-		if (*mask == CAN_SFF_MASK)
-			return &d->rx_sff[*can_id];
-	}
-
-	return &d->rx_fil;  /* default: filter via can_id/can_mask */
-}
 
 /*
  * af_can utility stuff
@@ -1042,6 +705,7 @@ unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 		return jif + sec * HZ;
 }
 EXPORT_SYMBOL(timeval2jiffies);
+
 
 /*
  * af_can debugging stuff
@@ -1131,3 +795,322 @@ void can_debug_skb(struct sk_buff *skb)
 EXPORT_SYMBOL(can_debug_skb);
 
 #endif
+
+
+/*
+ * af_can protocol functions
+ */
+
+/**
+ * can_proto_register - register CAN transport protocol
+ * @cp: pointer to CAN protocol structure
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL invalid (out of range) protocol number
+ *  -EBUSY  protocol already in use
+ *  -ENOBUF if proto_register() fails
+ **/
+
+int can_proto_register(struct can_proto *cp)
+{
+	int proto = cp->protocol;
+	int err = 0;
+
+	if (proto < 0 || proto >= CAN_NPROTO) {
+		printk(KERN_ERR "CAN: protocol number %d out "
+		       "of range\n", proto);
+		return -EINVAL;
+	}
+	if (proto_tab[proto]) {
+		printk(KERN_ERR "CAN: protocol %d already "
+		       "registered\n", proto);
+		return -EBUSY;
+	}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	err = proto_register(cp->prot, 0);
+	if (err < 0)
+		return err;
+#endif
+
+	proto_tab[proto] = cp;
+
+	/* use generic ioctl function if the module doesn't bring its own */
+	if (!cp->ops->ioctl)
+		cp->ops->ioctl = can_ioctl;
+
+	return err;
+}
+EXPORT_SYMBOL(can_proto_register);
+
+/**
+ * can_proto_unregister - unregister CAN transport protocol
+ * @cp: pointer to CAN protocol structure
+ *
+ * Return:
+ *  0 on success
+ *  -ESRCH protocol number was not registered
+ **/
+
+int can_proto_unregister(struct can_proto *cp)
+{
+	int proto = cp->protocol;
+
+	if (!proto_tab[proto]) {
+		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
+		return -ESRCH;
+	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	proto_unregister(cp->prot);
+#endif
+	proto_tab[proto] = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(can_proto_unregister);
+
+/**
+ * can_dev_register - subscribe notifier for CAN device status changes
+ * @dev: pointer to netdevice
+ * @func: callback function on status change
+ * @data: returned parameter for callback function
+ *
+ * Description:
+ *  Invokes the callback function with the status 'msg' and the given
+ *  parameter 'data' on a status change of the given CAN network device.
+ *
+ * Return:
+ *  0 on success
+ *  -ENOMEM on missing mem to create subscription entry
+ *  -ENODEV unknown device
+ **/
+
+int can_dev_register(struct net_device *dev,
+		     void (*func)(unsigned long msg, void *), void *data)
+{
+	struct notifier *n;
+
+	DBG("called for %s\n", dev->name);
+
+	if (!dev || dev->type != ARPHRD_CAN)
+		return -ENODEV;
+
+	n = kmalloc(sizeof(*n), GFP_KERNEL);
+	if (!n)
+		return -ENOMEM;
+
+	n->dev  = dev;
+	n->func = func;
+	n->data = data;
+
+	write_lock(&notifier_lock);
+	list_add(&n->list, &notifier_list);
+	write_unlock(&notifier_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(can_dev_register);
+
+/**
+ * can_dev_unregister - unsubscribe notifier for CAN device status changes
+ * @dev: pointer to netdevice
+ * @func: callback function on filter match
+ * @data: returned parameter for callback function
+ *
+ * Description:
+ *  Removes subscription entry depending on given (subscription) values.
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL on missing subscription entry
+ **/
+
+int can_dev_unregister(struct net_device *dev,
+		       void (*func)(unsigned long msg, void *), void *data)
+{
+	struct notifier *n, *next;
+	int ret = -EINVAL;
+
+	DBG("called for %s\n", dev->name);
+
+	write_lock(&notifier_lock);
+	list_for_each_entry_safe(n, next, &notifier_list, list) {
+		if (n->dev == dev && n->func == func && n->data == data) {
+			list_del(&n->list);
+			kfree(n);
+			ret = 0;
+			break;
+		}
+	}
+	write_unlock(&notifier_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(can_dev_unregister);
+
+static int can_notifier(struct notifier_block *nb,
+			unsigned long msg, void *data)
+{
+	struct net_device *dev = (struct net_device *)data;
+	struct notifier *n;
+	struct dev_rcv_lists *d;
+	int i;
+
+	DBG("called for %s, msg = %lu\n", dev->name, msg);
+
+	if (dev->type != ARPHRD_CAN)
+		return NOTIFY_DONE;
+
+	switch (msg) {
+
+	case NETDEV_REGISTER:
+
+		/*
+		 * create new dev_rcv_lists for this device
+		 *
+		 * N.B. zeroing the struct is the correct initialization
+		 * for the embedded hlist_head structs.
+		 * Another list type, e.g. list_head, would require
+		 * explicit initialization.
+		 */
+
+		DBG("creating new dev_rcv_lists for %s\n", dev->name);
+
+		d = kzalloc(sizeof(*d),
+			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		if (!d) {
+			printk(KERN_ERR "CAN: allocation of receive "
+			       "list failed\n");
+			return NOTIFY_DONE;
+		}
+		d->dev = dev;
+
+		spin_lock_bh(&rcv_lists_lock);
+		hlist_add_head_rcu(&d->list, &rx_dev_list);
+		spin_unlock_bh(&rcv_lists_lock);
+
+		break;
+
+	case NETDEV_UNREGISTER:
+		spin_lock_bh(&rcv_lists_lock);
+
+		d = find_dev_rcv_lists(dev);
+		if (d) {
+			hlist_del_rcu(&d->list);
+
+			/* remove all receivers hooked at this netdevice */
+			can_rx_delete_all(&d->rx_err);
+			can_rx_delete_all(&d->rx_all);
+			can_rx_delete_all(&d->rx_fil);
+			can_rx_delete_all(&d->rx_inv);
+			can_rx_delete_all(&d->rx_eff);
+			for (i = 0; i < 2048; i++)
+				can_rx_delete_all(&d->rx_sff[i]);
+		} else
+			printk(KERN_ERR "CAN: notifier: receive list not "
+			       "found for dev %s\n", dev->name);
+
+		spin_unlock_bh(&rcv_lists_lock);
+
+		if (d)
+			call_rcu(&d->rcu, can_rcv_lists_delete);
+
+		break;
+	}
+
+	read_lock(&notifier_lock);
+	list_for_each_entry(n, &notifier_list, list) {
+		if (n->dev == dev)
+			n->func(msg, n->data);
+	}
+	read_unlock(&notifier_lock);
+
+	return NOTIFY_DONE;
+}
+
+
+/*
+ * af_can module init/exit functions
+ */
+
+static struct packet_type can_packet = {
+	.type = __constant_htons(ETH_P_CAN),
+	.dev  = NULL,
+	.func = can_rcv,
+};
+
+static struct net_proto_family can_family_ops = {
+	.family = PF_CAN,
+	.create = can_create,
+	.owner  = THIS_MODULE,
+};
+
+/* notifier block for netdevice event */
+static struct notifier_block can_netdev_notifier = {
+	.notifier_call = can_notifier,
+};
+
+static __init int can_init(void)
+{
+	printk(banner);
+
+	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
+				      0, 0, NULL, NULL);
+	if (!rcv_cache)
+		return -ENOMEM;
+
+	/*
+	 * Insert struct dev_rcv_lists for reception on all devices.
+	 * This struct is zero initialized which is correct for the 
+	 * embedded hlist heads, the dev pointer, and the entries counter.
+	 */
+
+	spin_lock_bh(&rcv_lists_lock);
+	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
+	spin_unlock_bh(&rcv_lists_lock);
+
+	if (stats_timer)
+		init_timer(&stattimer);
+
+	/* procfs init */
+	can_init_proc();
+
+	/* protocol register */
+	sock_register(&can_family_ops);
+	register_netdevice_notifier(&can_netdev_notifier);
+	dev_add_pack(&can_packet);
+
+	return 0;
+}
+
+static __exit void can_exit(void)
+{
+	struct dev_rcv_lists *d;
+	struct hlist_node *n, *next;
+
+	if (stats_timer)
+		del_timer(&stattimer);
+
+	/* procfs remove */
+	can_remove_proc();
+
+	/* protocol unregister */
+	dev_remove_pack(&can_packet);
+	unregister_netdevice_notifier(&can_netdev_notifier);
+	sock_unregister(PF_CAN);
+
+	/* remove rx_dev_list */
+	spin_lock_bh(&rcv_lists_lock);
+	hlist_del(&rx_alldev_list.list);
+	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list) {
+		hlist_del(&d->list);
+		kfree(d);
+	}
+	spin_unlock_bh(&rcv_lists_lock);
+
+	kmem_cache_destroy(rcv_cache);
+}
+
+module_init(can_init);
+module_exit(can_exit);
