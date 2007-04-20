@@ -492,8 +492,8 @@ mscan_isr(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	}
 
-	if ( !test_and_set_bit(F_RX_PROGRESS, &priv->flags) &&
-		(((canrflg = in_8(&regs->canrflg)) & ~MSCAN_STAT_MSK))) {
+	if ((((canrflg = in_8(&regs->canrflg)) & ~MSCAN_STAT_MSK)) &&
+	    !test_and_set_bit(F_RX_PROGRESS, &priv->flags)) {
 		if ( check_set_state(can, canrflg) ) {
 			out_8(&regs->canrflg, MSCAN_CSCIF);
 			ret = IRQ_HANDLED;
