@@ -56,9 +56,6 @@ struct can_proto {
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
-void can_debug_skb(struct sk_buff *skb);
-void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
-
 int can_proto_register(struct can_proto *cp);
 int can_proto_unregister(struct can_proto *cp);
 
@@ -76,5 +73,19 @@ int can_dev_unregister(struct net_device *dev,
 int can_send(struct sk_buff *skb, int loop);
 
 unsigned long timeval2jiffies(struct timeval *tv, int round_up);
+
+#ifdef CONFIG_CAN_DEBUG_CORE
+void can_debug_skb(struct sk_buff *skb);
+void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
+#define DBG(args...)       (debug & 1 ? \
+			       (printk(KERN_DEBUG "can-%s %s: ", \
+				IDENT, __func__), printk(args)) : 0)
+#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
+#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
+#else
+#define DBG(args...)
+#define DBG_FRAME(args...)
+#define DBG_SKB(skb)
+#endif
 
 #endif /* CAN_CORE_H */

@@ -71,13 +71,7 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 #ifdef CONFIG_CAN_DEBUG_CORE
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "RAW %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_SKB(skb)
+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
 static int raw_init(struct sock *sk);

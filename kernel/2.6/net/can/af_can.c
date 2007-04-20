@@ -68,7 +68,7 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define IDENT "af_can"
+#define IDENT "core"
 static __initdata const char banner[] =
 	KERN_INFO "CAN: Controller Area Network PF_CAN core " CAN_VERSION "\n";
 
@@ -79,19 +79,12 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 
 int stats_timer = 1; /* default: on */
 module_param(stats_timer, int, S_IRUGO);
+MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "CAN %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
 static __init int  can_init(void);

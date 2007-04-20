@@ -58,20 +58,6 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#ifdef CONFIG_CAN_DEBUG_CORE
-static int debug = 0;
-module_param(debug, int, S_IRUGO);
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "BCM %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
-#endif
-
 /* use of last_frames[index].can_dlc */
 #define RX_RECV    0x40 /* received data for this element */
 #define RX_THR     0x80 /* element not been sent due to throttle feature */
@@ -88,6 +74,12 @@ static __initdata const char banner[] = KERN_INFO
 MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+
+#ifdef CONFIG_CAN_DEBUG_CORE
+static int debug = 0;
+module_param(debug, int, S_IRUGO);
+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
+#endif
 
 #define GET_U64(p) (*(u64*)(p)->data) /* easy access */
 
