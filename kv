@@ -7,34 +7,57 @@
 # and likewise for <=, >, and >=.
 #
 # Call as kv <version> <file> where <version> is the kernel version you
-# want to code to be generated for.  The result will be output on stdout.
+# want the code to be generated for.  The result will be output on stdout.
 
+require("getopts.pl");
 
 $re = "^\\#if LINUX_VERSION_CODE (<|<=|>|>=) " .
     "KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
+
+Getopts("d");
+$debug = $opt_d;
 
 $version = shift;
 $level   = 0;
 $state   = -1;
 
-while (<>) {
+@lines = <>;
+unshift(@lines, "");
+
+for ($i = 1; $i <= $#lines; $i++) {
+    printf("%6d: ", $i) if ($debug);
+    $_ = $lines[$i];
     if ($state == -1) {
 	if (/$re/) {
 	    $state = compare($version, $1, $2, $3, $4);
+	    print "<del>\n" if ($debug);
+	    $skip = ($lines[$i-1] eq "\n");
 	} else {
 	    print;
 	}
     } else {
 	if ($level == 0 && /^\#else/) {
 	    $state = !$state;
+	    print "<del>\n" if ($debug);
 	} elsif ($level == 0 && /^\#endif/) {
 	    $state = -1;
+	    print "<del>\n" if ($debug);
+
+	    while ($skip && $lines[$i+1] eq "\n") {
+		$i++;
+		printf("%6d: <skip>\n", $i) if ($debug);
+	    }
 	} elsif (/^\#if/) {
 	    $level++;
+	    print "<del>\n" if ($debug);
 	} elsif (/^\#endif/) {
 	    $level--;
+	    print "<del>\n" if ($debug);
 	} elsif ($state == 1) {
 	    print;
+	    $skip = 0;
+	} else {
+	    print "<del>\n" if ($debug);
 	}
     }
 }
