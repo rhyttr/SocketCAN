@@ -74,7 +74,6 @@ module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
-
 #ifdef CONFIG_CAN_RAW_USER
 #define RAW_CAP (-1)
 #else
@@ -116,7 +115,6 @@ struct raw_sock {
 #else
 #define raw_sk(sk) ((struct raw_opt *)(sk)->sk_protinfo)
 #endif
-
 
 static void raw_notifier(unsigned long msg, void *data)
 {
@@ -721,7 +719,6 @@ static struct can_proto raw_can_proto = {
 	.init       = raw_init,
 };
 #endif
-
 
 static __init int raw_module_init(void)
 {
