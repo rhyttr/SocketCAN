@@ -160,25 +160,6 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
 
-static void bcm_notifier(unsigned long msg, void *data)
-{
-	struct sock *sk = (struct sock *)data;
-	struct bcm_opt *bo = bcm_sk(sk);
-
-	DBG("called for sock %p\n", sk);
-
-	switch (msg) {
-	case NETDEV_UNREGISTER:
-		bo->bound   = 0;
-		bo->ifindex = 0;
-		/* fallthrough */
-	case NETDEV_DOWN:
-		sk->sk_err = ENETDOWN;
-		if (!sock_flag(sk, SOCK_DEAD))
-			sk->sk_error_report(sk);
-	}
-}
-
 /* procfs functions */
 
 static char *bcm_proc_getifname(int ifindex)
@@ -327,26 +308,6 @@ static void bcm_can_tx(struct bcm_op *op)
 }
 
 /* bcm_op handling rx path */
-
-static void bcm_rx_starttimer(struct bcm_op *op)
-{
-	if (op->flags & RX_NO_AUTOTIMER)
-		return;
-
-	if (op->j_ival1) {
-
-		op->timer.expires = jiffies + op->j_ival1;
-
-		DBG("adding rx timeout timer ival1. func=%p data=%p "
-		    "exp=0x%08X\n",
-		    op->timer.function,
-		    (char*) op->timer.data,
-		    (unsigned int) op->timer.expires);
-
-		add_timer(&op->timer);
-	}
-}
-
 static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 			     struct can_frame *frames, struct timeval *tv)
 {
@@ -398,6 +359,72 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 		/* don't care about overflows in this statistic */
 		bo->dropped_usr_msgs++;
 	}
+}
+
+
+static void bcm_tx_timeout_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+
+	DBG("Called with bcm_op %p\n", op);
+
+	if (op->j_ival1 && (op->count > 0)) {
+
+		op->count--;
+
+		if (!op->count && (op->flags & TX_COUNTEVT)) {
+			/* create notification to user */
+
+			struct bcm_msg_head msg_head;
+
+			DBG("sending TX_EXPIRED for can_id %03X\n",
+			    op->can_id);
+
+			msg_head.opcode  = TX_EXPIRED;
+			msg_head.flags   = op->flags;
+			msg_head.count   = op->count;
+			msg_head.ival1   = op->ival1;
+			msg_head.ival2   = op->ival2;
+			msg_head.can_id  = op->can_id;
+			msg_head.nframes = 0;
+
+			bcm_send_to_user(op, &msg_head, NULL, NULL);
+		}
+	}
+
+	DBG("count=%d j_ival1=%ld j_ival2=%ld\n",
+	    op->count, op->j_ival1, op->j_ival2);
+
+	if (op->j_ival1 && (op->count > 0)) {
+
+		op->timer.expires = jiffies + op->j_ival1;
+		add_timer(&op->timer);
+
+		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
+		    op->timer.function,
+		    (char*) op->timer.data,
+		    (unsigned int) op->timer.expires);
+
+		/* send (next) frame */
+		bcm_can_tx(op);
+	} else {
+		if (op->j_ival2) {
+			op->timer.expires = jiffies + op->j_ival2;
+			add_timer(&op->timer);
+
+			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
+			    op->timer.function,
+			    (char*) op->timer.data,
+			    (unsigned int) op->timer.expires);
+
+			/* send (next) frame */
+			bcm_can_tx(op);
+		} else
+			DBG("no timer restart\n");
+	}
+
+	return;
+
 }
 
 static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
@@ -509,6 +536,86 @@ static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
 	DBG("no relevant change :(\n");
 }
 
+static void bcm_rx_starttimer(struct bcm_op *op)
+{
+	if (op->flags & RX_NO_AUTOTIMER)
+		return;
+
+	if (op->j_ival1) {
+
+		op->timer.expires = jiffies + op->j_ival1;
+
+		DBG("adding rx timeout timer ival1. func=%p data=%p "
+		    "exp=0x%08X\n",
+		    op->timer.function,
+		    (char*) op->timer.data,
+		    (unsigned int) op->timer.expires);
+
+		add_timer(&op->timer);
+	}
+}
+
+static void bcm_rx_timeout_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_msg_head msg_head;
+
+	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
+
+	msg_head.opcode  = RX_TIMEOUT;
+	msg_head.flags   = op->flags;
+	msg_head.count   = op->count;
+	msg_head.ival1   = op->ival1;
+	msg_head.ival2   = op->ival2;
+	msg_head.can_id  = op->can_id;
+	msg_head.nframes = 0;
+
+	bcm_send_to_user(op, &msg_head, NULL, NULL);
+
+	/* no restart of the timer is done here! */
+
+	/* if user wants to be informed, when cyclic CAN-Messages come back */
+	if ((op->flags & RX_ANNOUNCE_RESUME) && op->last_frames) {
+		/* clear received can_frames to indicate 'nothing received' */
+		memset(op->last_frames, 0, op->nframes * CFSIZ);
+		DBG("RX_ANNOUNCE_RESTART\n");
+	}
+
+}
+
+static void bcm_rx_thr_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	int i = 0;
+
+	/* mark disabled / consumed timer */
+	op->thrtimer.expires = 0;
+
+	if (op->nframes > 1){
+
+		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
+		    op->can_id, op);
+		/* for MUX filter we start at index 1 */
+		for (i=1; i<op->nframes; i++){
+			if ((op->last_frames) &&
+			    (op->last_frames[i].can_dlc & RX_THR)){
+				op->last_frames[i].can_dlc &= ~RX_THR;
+				bcm_rx_changed(op, &op->last_frames[i]);
+			}
+		}
+	} else {
+
+		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
+		    op->can_id, op);
+		/* for RX_FILTER_ID and simple filter */
+		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)){
+			op->last_frames[0].can_dlc &= ~RX_THR;
+			bcm_rx_changed(op, &op->last_frames[0]);
+		}
+	}
+}
+
+
 static void bcm_rx_handler(struct sk_buff *skb, void *data)
 {
 	struct bcm_op *op = (struct bcm_op*)data;
@@ -591,66 +698,6 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 			}
 		}
 		bcm_rx_starttimer(op);
-	}
-}
-
-static void bcm_rx_timeout_handler(unsigned long data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	struct bcm_msg_head msg_head;
-
-	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
-
-	msg_head.opcode  = RX_TIMEOUT;
-	msg_head.flags   = op->flags;
-	msg_head.count   = op->count;
-	msg_head.ival1   = op->ival1;
-	msg_head.ival2   = op->ival2;
-	msg_head.can_id  = op->can_id;
-	msg_head.nframes = 0;
-
-	bcm_send_to_user(op, &msg_head, NULL, NULL);
-
-	/* no restart of the timer is done here! */
-
-	/* if user wants to be informed, when cyclic CAN-Messages come back */
-	if ((op->flags & RX_ANNOUNCE_RESUME) && op->last_frames) {
-		/* clear received can_frames to indicate 'nothing received' */
-		memset(op->last_frames, 0, op->nframes * CFSIZ);
-		DBG("RX_ANNOUNCE_RESTART\n");
-	}
-
-}
-
-static void bcm_rx_thr_handler(unsigned long data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	int i = 0;
-
-	/* mark disabled / consumed timer */
-	op->thrtimer.expires = 0;
-
-	if (op->nframes > 1){
-
-		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
-		    op->can_id, op);
-		/* for MUX filter we start at index 1 */
-		for (i=1; i<op->nframes; i++){
-			if ((op->last_frames) &&
-			    (op->last_frames[i].can_dlc & RX_THR)){
-				op->last_frames[i].can_dlc &= ~RX_THR;
-				bcm_rx_changed(op, &op->last_frames[i]);
-			}
-		}
-	} else {
-
-		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
-		    op->can_id, op);
-		/* for RX_FILTER_ID and simple filter */
-		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)){
-			op->last_frames[0].can_dlc &= ~RX_THR;
-			bcm_rx_changed(op, &op->last_frames[0]);
-		}
 	}
 }
 
@@ -737,72 +784,39 @@ static int bcm_delete_tx_op(struct list_head *ops, canid_t can_id, int ifindex)
 	return 0; /* not found */
 }
 
-/* helper functions for bcm_sendmsg() */
-
-static void bcm_tx_timeout_handler(unsigned long data)
+static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
+		       int ifindex)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op;
+	int ret;
 
-	DBG("Called with bcm_op %p\n", op);
+	op = bcm_find_op(ops, msg_head->can_id, ifindex);
+	if (op) {
 
-	if (op->j_ival1 && (op->count > 0)) {
+		DBG("TRX_READ: sending status for can_id %03X\n",
+		    msg_head->can_id);
+		/* put current values into msg_head */
+		msg_head->flags   = op->flags;
+		msg_head->count   = op->count;
+		msg_head->ival1   = op->ival1;
+		msg_head->ival2   = op->ival2;
+		msg_head->nframes = op->nframes;
 
-		op->count--;
+		bcm_send_to_user(op, msg_head, op->frames, NULL);
 
-		if (!op->count && (op->flags & TX_COUNTEVT)) {
-			/* create notification to user */
+		ret = MHSIZ;
 
-			struct bcm_msg_head msg_head;
-
-			DBG("sending TX_EXPIRED for can_id %03X\n",
-			    op->can_id);
-
-			msg_head.opcode  = TX_EXPIRED;
-			msg_head.flags   = op->flags;
-			msg_head.count   = op->count;
-			msg_head.ival1   = op->ival1;
-			msg_head.ival2   = op->ival2;
-			msg_head.can_id  = op->can_id;
-			msg_head.nframes = 0;
-
-			bcm_send_to_user(op, &msg_head, NULL, NULL);
-		}
-	}
-
-	DBG("count=%d j_ival1=%ld j_ival2=%ld\n",
-	    op->count, op->j_ival1, op->j_ival2);
-
-	if (op->j_ival1 && (op->count > 0)) {
-
-		op->timer.expires = jiffies + op->j_ival1;
-		add_timer(&op->timer);
-
-		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
-		    op->timer.function,
-		    (char*) op->timer.data,
-		    (unsigned int) op->timer.expires);
-
-		/* send (next) frame */
-		bcm_can_tx(op);
 	} else {
-		if (op->j_ival2) {
-			op->timer.expires = jiffies + op->j_ival2;
-			add_timer(&op->timer);
 
-			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
-			    op->timer.function,
-			    (char*) op->timer.data,
-			    (unsigned int) op->timer.expires);
-
-			/* send (next) frame */
-			bcm_can_tx(op);
-		} else
-			DBG("no timer restart\n");
+		DBG("TRX_READ: did not find op for can_id %03X\n",
+		    msg_head->can_id);
+		ret = -EINVAL;
 	}
 
-	return;
-
+	return ret;
 }
+
+/* helper functions for bcm_sendmsg() */
 
 static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
@@ -1249,33 +1263,103 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 	return CFSIZ + MHSIZ;
 }
 
-static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
-		       int ifindex)
+
+static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
+		       struct msghdr *msg, size_t size)
 {
-	struct bcm_op *op;
-	int ret;
+	struct sock *sk = sock->sk;
+	struct bcm_opt *bo = bcm_sk(sk);
+	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
+	struct bcm_msg_head msg_head;
+	int ret; /* read bytes or error codes as return value */
 
-	op = bcm_find_op(ops, msg_head->can_id, ifindex);
-	if (op) {
+	if (!bo->bound) {
+		DBG("sock %p not bound\n", sk);
+		return -ENOTCONN;
+	}
 
-		DBG("TRX_READ: sending status for can_id %03X\n",
-		    msg_head->can_id);
-		/* put current values into msg_head */
-		msg_head->flags   = op->flags;
-		msg_head->count   = op->count;
-		msg_head->ival1   = op->ival1;
-		msg_head->ival2   = op->ival2;
-		msg_head->nframes = op->nframes;
+	/* check for alternative ifindex for this bcm_op */
 
-		bcm_send_to_user(op, msg_head, op->frames, NULL);
+	if (!ifindex && msg->msg_name) {
+		/* no bound device as default => check msg_name */
+		struct sockaddr_can *addr = 
+			(struct sockaddr_can *)msg->msg_name;
 
-		ret = MHSIZ;
+		if (addr->can_family != AF_CAN)
+			return -EINVAL;
 
-	} else {
+		ifindex = addr->can_ifindex; /* ifindex from sendto() */
 
-		DBG("TRX_READ: did not find op for can_id %03X\n",
-		    msg_head->can_id);
+		if (ifindex && !dev_get_by_index(ifindex)) {
+			DBG("device %d not found\n", ifindex);
+			return -ENODEV;
+		}
+	}
+
+	/* read message head information */
+
+	ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov, MHSIZ);
+	if (ret < 0)
+		return ret;
+
+	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
+
+	switch (msg_head.opcode) {
+
+	case TX_SETUP:
+
+		ret = bcm_tx_setup(&msg_head, msg, ifindex, sk);
+		break;
+
+	case RX_SETUP:
+
+		ret = bcm_rx_setup(&msg_head, msg, ifindex, sk);
+		break;
+
+	case TX_DELETE:
+
+		if (bcm_delete_tx_op(&bo->tx_ops, msg_head.can_id, ifindex))
+			ret = MHSIZ;
+		else
+			ret = -EINVAL;
+		break;
+		    
+	case RX_DELETE:
+
+		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
+			ret = MHSIZ;
+		else
+			ret = -EINVAL;
+		break;
+
+	case TX_READ:
+
+		/* reuse msg_head for the reply to TX_READ */
+		msg_head.opcode  = TX_STATUS;
+		ret = bcm_read_op(&bo->tx_ops, &msg_head, ifindex);
+		break;
+
+	case RX_READ:
+
+		/* reuse msg_head for the reply to RX_READ */
+		msg_head.opcode  = RX_STATUS;
+		ret = bcm_read_op(&bo->rx_ops, &msg_head, ifindex);
+		break;
+
+	case TX_SEND:
+
+		/* we need at least one can_frame */
+		if (msg_head.nframes < 1)
+			return -EINVAL;
+
+		ret = bcm_tx_send(msg, ifindex, sk);
+		break;
+
+	default:
+
+		DBG("Unknown opcode %d\n", msg_head.opcode);
 		ret = -EINVAL;
+		break;
 	}
 
 	return ret;
@@ -1296,6 +1380,25 @@ static int bcm_init(struct sock *sk)
 	INIT_LIST_HEAD(&bo->rx_ops);
 
 	return 0;
+}
+
+static void bcm_notifier(unsigned long msg, void *data)
+{
+	struct sock *sk = (struct sock *)data;
+	struct bcm_opt *bo = bcm_sk(sk);
+
+	DBG("called for sock %p\n", sk);
+
+	switch (msg) {
+	case NETDEV_UNREGISTER:
+		bo->bound   = 0;
+		bo->ifindex = 0;
+		/* fallthrough */
+	case NETDEV_DOWN:
+		sk->sk_err = ENETDOWN;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+	}
 }
 
 /* standard socket functions */
@@ -1400,107 +1503,6 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	}
 
 	return 0;
-}
-
-static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
-		       struct msghdr *msg, size_t size)
-{
-	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
-	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
-	struct bcm_msg_head msg_head;
-	int ret; /* read bytes or error codes as return value */
-
-	if (!bo->bound) {
-		DBG("sock %p not bound\n", sk);
-		return -ENOTCONN;
-	}
-
-	/* check for alternative ifindex for this bcm_op */
-
-	if (!ifindex && msg->msg_name) {
-		/* no bound device as default => check msg_name */
-		struct sockaddr_can *addr = 
-			(struct sockaddr_can *)msg->msg_name;
-
-		if (addr->can_family != AF_CAN)
-			return -EINVAL;
-
-		ifindex = addr->can_ifindex; /* ifindex from sendto() */
-
-		if (ifindex && !dev_get_by_index(ifindex)) {
-			DBG("device %d not found\n", ifindex);
-			return -ENODEV;
-		}
-	}
-
-	/* read message head information */
-
-	ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov, MHSIZ);
-	if (ret < 0)
-		return ret;
-
-	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
-
-	switch (msg_head.opcode) {
-
-	case TX_SETUP:
-
-		ret = bcm_tx_setup(&msg_head, msg, ifindex, sk);
-		break;
-
-	case RX_SETUP:
-
-		ret = bcm_rx_setup(&msg_head, msg, ifindex, sk);
-		break;
-
-	case TX_DELETE:
-
-		if (bcm_delete_tx_op(&bo->tx_ops, msg_head.can_id, ifindex))
-			ret = MHSIZ;
-		else
-			ret = -EINVAL;
-		break;
-		    
-	case RX_DELETE:
-
-		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
-			ret = MHSIZ;
-		else
-			ret = -EINVAL;
-		break;
-
-	case TX_READ:
-
-		/* reuse msg_head for the reply to TX_READ */
-		msg_head.opcode  = TX_STATUS;
-		ret = bcm_read_op(&bo->tx_ops, &msg_head, ifindex);
-		break;
-
-	case RX_READ:
-
-		/* reuse msg_head for the reply to RX_READ */
-		msg_head.opcode  = RX_STATUS;
-		ret = bcm_read_op(&bo->rx_ops, &msg_head, ifindex);
-		break;
-
-	case TX_SEND:
-
-		/* we need at least one can_frame */
-		if (msg_head.nframes < 1)
-			return -EINVAL;
-
-		ret = bcm_tx_send(msg, ifindex, sk);
-		break;
-
-	default:
-
-		DBG("Unknown opcode %d\n", msg_head.opcode);
-		ret = -EINVAL;
-		break;
-	}
-
-	return ret;
 }
 
 static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
