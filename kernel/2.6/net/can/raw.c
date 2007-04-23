@@ -124,6 +124,7 @@ static void raw_notifier(unsigned long msg, void *data)
 	DBG("called for sock %p\n", sk);
 
 	switch (msg) {
+
 	case NETDEV_UNREGISTER:
 		ro->ifindex = 0;
 		ro->bound   = 0;
@@ -374,6 +375,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		return -EINVAL;
 
 	switch (optname) {
+
 	case CAN_RAW_FILTER:
 		if (optlen % sizeof(struct can_filter) != 0)
 			return -EINVAL;
@@ -492,6 +494,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 		return -EINVAL;
 
 	switch (optname) {
+
 	case CAN_RAW_FILTER:
 		if (get_user(len, optlen))
 			return -EFAULT;

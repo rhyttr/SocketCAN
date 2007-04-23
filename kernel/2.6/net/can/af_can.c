@@ -87,7 +87,6 @@ module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
-
 struct notifier {
 	struct list_head list;
 	struct net_device *dev;
