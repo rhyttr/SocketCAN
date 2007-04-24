@@ -77,6 +77,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 	      "Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
+MODULE_ALIAS_NETPROTO(PF_CAN);
+
 int stats_timer = 1; /* default: on */
 module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
