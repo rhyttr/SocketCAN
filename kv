@@ -6,8 +6,12 @@
 # eliminate all occurences of #if LINUX_VERSION_CODE < KERNEL_VERSION(...)
 # and likewise for <=, >, and >=.
 #
-# Call as kv <version> <file> where <version> is the kernel version you
+# Call as kv [-d] <version> <file> where <version> is the kernel version you
 # want the code to be generated for.  The result will be output on stdout.
+#
+# Examples:
+#   kv 020618 raw.c    (prints the raw.c file for Kernel 2.6.18 to stdout)
+#   kv -d 020621 raw.c (analogue for 2.6.21 with debug info of script actions)
 
 require("getopts.pl");
 
