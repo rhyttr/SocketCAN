@@ -22,7 +22,7 @@
 #include <linux/netdevice.h>
 
 
-#define CAN_VERSION "2.0.0-pre6"
+#define CAN_VERSION "2.0.0-pre7"
 
 /* increment this number each time you change some user-space interface */
 #define CAN_ABI_VERSION 8
