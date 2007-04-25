@@ -1,6 +1,6 @@
-diff -ruN linux-2.6.21-rc4/CREDITS linux/CREDITS
---- linux-2.6.21-rc4/CREDITS	2007-03-19 10:16:51.000000000 +0000
-+++ linux/CREDITS	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/CREDITS linux/CREDITS
+--- linux-2.6.21-rc7/CREDITS	2007-04-25 08:17:49.000000000 +0000
++++ linux/CREDITS	2007-04-25 08:21:39.000000000 +0000
 @@ -1324,6 +1324,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
@@ -31,10 +31,10 @@ diff -ruN linux-2.6.21-rc4/CREDITS linux/CREDITS
  N: Jon Tombs
  E: jon@gte.esi.us.es
  W: http://www.esi.us.es/~jon
-diff -ruN linux-2.6.21-rc4/MAINTAINERS linux/MAINTAINERS
---- linux-2.6.21-rc4/MAINTAINERS	2007-03-19 10:16:52.000000000 +0000
-+++ linux/MAINTAINERS	2007-03-19 10:18:20.000000000 +0000
-@@ -856,6 +856,15 @@
+diff -ruN linux-2.6.21-rc7/MAINTAINERS linux/MAINTAINERS
+--- linux-2.6.21-rc7/MAINTAINERS	2007-04-25 08:17:49.000000000 +0000
++++ linux/MAINTAINERS	2007-04-25 08:21:39.000000000 +0000
+@@ -871,6 +871,15 @@
  T:	git kernel.org:/pub/scm/linux/kernel/git/mchehab/v4l-dvb.git
  S:	Maintained
  
@@ -50,9 +50,9 @@ diff -ruN linux-2.6.21-rc4/MAINTAINERS linux/MAINTAINERS
  CALGARY x86-64 IOMMU
  P:	Muli Ben-Yehuda
  M:	muli@il.ibm.com
-diff -ruN linux-2.6.21-rc4/drivers/net/Makefile linux/drivers/net/Makefile
---- linux-2.6.21-rc4/drivers/net/Makefile	2007-03-19 10:17:08.000000000 +0000
-+++ linux/drivers/net/Makefile	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/drivers/net/Makefile linux/drivers/net/Makefile
+--- linux-2.6.21-rc7/drivers/net/Makefile	2007-04-25 08:17:52.000000000 +0000
++++ linux/drivers/net/Makefile	2007-04-25 08:21:39.000000000 +0000
 @@ -8,6 +8,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -61,9 +61,9 @@ diff -ruN linux-2.6.21-rc4/drivers/net/Makefile linux/drivers/net/Makefile
  obj-$(CONFIG_BONDING) += bonding/
  obj-$(CONFIG_ATL1) += atl1/
  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-diff -ruN linux-2.6.21-rc4/include/linux/if_arp.h linux/include/linux/if_arp.h
---- linux-2.6.21-rc4/include/linux/if_arp.h	2007-03-19 10:11:25.000000000 +0000
-+++ linux/include/linux/if_arp.h	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/include/linux/if_arp.h linux/include/linux/if_arp.h
+--- linux-2.6.21-rc7/include/linux/if_arp.h	2007-04-13 20:48:14.000000000 +0000
++++ linux/include/linux/if_arp.h	2007-04-25 08:21:39.000000000 +0000
 @@ -52,6 +52,7 @@
  #define ARPHRD_ROSE	270
  #define ARPHRD_X25	271		/* CCITT X.25			*/
@@ -72,9 +72,9 @@ diff -ruN linux-2.6.21-rc4/include/linux/if_arp.h linux/include/linux/if_arp.h
  #define ARPHRD_PPP	512
  #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
  #define ARPHRD_HDLC	ARPHRD_CISCO
-diff -ruN linux-2.6.21-rc4/include/linux/if_ether.h linux/include/linux/if_ether.h
---- linux-2.6.21-rc4/include/linux/if_ether.h	2006-06-18 01:49:35.000000000 +0000
-+++ linux/include/linux/if_ether.h	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/include/linux/if_ether.h linux/include/linux/if_ether.h
+--- linux-2.6.21-rc7/include/linux/if_ether.h	2007-04-13 20:48:14.000000000 +0000
++++ linux/include/linux/if_ether.h	2007-04-25 08:21:39.000000000 +0000
 @@ -88,6 +88,7 @@
  #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
  #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
@@ -83,9 +83,9 @@ diff -ruN linux-2.6.21-rc4/include/linux/if_ether.h linux/include/linux/if_ether
  #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
  #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
  #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
-diff -ruN linux-2.6.21-rc4/include/linux/socket.h linux/include/linux/socket.h
---- linux-2.6.21-rc4/include/linux/socket.h	2007-03-19 10:17:19.000000000 +0000
-+++ linux/include/linux/socket.h	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/include/linux/socket.h linux/include/linux/socket.h
+--- linux-2.6.21-rc7/include/linux/socket.h	2007-04-25 08:17:54.000000000 +0000
++++ linux/include/linux/socket.h	2007-04-25 08:21:39.000000000 +0000
 @@ -185,6 +185,7 @@
  #define AF_PPPOX	24	/* PPPoX sockets		*/
  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
@@ -102,9 +102,9 @@ diff -ruN linux-2.6.21-rc4/include/linux/socket.h linux/include/linux/socket.h
  #define PF_TIPC		AF_TIPC
  #define PF_BLUETOOTH	AF_BLUETOOTH
  #define PF_IUCV		AF_IUCV
-diff -ruN linux-2.6.21-rc4/include/linux/tty.h linux/include/linux/tty.h
---- linux-2.6.21-rc4/include/linux/tty.h	2007-03-19 10:17:19.000000000 +0000
-+++ linux/include/linux/tty.h	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/include/linux/tty.h linux/include/linux/tty.h
+--- linux-2.6.21-rc7/include/linux/tty.h	2007-04-25 08:17:54.000000000 +0000
++++ linux/include/linux/tty.h	2007-04-25 08:21:39.000000000 +0000
 @@ -24,7 +24,7 @@
  #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
  #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
@@ -122,9 +122,9 @@ diff -ruN linux-2.6.21-rc4/include/linux/tty.h linux/include/linux/tty.h
  
  /*
   * This character is the same as _POSIX_VDISABLE: it cannot be used as
-diff -ruN linux-2.6.21-rc4/net/Kconfig linux/net/Kconfig
---- linux-2.6.21-rc4/net/Kconfig	2007-03-19 10:17:19.000000000 +0000
-+++ linux/net/Kconfig	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/net/Kconfig linux/net/Kconfig
+--- linux-2.6.21-rc7/net/Kconfig	2007-04-25 08:17:54.000000000 +0000
++++ linux/net/Kconfig	2007-04-25 08:21:39.000000000 +0000
 @@ -217,6 +217,7 @@
  endmenu
  
@@ -133,9 +133,9 @@ diff -ruN linux-2.6.21-rc4/net/Kconfig linux/net/Kconfig
  source "net/irda/Kconfig"
  source "net/bluetooth/Kconfig"
  source "net/ieee80211/Kconfig"
-diff -ruN linux-2.6.21-rc4/net/Makefile linux/net/Makefile
---- linux-2.6.21-rc4/net/Makefile	2007-03-19 10:17:19.000000000 +0000
-+++ linux/net/Makefile	2007-03-19 10:18:20.000000000 +0000
+diff -ruN linux-2.6.21-rc7/net/Makefile linux/net/Makefile
+--- linux-2.6.21-rc7/net/Makefile	2007-04-25 08:17:54.000000000 +0000
++++ linux/net/Makefile	2007-04-25 08:21:39.000000000 +0000
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -144,10 +144,10 @@ diff -ruN linux-2.6.21-rc4/net/Makefile linux/net/Makefile
  obj-$(CONFIG_IRDA)		+= irda/
  obj-$(CONFIG_BT)		+= bluetooth/
  obj-$(CONFIG_SUNRPC)		+= sunrpc/
-diff -ruN linux-2.6.21-rc4/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
---- linux-2.6.21-rc4/net/ipv6/addrconf.c	2007-03-19 10:17:20.000000000 +0000
-+++ linux/net/ipv6/addrconf.c	2007-03-19 10:18:20.000000000 +0000
-@@ -2174,6 +2174,10 @@
+diff -ruN linux-2.6.21-rc7/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
+--- linux-2.6.21-rc7/net/ipv6/addrconf.c	2007-04-25 08:17:54.000000000 +0000
++++ linux/net/ipv6/addrconf.c	2007-04-25 08:21:39.000000000 +0000
+@@ -2177,6 +2177,10 @@
  	struct inet6_dev *idev = __in6_dev_get(dev);
  	int run_pending = 0;
  
