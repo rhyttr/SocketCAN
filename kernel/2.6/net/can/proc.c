@@ -339,7 +339,7 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 	int len = 0;
 
 	len += snprintf(page + len, PAGE_SIZE - len,
-			"CAN version %s, ABI version %d",
+			"CAN version %s, ABI version %d\n",
 			CAN_VERSION, CAN_ABI_VERSION);
 	*eof = 1;
 	return len;
