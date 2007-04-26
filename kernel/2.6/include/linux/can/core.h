@@ -39,7 +39,6 @@
  * @ops:        pointer to struct proto_ops for sock->ops.
  * @prot:       pointer to struct proto structure.
  */
-
 struct can_proto {
 	int              type;
 	int              protocol;

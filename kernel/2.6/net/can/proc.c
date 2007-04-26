@@ -53,7 +53,9 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-/* proc filenames */
+/*
+ * proc filenames for the PF_CAN core
+ */
 
 #define CAN_PROC_VERSION     "version"
 #define CAN_PROC_STATS       "stats"
@@ -112,16 +114,12 @@ struct s_pstats pstats;
 extern struct hlist_head rx_dev_list;    /* rx dispatcher structures */
 extern int stats_timer;                  /* module parameter. default: on */
 
-/**************************************************/
-/* procfs init / remove                           */
-/**************************************************/
-
+/*
+ * can_init_proc - create main CAN proc directory and procfs entries
+ */
 void can_init_proc(void)
 {
-
-	/* procfs init */
-
-	/* create /proc/can directory */
+	/* create /proc/net/can directory */
 	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
 
 	if (!can_dir) {
@@ -163,9 +161,11 @@ void can_init_proc(void)
 	}
 }
 
+/*
+ * can_remove_proc - remove procfs entries and main CAN proc directory
+ */
 void can_remove_proc(void)
 {
-	/* procfs remove */
 	if (pde_version)
 		can_remove_proc_readentry(CAN_PROC_VERSION);
 
@@ -197,9 +197,9 @@ void can_remove_proc(void)
 		remove_proc_entry(CAN_PROC_DIR, NULL);
 }
 
-/**************************************************/
-/* proc read functions                            */
-/**************************************************/
+/* 
+ * proc read functions
+ */
 
 static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 			     struct net_device *dev)
@@ -562,9 +562,9 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 	return len;
 }
 
-/**************************************************/
-/* proc utility functions                         */
-/**************************************************/
+/*
+ * proc utility functions
+ */
 
 static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 							mode_t mode,
@@ -604,9 +604,9 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 	return ret;
 }
 
-/**************************************************/
-/* af_can statistics stuff                        */
-/**************************************************/
+/* 
+ * af_can statistics stuff
+ */
 
 static void can_init_stats(int caller)
 {

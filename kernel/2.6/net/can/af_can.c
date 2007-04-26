@@ -245,7 +245,7 @@ static int can_create(struct socket *sock, int protocol)
  *  0 on success
  *  -ENETDOWN when the selected interface is down
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
- **/
+ */
 int can_send(struct sk_buff *skb, int loop)
 {
 	int err;
@@ -382,7 +382,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
  *  0 on success
  *  -ENOMEM on missing cache mem to create subscription entry
  *  -ENODEV unknown device
- **/
+ */
 int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		    void (*func)(struct sk_buff *, void *), void *data,
 		    char *ident)
@@ -471,7 +471,7 @@ static void can_rx_delete_all(struct hlist_head *rl)
  *  0 on success
  *  -EINVAL on missing subscription entry
  *  -ENODEV unknown device
- **/
+ */
 int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		      void (*func)(struct sk_buff *, void *), void *data)
 {
@@ -675,7 +675,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
  *
  * Return:
  *  calculated jiffies (max: ULONG_MAX)
- **/
+ */
 unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 {
 	unsigned long jif;
@@ -710,7 +710,7 @@ EXPORT_SYMBOL(timeval2jiffies);
  * can_debug_cframe - print CAN frame
  * @msg: pointer to message printed before the given CAN frame
  * @cf: pointer to CAN frame
- **/
+ */
 void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 {
 	va_list ap;
@@ -751,7 +751,7 @@ EXPORT_SYMBOL(can_debug_cframe);
 /**
  * can_debug_skb - print socket buffer content to kernel log
  * @skb: pointer to socket buffer
- **/
+ */
 void can_debug_skb(struct sk_buff *skb)
 {
 	int len, nbytes, i;
@@ -800,7 +800,7 @@ EXPORT_SYMBOL(can_debug_skb);
  *  -EINVAL invalid (out of range) protocol number
  *  -EBUSY  protocol already in use
  *  -ENOBUF if proto_register() fails
- **/
+ */
 int can_proto_register(struct can_proto *cp)
 {
 	int proto = cp->protocol;
@@ -840,7 +840,7 @@ EXPORT_SYMBOL(can_proto_register);
  * Return:
  *  0 on success
  *  -ESRCH protocol number was not registered
- **/
+ */
 int can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
@@ -872,7 +872,7 @@ EXPORT_SYMBOL(can_proto_unregister);
  *  0 on success
  *  -ENOMEM on missing mem to create subscription entry
  *  -ENODEV unknown device
- **/
+ */
 int can_dev_register(struct net_device *dev,
 		     void (*func)(unsigned long msg, void *), void *data)
 {
@@ -911,7 +911,7 @@ EXPORT_SYMBOL(can_dev_register);
  * Return:
  *  0 on success
  *  -EINVAL on missing subscription entry
- **/
+ */
 int can_dev_unregister(struct net_device *dev,
 		       void (*func)(unsigned long msg, void *), void *data)
 {
