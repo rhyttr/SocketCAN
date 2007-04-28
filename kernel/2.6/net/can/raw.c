@@ -53,7 +53,6 @@
 #include <net/sock.h>
 
 #include <linux/can.h>
-#include <linux/can/error.h>
 #include <linux/can/core.h>
 #include <linux/can/raw.h>
 
