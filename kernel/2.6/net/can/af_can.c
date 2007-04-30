@@ -338,12 +338,15 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	else
 		*mask &= (CAN_SFF_MASK | CAN_RTR_FLAG);
 
-	*can_id &= *mask; /* reduce condition testing at receive time */
+	/* reduce condition testing at receive time */
+	*can_id &= *mask;
 
-	if (inv) /* inverse can_id/can_mask filter */
+	/* inverse can_id/can_mask filter */
+	if (inv)
 		return &d->rx_inv;
 
-	if (!(*mask)) /* mask == 0 => no condition testing at receive time */
+	/* mask == 0 => no condition testing at receive time */
+	if (!(*mask))
 		return &d->rx_all;
 
 	/* use extra filterset for the subscription of exactly *ONE* can_id */
@@ -357,7 +360,8 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 			return &d->rx_sff[*can_id];
 	}
 
-	return &d->rx_fil;  /* default: filter via can_id/can_mask */
+	/* default: filter via can_id/can_mask */
+	return &d->rx_fil;
 }
 
 /**
@@ -545,7 +549,7 @@ static inline void deliver(struct sk_buff *skb, struct receiver *r)
 	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
 		r->func(clone, r->data);
-		r->matches++;    /* update specific statistics */
+		r->matches++;
 	}
 }
 
@@ -569,7 +573,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 				matches++;
 			}
 		}
-		goto out;
+		return matches;
 	}
 
 	/* check for unfiltered entries */
@@ -615,7 +619,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 		}
 	}
 
- out:
 	return matches;
 }
 
