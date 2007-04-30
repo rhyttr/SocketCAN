@@ -81,7 +81,11 @@ module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
-#define GET_U64(p) (*(u64*)(p)->data) /* easy access to can_frame payload */
+/* easy access to can_frame payload */
+static inline u64 GET_U64(const struct can_frame *cp)
+{
+	return *(u64*)cp->data;
+}
 
 struct bcm_op {
 	struct list_head list;
@@ -128,9 +132,15 @@ struct bcm_sock {
 	struct bcm_opt opt;
 };
 
-#define bcm_sk(sk) (&((struct bcm_sock *)(sk))->opt)
+static inline struct bcm_opt *bcm_sk(const struct sock *sk)
+{
+	return &((struct bcm_sock *)sk)->opt;
+}
 #else
-#define bcm_sk(sk) ((struct bcm_opt *)(sk)->sk_protinfo)
+static inline struct bcm_opt *bcm_sk(const struct sock *sk)
+{
+	return (struct bcm_opt *)sk->sk_protinfo;
+}
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)

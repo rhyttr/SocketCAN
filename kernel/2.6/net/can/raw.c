@@ -110,9 +110,15 @@ struct raw_sock {
 	struct raw_opt opt;
 };
 
-#define raw_sk(sk) (&((struct raw_sock *)(sk))->opt)
+static inline struct raw_opt *raw_sk(const struct sock *sk)
+{
+	return &((struct raw_sock *)sk)->opt;
+}
 #else
-#define raw_sk(sk) ((struct raw_opt *)(sk)->sk_protinfo)
+static inline struct raw_opt *raw_sk(const struct sock *sk)
+{
+	return (struct raw_opt *)sk->sk_protinfo;
+}
 #endif
 
 static void raw_notifier(unsigned long msg, void *data)
