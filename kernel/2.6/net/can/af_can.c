@@ -97,11 +97,11 @@ struct notifier {
 };
 
 static LIST_HEAD(notifier_list);
-static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
+static DEFINE_RWLOCK(notifier_lock);
 
 HLIST_HEAD(rx_dev_list);
 static struct dev_rcv_lists rx_alldev_list;
-static spinlock_t rcv_lists_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(rcv_lists_lock);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 static struct kmem_cache *rcv_cache __read_mostly;
