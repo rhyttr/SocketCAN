@@ -709,6 +709,8 @@ EXPORT_SYMBOL_GPL(timeval2jiffies);
 
 #ifdef CONFIG_CAN_DEBUG_CORE
 
+#define DBG_BSIZE 1024
+
 /**
  * can_debug_cframe - print CAN frame
  * @msg: pointer to message printed before the given CAN frame
@@ -719,11 +721,15 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	va_list ap;
 	int len;
 	int dlc, i;
-	char buf[1024];
+	char *buf;
+
+	buf = kmalloc(DBG_BSIZE, GFP_ATOMIC);
+	if (!buf)
+		return;
 
 	len = sprintf(buf, KERN_DEBUG);
 	va_start(ap, cf);
-	len += snprintf(buf + len, sizeof(buf) - 64, msg, ap);
+	len += snprintf(buf + len, DBG_BSIZE - 64, msg, ap);
 	buf[len++] = ':';
 	buf[len++] = ' ';
 	va_end(ap);
@@ -748,6 +754,7 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	buf[len++] = '\n';
 	buf[len]   = '\0';
 	printk(buf);
+	kfree(buf);
 }
 EXPORT_SYMBOL_GPL(can_debug_cframe);
 
@@ -758,7 +765,11 @@ EXPORT_SYMBOL_GPL(can_debug_cframe);
 void can_debug_skb(struct sk_buff *skb)
 {
 	int len, nbytes, i;
-	char buf[1024];
+	char *buf;
+
+	buf = kmalloc(DBG_BSIZE, GFP_ATOMIC);
+	if (!buf)
+		return;
 
 	len = sprintf(buf,
 		      KERN_DEBUG "  skbuff at %p, dev: %d, proto: %04x\n"
@@ -775,7 +786,7 @@ void can_debug_skb(struct sk_buff *skb)
 	for (i = 0; i < nbytes; i++) {
 		if (i % 16 == 0)
 			len += sprintf(buf + len, "\n" KERN_DEBUG "  ");
-		if (len < sizeof(buf) - 16) {
+		if (len < DBG_BSIZE - 16) {
 			len += sprintf(buf + len, " %02x", skb->head[i]);
 		} else {
 			len += sprintf(buf + len, "...");
@@ -785,6 +796,7 @@ void can_debug_skb(struct sk_buff *skb)
 	buf[len++] = '\n';
 	buf[len]   = '\0';
 	printk(buf);
+	kfree(buf);
 }
 EXPORT_SYMBOL_GPL(can_debug_skb);
 
