@@ -141,7 +141,7 @@ int can_calc_bit_time(struct can_device *can, u32 baudrate,
 		return -EDOM;
 	return 0;
 }
-EXPORT_SYMBOL(can_calc_bit_time);
+EXPORT_SYMBOL_GPL(can_calc_bit_time);
 
 static struct net_device_stats *can_get_stats(struct net_device *dev)
 {
@@ -290,10 +290,10 @@ struct can_device *alloc_candev(int sizeof_priv)
 
 	return can;
 }
-EXPORT_SYMBOL(alloc_candev);
+EXPORT_SYMBOL_GPL(alloc_candev);
 
 void free_candev(struct can_device *can)
 {
 	free_netdev(can->net_dev);
 }
-EXPORT_SYMBOL(free_candev);
+EXPORT_SYMBOL_GPL(free_candev);

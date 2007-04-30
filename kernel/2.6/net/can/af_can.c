@@ -290,7 +290,7 @@ int can_send(struct sk_buff *skb, int loop)
 
 	return err;
 }
-EXPORT_SYMBOL(can_send);
+EXPORT_SYMBOL_GPL(can_send);
 
 /*
  * af_can rx path
@@ -431,7 +431,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	return ret;
 }
-EXPORT_SYMBOL(can_rx_register);
+EXPORT_SYMBOL_GPL(can_rx_register);
 
 static void can_rcv_lists_delete(struct rcu_head *rp)
 {
@@ -537,7 +537,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	return ret;
 }
-EXPORT_SYMBOL(can_rx_unregister);
+EXPORT_SYMBOL_GPL(can_rx_unregister);
 
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
@@ -698,7 +698,7 @@ unsigned long timeval2jiffies(struct timeval *tv, int round_up)
 	else
 		return jif + sec * HZ;
 }
-EXPORT_SYMBOL(timeval2jiffies);
+EXPORT_SYMBOL_GPL(timeval2jiffies);
 
 /*
  * af_can debugging stuff
@@ -746,7 +746,7 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	buf[len]   = '\0';
 	printk(buf);
 }
-EXPORT_SYMBOL(can_debug_cframe);
+EXPORT_SYMBOL_GPL(can_debug_cframe);
 
 /**
  * can_debug_skb - print socket buffer content to kernel log
@@ -783,7 +783,7 @@ void can_debug_skb(struct sk_buff *skb)
 	buf[len]   = '\0';
 	printk(buf);
 }
-EXPORT_SYMBOL(can_debug_skb);
+EXPORT_SYMBOL_GPL(can_debug_skb);
 
 #endif
 
@@ -831,7 +831,7 @@ int can_proto_register(struct can_proto *cp)
 
 	return err;
 }
-EXPORT_SYMBOL(can_proto_register);
+EXPORT_SYMBOL_GPL(can_proto_register);
 
 /**
  * can_proto_unregister - unregister CAN transport protocol
@@ -856,7 +856,7 @@ int can_proto_unregister(struct can_proto *cp)
 
 	return 0;
 }
-EXPORT_SYMBOL(can_proto_unregister);
+EXPORT_SYMBOL_GPL(can_proto_unregister);
 
 /**
  * can_dev_register - subscribe notifier for CAN device status changes
@@ -897,7 +897,7 @@ int can_dev_register(struct net_device *dev,
 
 	return 0;
 }
-EXPORT_SYMBOL(can_dev_register);
+EXPORT_SYMBOL_GPL(can_dev_register);
 
 /**
  * can_dev_unregister - unsubscribe notifier for CAN device status changes
@@ -933,7 +933,7 @@ int can_dev_unregister(struct net_device *dev,
 
 	return ret;
 }
-EXPORT_SYMBOL(can_dev_unregister);
+EXPORT_SYMBOL_GPL(can_dev_unregister);
 
 static int can_notifier(struct notifier_block *nb,
 			unsigned long msg, void *data)
