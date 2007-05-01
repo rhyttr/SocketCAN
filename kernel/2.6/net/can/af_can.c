@@ -328,8 +328,10 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 {
 	canid_t inv = *can_id & CAN_INV_FILTER; /* save flag before masking */
 
-	if (*mask & CAN_ERR_FLAG) { /* filter error frames */
-		*mask &= CAN_ERR_MASK; /* clear CAN_ERR_FLAG in list entry */
+	/* filter error frames */
+	if (*mask & CAN_ERR_FLAG) {
+		/* clear CAN_ERR_FLAG in list entry */
+		*mask &= CAN_ERR_MASK;
 		return &d->rx_err;
 	}
 
@@ -441,12 +443,14 @@ EXPORT_SYMBOL_GPL(can_rx_register);
 static void can_rcv_lists_delete(struct rcu_head *rp)
 {
 	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
+
 	kfree(d);
 }
 
 static void can_rx_delete(struct rcu_head *rp)
 {
 	struct receiver *r = container_of(rp, struct receiver, rcu);
+
 	kmem_cache_free(rcv_cache, r);
 }
 
@@ -547,6 +551,7 @@ EXPORT_SYMBOL_GPL(can_rx_unregister);
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
 	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+
 	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
 		r->func(clone, r->data);
