@@ -110,10 +110,15 @@ struct s_pstats {
 	unsigned long rcv_entries_max;
 }; /* persistent statistics */
 
-
 /* function prototypes for the CAN networklayer procfs (proc.c) */
+extern void can_init_proc(void);
+extern void can_remove_proc(void);
+extern void can_stat_update(unsigned long data);
 
-void can_init_proc(void);
-void can_remove_proc(void);
+/* structures and variables from af_can.c needed in proc.c for reading */
+extern struct timer_list stattimer;	/* timer for statistics update */
+extern struct s_stats  stats;		/* packet statistics */
+extern struct s_pstats pstats;		/* receive list statistics */
+extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
 
 #endif /* AF_CAN_H */

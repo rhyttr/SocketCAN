@@ -68,7 +68,6 @@ RCSID("$Id$");
 #define CAN_PROC_RCVLIST_ERR "rcvlist_err"
 
 static void can_init_stats(int caller);
-static void can_stat_update(unsigned long data);
 
 static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 	mode_t mode, read_proc_t* read_proc, void *data);
@@ -106,14 +105,6 @@ static struct proc_dir_entry *pde_rcvlist_sff = NULL;
 static struct proc_dir_entry *pde_rcvlist_eff = NULL;
 static struct proc_dir_entry *pde_rcvlist_err = NULL;
 
-struct timer_list stattimer; /* timer for statistics update */
-
-struct s_stats  stats; /* statistics */
-struct s_pstats pstats;
-
-extern struct hlist_head rx_dev_list;    /* rx dispatcher structures */
-extern int stats_timer;                  /* module parameter. default: on */
-
 /*
  * can_init_proc - create main CAN proc directory and procfs entries
  */
@@ -149,16 +140,6 @@ void can_init_proc(void)
 		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
 	pde_rcvlist_err = can_create_proc_readentry(
 		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
-
-	if (stats_timer) {
-		/* the statistics are updated every second (timer triggered) */
-		stattimer.function = can_stat_update;
-		stattimer.data = 0;
-		/* update every second */
-		stattimer.expires = jiffies + HZ;
-		/* start statistics timer */
-		add_timer(&stattimer);
-	}
 }
 
 /*
@@ -614,7 +595,7 @@ static void can_init_stats(int caller)
 	pstats.stats_reset++;
 }
 
-static void can_stat_update(unsigned long data)
+void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 

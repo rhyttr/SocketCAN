@@ -113,9 +113,9 @@ static kmem_cache_t *rcv_cache;
 /* table of registered CAN protocols */
 static struct can_proto *proto_tab[CAN_NPROTO];
 
-extern struct timer_list stattimer; /* timer for statistics update */
-extern struct s_stats  stats;       /* packet statistics */
-extern struct s_pstats pstats;      /* receive list statistics */
+struct timer_list stattimer; /* timer for statistics update */
+struct s_stats  stats;       /* packet statistics */
+struct s_pstats pstats;      /* receive list statistics */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
@@ -1071,8 +1071,16 @@ static __init int can_init(void)
 	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
 	spin_unlock_bh(&rcv_lists_lock);
 
-	if (stats_timer)
+	if (stats_timer) {
+		/* the statistics are updated every second (timer triggered) */
 		init_timer(&stattimer);
+		stattimer.function = can_stat_update;
+		stattimer.data = 0;
+		/* update every second */
+		stattimer.expires = jiffies + HZ;
+		/* start statistics timer */
+		add_timer(&stattimer);
+	}
 
 	/* procfs init */
 	can_init_proc();
