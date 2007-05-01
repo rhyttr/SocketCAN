@@ -70,7 +70,8 @@ RCSID("$Id$");
 
 #define IDENT "core"
 static __initdata const char banner[] =
-	KERN_INFO "CAN: Controller Area Network PF_CAN core " CAN_VERSION "\n";
+	KERN_INFO "can: controller area network core # "
+	CAN_VERSION_STRING "\n";
 
 MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -177,7 +178,7 @@ static int can_create(struct socket *sock, int protocol)
 	if (!proto_tab[protocol]) {
 		sprintf(module_name, "can-proto-%d", protocol);
 		if (request_module(module_name) == -ENOSYS)
-			printk(KERN_INFO "CAN: request_module(%s) not"
+			printk(KERN_INFO "can: request_module(%s) not"
 			       " implemented.\n", module_name);
 	}
 
@@ -822,12 +823,12 @@ int can_proto_register(struct can_proto *cp)
 	int err = 0;
 
 	if (proto < 0 || proto >= CAN_NPROTO) {
-		printk(KERN_ERR "CAN: protocol number %d out "
+		printk(KERN_ERR "can: protocol number %d out "
 		       "of range\n", proto);
 		return -EINVAL;
 	}
 	if (proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d already "
+		printk(KERN_ERR "can: protocol %d already "
 		       "registered\n", proto);
 		return -EBUSY;
 	}
@@ -861,7 +862,7 @@ int can_proto_unregister(struct can_proto *cp)
 	int proto = cp->protocol;
 
 	if (!proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
+		printk(KERN_ERR "can: protocol %d is not registered\n", proto);
 		return -ESRCH;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
@@ -981,7 +982,7 @@ static int can_notifier(struct notifier_block *nb,
 		d = kzalloc(sizeof(*d),
 			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 		if (!d) {
-			printk(KERN_ERR "CAN: allocation of receive "
+			printk(KERN_ERR "can: allocation of receive "
 			       "list failed\n");
 			return NOTIFY_DONE;
 		}
@@ -1009,7 +1010,7 @@ static int can_notifier(struct notifier_block *nb,
 			for (i = 0; i < 2048; i++)
 				can_rx_delete_all(&d->rx_sff[i]);
 		} else
-			printk(KERN_ERR "CAN: notifier: receive list not "
+			printk(KERN_ERR "can: notifier: receive list not "
 			       "found for dev %s\n", dev->name);
 
 		spin_unlock_bh(&rcv_lists_lock);

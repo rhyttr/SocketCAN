@@ -21,11 +21,12 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
-
 #define CAN_VERSION "2.0.0-pre7"
 
 /* increment this number each time you change some user-space interface */
-#define CAN_ABI_VERSION 8
+#define CAN_ABI_VERSION "8"
+
+#define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
 
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
@@ -55,27 +56,34 @@ struct can_proto {
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
-int can_proto_register(struct can_proto *cp);
-int can_proto_unregister(struct can_proto *cp);
+extern int can_proto_register(struct can_proto *cp);
+extern int can_proto_unregister(struct can_proto *cp);
 
-int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
-		    void (*func)(struct sk_buff *, void *), void *data,
-		    char *ident);
-int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
-		      void (*func)(struct sk_buff *, void *), void *data);
+extern int can_rx_register(struct net_device *dev, canid_t can_id,
+			   canid_t mask,
+			   void (*func)(struct sk_buff *, void *),
+			   void *data, char *ident);
 
-int can_dev_register(struct net_device *dev,
-		     void (*func)(unsigned long msg, void *), void *data);
-int can_dev_unregister(struct net_device *dev,
-		       void (*func)(unsigned long msg, void *), void *data);
+extern int can_rx_unregister(struct net_device *dev, canid_t can_id,
+			     canid_t mask,
+			     void (*func)(struct sk_buff *, void *),
+			     void *data);
 
-int can_send(struct sk_buff *skb, int loop);
+extern int can_dev_register(struct net_device *dev,
+			    void (*func)(unsigned long msg, void *),
+			    void *data);
 
-unsigned long timeval2jiffies(struct timeval *tv, int round_up);
+extern int can_dev_unregister(struct net_device *dev,
+			      void (*func)(unsigned long msg, void *),
+			      void *data);
+
+extern int can_send(struct sk_buff *skb, int loop);
+
+extern unsigned long timeval2jiffies(struct timeval *tv, int round_up);
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-void can_debug_skb(struct sk_buff *skb);
-void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
+extern void can_debug_skb(struct sk_buff *skb);
+extern void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
 #define DBG(args...)       (debug & 1 ? \
 			       (printk(KERN_DEBUG "can-%s %s: ", \
 				IDENT, __func__), printk(args)) : 0)

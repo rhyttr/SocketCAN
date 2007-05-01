@@ -23,11 +23,10 @@
  * @count:     number of frames to send before changing interval.
  * @ival1:     interval for the first @count frames.
  * @ival2:     interval for the following frames.
- * @can_id:    CAN ID of frames to be sent.
+ * @can_id:    CAN ID of frames to be sent or received.
  * @nframes:   number of frames appended to the message head.
  * @frames:    array of CAN frames.
  */
-
 struct bcm_msg_head {
 	int opcode;
 	int flags;

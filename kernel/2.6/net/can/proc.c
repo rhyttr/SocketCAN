@@ -123,8 +123,8 @@ void can_init_proc(void)
 	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
 
 	if (!can_dir) {
-		printk(KERN_INFO "CAN: failed to create CAN_PROC_DIR. "
-		       "CONFIG_PROC_FS missing?\n");
+		printk(KERN_INFO "can: failed to create /proc/%s . "
+		       "CONFIG_PROC_FS missing?\n", CAN_PROC_DIR);
 		return;
 	}
 
@@ -338,9 +338,8 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 {
 	int len = 0;
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"CAN version %s, ABI version %d\n",
-			CAN_VERSION, CAN_ABI_VERSION);
+	len += snprintf(page + len, PAGE_SIZE - len, "%s\n",
+			CAN_VERSION_STRING);
 	*eof = 1;
 	return len;
 }
@@ -594,7 +593,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 
 	/* see can_rcv() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
-		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
+		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
 		       count);
 		return 99999999;
 	}
