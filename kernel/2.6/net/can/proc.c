@@ -113,7 +113,8 @@ void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
-	if (j < stats.jiffies_init) /* jiffies overflow */
+	/* restart counting on jiffies overflow */
+	if (j < stats.jiffies_init)
 		can_init_stats();
 
 	/* stats.rx_frames is the definitively max. statistic value */
@@ -159,8 +160,8 @@ void can_stat_update(unsigned long data)
 	stats.rx_frames_delta = 0;
 	stats.matches_delta   = 0;
 
-	/* restart timer */
-	stattimer.expires = jiffies + HZ; /* every second */
+	/* restart timer (one second) */
+	stattimer.expires = jiffies + HZ;
 	add_timer(&stattimer);
 }
 
@@ -567,24 +568,24 @@ void can_init_proc(void)
 	can_dir->owner = THIS_MODULE;
 
 	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_readentry(
-		CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_readentry(
-		CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_readentry(
-		CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
+	pde_version     = can_create_proc_readentry(CAN_PROC_VERSION,
+					0644, can_proc_read_version, NULL);
+	pde_stats       = can_create_proc_readentry(CAN_PROC_STATS,
+					0644, can_proc_read_stats, NULL);
+	pde_reset_stats = can_create_proc_readentry(CAN_PROC_RESET_STATS,
+					0644, can_proc_read_reset_stats, NULL);
+	pde_rcvlist_all = can_create_proc_readentry(CAN_PROC_RCVLIST_ALL,
+					0644, can_proc_read_rcvlist_all, NULL);
+	pde_rcvlist_fil = can_create_proc_readentry(CAN_PROC_RCVLIST_FIL,
+					0644, can_proc_read_rcvlist_fil, NULL);
+	pde_rcvlist_inv = can_create_proc_readentry(CAN_PROC_RCVLIST_INV,
+					0644, can_proc_read_rcvlist_inv, NULL);
+	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF,
+					0644, can_proc_read_rcvlist_sff, NULL);
+	pde_rcvlist_eff = can_create_proc_readentry(CAN_PROC_RCVLIST_EFF,
+					0644, can_proc_read_rcvlist_eff, NULL);
+	pde_rcvlist_err = can_create_proc_readentry(CAN_PROC_RCVLIST_ERR,
+					0644, can_proc_read_rcvlist_err, NULL);
 }
 
 /*
