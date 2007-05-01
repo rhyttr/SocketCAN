@@ -82,7 +82,7 @@ static struct proc_dir_entry *pde_rcvlist_err = NULL;
  * af_can statistics stuff
  */
 
-static void can_init_stats(int caller)
+static void can_init_stats(void)
 {
 	memset(&stats, 0, sizeof(stats));
 	stats.jiffies_init  = jiffies;
@@ -114,17 +114,17 @@ void can_stat_update(unsigned long data)
 	unsigned long j = jiffies; /* snapshot */
 
 	if (j < stats.jiffies_init) /* jiffies overflow */
-		can_init_stats(2);
+		can_init_stats();
 
 	/* stats.rx_frames is the definitively max. statistic value */
 
 	/* prevent overflow in calc_rate() */
 	if (stats.rx_frames > (ULONG_MAX / HZ))
-		can_init_stats(3);
+		can_init_stats();
 
 	/* matches overflow - very improbable */
 	if (stats.matches > (ULONG_MAX / 100))
-		can_init_stats(4);
+		can_init_stats();
 
 	/* calc total values */
 	if (stats.rx_frames)
@@ -290,7 +290,7 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 {
 	int len = 0;
 
-	can_init_stats(1);
+	can_init_stats();
 
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"CAN statistic reset #%ld done.\n",
