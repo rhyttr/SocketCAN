@@ -81,15 +81,24 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 }
 #endif
 
-/* Indicate if this VCAN driver should do a real loopback, or if this */
-/* should be done in af_can.c */
-#undef  DO_LOOPBACK
-
 #define STATSIZE sizeof(struct net_device_stats)
 
 static int numdev = 4; /* default number of virtual CAN interfaces */
 module_param(numdev, int, S_IRUGO);
 MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
+
+/*
+ * CAN network devices *should* support a local loopback functionality
+ * (see Documentation/networking/can.txt). To test the handling of CAN
+ * interfaces that do not support the loopback both driver types are
+ * implemented inside this vcan driver. In the case that the driver does
+ * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
+ * This causes the PF_CAN core to perform the loopback as a fallback solution.
+ */
+
+static int drv_loopback = 0; /* vcan default: no loopback, just free the skb */
+module_param(drv_loopback, int, S_IRUGO);
+MODULE_PARM_DESC(drv_loopback, "Loop back sent frames. vcan default: 0 (Off)");
 
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
@@ -109,8 +118,6 @@ static int vcan_stop(struct net_device *dev)
 	return 0;
 }
 
-#ifdef DO_LOOPBACK
-
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
@@ -126,8 +133,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	netif_rx(skb);
 }
 
-#endif
-
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
@@ -138,10 +143,26 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
-	/* loopback (on driver level) required? */
+	/* tx socket reference pointer: Loopback required if not NULL */
 	loop = *(struct sock **)skb->cb != NULL;
 
-#ifdef DO_LOOPBACK
+	if (!drv_loopback) {
+		/* no loopback handling available inside this driver */
+
+		if (loop) {
+			/*
+			 * only count the packets here, because the
+			 * CAN core already did the loopback for us
+			 */
+			stats->rx_packets++;
+			stats->rx_bytes += skb->len;
+		}
+		kfree_skb(skb);
+		return 0;
+	}
+
+	/* perform standard loopback handling for CAN network interfaces */
+
 	if (loop) {
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
@@ -162,14 +183,6 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		/* no looped packets => no counting */
 		kfree_skb(skb);
 	}
-#else
-	/* only count here, because the CAN core already did the loopback */
-	if (loop) {
-		stats->rx_packets++;
-		stats->rx_bytes += skb->len;
-	}
-	kfree_skb(skb);
-#endif
 	return 0;
 }
 
@@ -210,9 +223,10 @@ static void vcan_init(struct net_device *dev)
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
 	dev->flags             = IFF_NOARP;
-#ifdef DO_LOOPBACK
-	dev->flags            |= IFF_LOOPBACK;
-#endif
+
+	/* set flags according to driver capabilities */
+	if (drv_loopback)
+		dev->flags |= IFF_LOOPBACK;
 
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
@@ -239,8 +253,9 @@ static __init int vcan_init_module(void)
 	if (numdev < 1)
 		numdev = 1;
 
-	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces.\n",
-	       numdev );
+	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces."
+	       " (drv_loopback %s)\n",
+	       numdev, drv_loopback?"enabled":"disabled");
 
 	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
