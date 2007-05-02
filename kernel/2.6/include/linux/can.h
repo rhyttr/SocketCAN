@@ -34,6 +34,7 @@
 #define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
 
 typedef __u32 canid_t;
+typedef __u32 can_err_mask_t;
 
 /**
  * struct can_frame - basic CAN frame structure
@@ -76,8 +77,6 @@ struct sockaddr_can {
 		struct { int     lcu,   type;  } bap;
 	} can_addr;
 };
-
-typedef canid_t can_err_mask_t;
 
 /**
  * struct can_filter - CAN ID based filter in can_register().

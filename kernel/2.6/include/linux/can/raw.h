@@ -23,9 +23,11 @@
 
 /* for socket options affecting the socket (not the global system) */
 
-#define CAN_RAW_FILTER		1	/* set 0 .. n can_filter(s)          */
-#define CAN_RAW_ERR_FILTER	2	/* set filter for error frames       */
-#define CAN_RAW_LOOPBACK	3	/* local loopback (default:on)       */
-#define CAN_RAW_RECV_OWN_MSGS	4	/* receive my own msgs (default:off) */
+enum {
+	CAN_RAW_FILTER = 1,	/* set 0 .. n can_filter(s)          */
+	CAN_RAW_ERR_FILTER,	/* set filter for error frames       */
+	CAN_RAW_LOOPBACK,	/* local loopback (default:on)       */
+	CAN_RAW_RECV_OWN_MSGS	/* receive my own msgs (default:off) */
+};
 
 #endif
