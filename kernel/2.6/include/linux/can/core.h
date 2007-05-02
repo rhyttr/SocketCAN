@@ -79,8 +79,6 @@ extern int can_dev_unregister(struct net_device *dev,
 
 extern int can_send(struct sk_buff *skb, int loop);
 
-extern unsigned long timeval2jiffies(struct timeval *tv, int round_up);
-
 #ifdef CONFIG_CAN_DEBUG_CORE
 extern void can_debug_skb(struct sk_buff *skb);
 extern void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);

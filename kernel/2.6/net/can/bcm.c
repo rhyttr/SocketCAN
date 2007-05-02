@@ -175,6 +175,38 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
 #define MHSIZ sizeof(struct bcm_msg_head)
 
 /*
+ * rounded_tv2jif - calculate jiffies from timeval including optional up
+ * @tv: pointer to timeval
+ *
+ * Description:
+ * In opposite to timeval_to_jiffies() provided in include/linux/jiffies.h this
+ * function is intentionally more relaxed on precise timer ticks to get exact
+ * one jiffy for requested 1000us on a 1000HZ machine.
+ *
+ * Return:
+ *  calculated jiffies (max: ULONG_MAX)
+ */
+static unsigned long rounded_tv2jif(const struct timeval *tv)
+{
+	unsigned long sec  = tv->tv_sec;
+	unsigned long usec = tv->tv_usec;
+	unsigned long jif;
+
+	if (sec > ULONG_MAX / HZ)
+		return ULONG_MAX;
+
+	/* round up to get at least the requested time */
+	usec += 1000000 / HZ - 1;
+
+	jif  = usec / (1000000 / HZ);
+
+	if (sec * HZ > ULONG_MAX - jif)
+		return ULONG_MAX;
+
+	return jif + sec * HZ;
+}
+
+/*
  * procfs functions
  */
 static char *bcm_proc_getifname(int ifindex)
@@ -996,8 +1028,8 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->count = msg_head->count;
 		op->ival1 = msg_head->ival1;
 		op->ival2 = msg_head->ival2;
-		op->j_ival1 = timeval2jiffies(&msg_head->ival1, 1);
-		op->j_ival2 = timeval2jiffies(&msg_head->ival2, 1);
+		op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
+		op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
 
 		DBG("TX_SETUP: SETTIMER count=%d j_ival1=%ld j_ival2=%ld\n",
 		    op->count, op->j_ival1, op->j_ival2);
@@ -1207,8 +1239,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			/* set timer value */
 			op->ival1 = msg_head->ival1;
 			op->ival2 = msg_head->ival2;
-			op->j_ival1 = timeval2jiffies(&msg_head->ival1, 1);
-			op->j_ival2 = timeval2jiffies(&msg_head->ival2, 1);
+			op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
+			op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
 
 			DBG("RX_SETUP: SETTIMER j_ival1=%ld j_ival2=%ld\n",
 			    op->j_ival1, op->j_ival2);

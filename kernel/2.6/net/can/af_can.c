@@ -674,42 +674,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 }
 
 /*
- * af_can utility stuff
- */
-
-/**
- * timeval2jiffies - calculate jiffies from timeval including optional round up
- * @tv: pointer to timeval
- * @round_up: return at least 1 jiffie
- *
- * Return:
- *  calculated jiffies (max: ULONG_MAX)
- */
-unsigned long timeval2jiffies(struct timeval *tv, int round_up)
-{
-	unsigned long jif;
-	unsigned long sec  = tv->tv_sec;
-	unsigned long usec = tv->tv_usec;
-
-	/* check for overflow */
-	if (sec > ULONG_MAX / HZ)
-		return ULONG_MAX;
-
-	/* any usec below one HZ? => pump it up */
-	if (round_up)
-		usec += 1000000 / HZ - 1;
-
-	jif = usec / (1000000 / HZ);
-
-	/* check for overflow */
-	if (sec * HZ > ULONG_MAX - jif)
-		return ULONG_MAX;
-	else
-		return jif + sec * HZ;
-}
-EXPORT_SYMBOL(timeval2jiffies);
-
-/*
  * af_can debugging stuff
  */
 
