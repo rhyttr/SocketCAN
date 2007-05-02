@@ -79,8 +79,10 @@ module_param(debug, int, S_IRUGO);
 static void *kzalloc(size_t size, unsigned int __nocast flags)
 {
 	void *ret = kmalloc(size, flags);
+
 	if (ret)
 		memset(ret, 0, size);
+
 	return ret;
 }
 #endif
@@ -125,6 +127,7 @@ static int vcan_stop(struct net_device *dev)
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
+
 	stats->rx_packets++;
 	stats->rx_bytes += skb->len;
 
@@ -213,6 +216,7 @@ static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
+
 	return stats;
 }
 
