@@ -64,6 +64,10 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 static int debug = 0;
 module_param(debug, int, S_IRUGO);
+#endif
+
+/* To be moved to linux/can/dev.h */
+#ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)       (debug & 1 ? \
 			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
 				printk(args)) : 0)
