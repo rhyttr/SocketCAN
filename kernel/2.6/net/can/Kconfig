@@ -37,7 +37,9 @@ config CAN_RAW_USER
 	  In the majority of cases the user application has to deal with
 	  raw CAN frames. Therefore it might be reasonable NOT to restrict
 	  the CAN access only to the user root, as known from other networks.
-	  Say Y here if you want non-root users to be able to access CAN_RAW-
+	  Since CAN_RAW sockets can only send and receive frames to/from CAN
+	  interfaces this does not affect security of others networks.
+	  Say Y here if you want non-root users to be able to access CAN_RAW
 	  sockets.
 
 config CAN_BCM
@@ -63,7 +65,9 @@ config CAN_BCM_USER
 	  In the majority of cases the user application has to deal with
 	  raw CAN frames. Therefore it might be reasonable NOT to restrict
 	  the CAN access only to the user root, as known from other networks.
-	  Say Y here if you want non-root users to be able to access CAN_BCM-
+	  Since CAN_BCM sockets can only send and receive frames to/from CAN
+	  interfaces this does not affect security of others networks.
+	  Say Y here if you want non-root users to be able to access CAN_BCM
 	  sockets.
 
 config CAN_DEBUG_CORE

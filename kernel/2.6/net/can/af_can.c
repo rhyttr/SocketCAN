@@ -252,6 +252,11 @@ int can_send(struct sk_buff *skb, int loop)
 	struct sock **tx_sk = (struct sock **)skb->cb;
 	int err;
 
+	if (skb->dev->type != ARPHRD_CAN) {
+		kfree_skb(skb);
+		return -EPERM;
+	}
+
 	if (loop) {
 		/* local loopback of sent CAN frames (default) */
 
@@ -645,6 +650,11 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	DBG_SKB(skb);
 	DBG_FRAME("af_can: can_rcv: received CAN frame",
 		  (struct can_frame *)skb->data);
+
+	if (dev->type != ARPHRD_CAN) {
+		kfree_skb(skb);
+		return 0;
+	}
 
 	/* update statistics */
 	stats.rx_frames++;
