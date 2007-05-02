@@ -249,13 +249,14 @@ static int can_create(struct socket *sock, int protocol)
  */
 int can_send(struct sk_buff *skb, int loop)
 {
+	struct sock **tx_sk = (struct sock **)skb->cb;
 	int err;
 
 	if (loop) {
 		/* local loopback of sent CAN frames (default) */
 
 		/* indication for the CAN driver: do loopback */
-		*(struct sock **)skb->cb = skb->sk;
+		*tx_sk = skb->sk;
 
 		/*
 		 * The reference to the originating sock may be also required
@@ -274,7 +275,7 @@ int can_send(struct sk_buff *skb, int loop)
 		}
 	} else {
 		/* indication for the CAN driver: no loopback required */
-		*(struct sock **)skb->cb = NULL;
+		*tx_sk = NULL;
 	}
 
 	if (!(skb->dev->flags & IFF_UP))
