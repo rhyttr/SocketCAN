@@ -186,6 +186,10 @@ void can_stat_update(unsigned long data)
 
 /* 
  * proc read functions
+ *
+ * From known use-cases we expect about 10 entries in a receive list to be
+ * printed in the proc_fs. So PAGE_SIZE is definitely enough space here.
+ *
  */
 
 static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
