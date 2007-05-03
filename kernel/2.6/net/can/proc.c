@@ -91,10 +91,8 @@ static void can_init_stats(void)
 	 * stattimer is active which is the default) OR in a process
 	 * context (reading the proc_fs when stattimer is disabled).
 	 */
-	spin_lock(&stats_lock);
 	memset(&stats, 0, sizeof(stats));
 	stats.jiffies_init = jiffies;
-	spin_unlock(&stats_lock);
 
 	pstats.stats_reset++;
 

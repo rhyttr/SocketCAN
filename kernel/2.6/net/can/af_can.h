@@ -111,8 +111,6 @@ struct s_pstats {
 	unsigned long rcv_entries_max;
 }; /* persistent statistics */
 
-extern spinlock_t stats_lock;
-
 /* function prototypes for the CAN networklayer procfs (proc.c) */
 extern void can_init_proc(void);
 extern void can_remove_proc(void);
