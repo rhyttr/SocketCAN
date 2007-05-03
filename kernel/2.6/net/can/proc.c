@@ -78,15 +78,30 @@ static struct proc_dir_entry *pde_rcvlist_sff = NULL;
 static struct proc_dir_entry *pde_rcvlist_eff = NULL;
 static struct proc_dir_entry *pde_rcvlist_err = NULL;
 
+static int user_reset = 0;
+
 /* 
  * af_can statistics stuff
  */
 
 static void can_init_stats(void)
 {
+	/*
+	 * This memset function is called from a timer context (when
+	 * stattimer is active which is the default) OR in a process
+	 * context (reading the proc_fs when stattimer is disabled).
+	 */
+	spin_lock(&stats_lock);
 	memset(&stats, 0, sizeof(stats));
-	stats.jiffies_init  = jiffies;
+	stats.jiffies_init = jiffies;
+	spin_unlock(&stats_lock);
+
 	pstats.stats_reset++;
+
+	if (user_reset) {
+		user_reset = 0;
+		pstats.user_reset++;
+	}
 }
 
 static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
@@ -112,6 +127,10 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
+
+	/* restart counting in timer context on user request */
+	if (user_reset)
+		can_init_stats();
 
 	/* restart counting on jiffies overflow */
 	if (j < stats.jiffies_init)
@@ -229,44 +248,46 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% total match ratio (RXMR)\n",
-			stats.total_rx_match_ratio);
+	if (stattimer.function == can_stat_update) {
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% total match ratio (RXMR)\n",
+				stats.total_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s total tx rate (TXR)\n",
-			stats.total_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s total rx rate (RXR)\n",
-			stats.total_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s total tx rate (TXR)\n",
+				stats.total_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s total rx rate (RXR)\n",
+				stats.total_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% current match ratio (CRXMR)\n",
-			stats.current_rx_match_ratio);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% current match ratio (CRXMR)\n",
+				stats.current_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s current tx rate (CTXR)\n",
-			stats.current_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s current rx rate (CRXR)\n",
-			stats.current_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s current tx rate (CTXR)\n",
+				stats.current_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s current rx rate (CRXR)\n",
+				stats.current_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% max match ratio (MRXMR)\n",
-			stats.max_rx_match_ratio);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% max match ratio (MRXMR)\n",
+				stats.max_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s max tx rate (MTXR)\n",
-			stats.max_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s max rx rate (MRXR)\n",
-			stats.max_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s max tx rate (MTXR)\n",
+				stats.max_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s max rx rate (MRXR)\n",
+				stats.max_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
+	}
 
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld current receive list entries (CRCV)\n",
@@ -280,6 +301,11 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 				"\n %8ld statistic resets (STR)\n",
 				pstats.stats_reset);
 
+	if (pstats.user_reset)
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld user statistic resets (USTR)\n",
+				pstats.user_reset);
+
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
 	*eof = 1;
@@ -291,11 +317,21 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 {
 	int len = 0;
 
-	can_init_stats();
+	user_reset = 1;
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"CAN statistic reset #%ld done.\n",
-			pstats.stats_reset);
+	if (stattimer.function == can_stat_update) {
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"Scheduled statistic reset #%ld.\n",
+				pstats.stats_reset + 1);
+
+	} else {
+		if (stats.jiffies_init != jiffies)
+			can_init_stats();
+
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"Performed statistic reset #%ld.\n",
+				pstats.stats_reset);
+	}
 
 	*eof = 1;
 	return len;

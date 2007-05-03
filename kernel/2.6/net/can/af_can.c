@@ -116,6 +116,7 @@ static struct can_proto *proto_tab[CAN_NPROTO];
 struct timer_list stattimer; /* timer for statistics update */
 struct s_stats  stats;       /* packet statistics */
 struct s_pstats pstats;      /* receive list statistics */
+DEFINE_SPINLOCK(stats_lock);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
@@ -292,8 +293,10 @@ int can_send(struct sk_buff *skb, int loop)
 		err = net_xmit_errno(err);
 
 	/* update statistics */
+	spin_lock(&stats_lock);
 	stats.tx_frames++;
 	stats.tx_frames_delta++;
+	spin_unlock(&stats_lock);
 
 	return err;
 }
@@ -657,8 +660,10 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	}
 
 	/* update statistics */
+	spin_lock(&stats_lock);
 	stats.rx_frames++;
 	stats.rx_frames_delta++;
+	spin_unlock(&stats_lock);
 
 	rcu_read_lock();
 
@@ -677,8 +682,10 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	kfree_skb(skb);
 
 	if (matches > 0) {
+		spin_lock(&stats_lock);
 		stats.matches++;
 		stats.matches_delta++;
+		spin_unlock(&stats_lock);
 	}
 
 	return 0;
@@ -1060,7 +1067,8 @@ static __init int can_init(void)
 		stattimer.expires = jiffies + HZ;
 		/* start statistics timer */
 		add_timer(&stattimer);
-	}
+	} else
+		stattimer.function = NULL;
 
 	/* procfs init */
 	can_init_proc();

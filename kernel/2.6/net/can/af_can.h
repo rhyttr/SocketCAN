@@ -106,9 +106,12 @@ struct s_stats {
 
 struct s_pstats {
 	unsigned long stats_reset;
+	unsigned long user_reset;
 	unsigned long rcv_entries;
 	unsigned long rcv_entries_max;
 }; /* persistent statistics */
+
+extern spinlock_t stats_lock;
 
 /* function prototypes for the CAN networklayer procfs (proc.c) */
 extern void can_init_proc(void);
