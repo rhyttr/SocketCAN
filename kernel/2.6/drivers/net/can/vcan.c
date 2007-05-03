@@ -102,9 +102,9 @@ MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
  * This causes the PF_CAN core to perform the loopback as a fallback solution.
  */
 
-static int drv_loopback = 0; /* vcan default: no loopback, just free the skb */
-module_param(drv_loopback, int, S_IRUGO);
-MODULE_PARM_DESC(drv_loopback, "Loop back sent frames. vcan default: 0 (Off)");
+static int loopback = 0; /* vcan default: no loopback, just free the skb */
+module_param(loopback, int, S_IRUGO);
+MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
 
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
@@ -153,7 +153,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	/* tx socket reference pointer: Loopback required if not NULL */
 	loop = *(struct sock **)skb->cb != NULL;
 
-	if (!drv_loopback) {
+	if (!loopback) {
 		/* no loopback handling available inside this driver */
 
 		if (loop) {
@@ -233,7 +233,7 @@ static void vcan_init(struct net_device *dev)
 	dev->flags             = IFF_NOARP;
 
 	/* set flags according to driver capabilities */
-	if (drv_loopback)
+	if (loopback)
 		dev->flags |= IFF_LOOPBACK;
 
 	dev->open              = vcan_open;
@@ -262,8 +262,8 @@ static __init int vcan_init_module(void)
 		numdev = 1;
 
 	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces."
-	       " (drv_loopback %s)\n",
-	       numdev, drv_loopback?"enabled":"disabled");
+	       " (loopback %s)\n",
+	       numdev, loopback?"enabled":"disabled");
 
 	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
