@@ -1390,6 +1390,8 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
 
+	lock_sock(sk);
+
 	switch (msg_head.opcode) {
 
 	case TX_SETUP:
@@ -1429,9 +1431,9 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 	case TX_SEND:
 		/* we need at least one can_frame */
 		if (msg_head.nframes < 1)
-			return -EINVAL;
-
-		ret = bcm_tx_send(msg, ifindex, sk);
+			ret = -EINVAL;
+		else
+			ret = bcm_tx_send(msg, ifindex, sk);
 		break;
 
 	default:
@@ -1439,6 +1441,8 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		ret = -EINVAL;
 		break;
 	}
+
+	release_sock(sk);
 
 	return ret;
 }
