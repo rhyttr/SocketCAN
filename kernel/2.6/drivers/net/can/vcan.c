@@ -261,9 +261,9 @@ static __init int vcan_init_module(void)
 	if (numdev < 1)
 		numdev = 1;
 
-	printk(KERN_INFO "vcan: registering %d virtual CAN interfaces."
-	       " (loopback %s)\n",
-	       numdev, loopback?"enabled":"disabled");
+	printk(KERN_INFO
+	       "vcan: registering %d virtual CAN interfaces. (loopback %s)\n",
+	       numdev, loopback ? "enabled" : "disabled");
 
 	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
@@ -281,8 +281,8 @@ static __init int vcan_init_module(void)
 
 		result = register_netdev(vcan_devs[i]);
 		if (result < 0) {
-			printk(KERN_ERR "vcan: error %d registering "
-			       "interface %s\n",
+			printk(KERN_ERR
+			       "vcan: error %d registering interface %s\n",
 			       result, vcan_devs[i]->name);
 			free_netdev(vcan_devs[i]);
 			vcan_devs[i] = NULL;
