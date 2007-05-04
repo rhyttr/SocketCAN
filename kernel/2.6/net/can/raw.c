@@ -379,6 +379,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 	if (level != SOL_CAN_RAW)
 		return -EINVAL;
+	if (optlen < 0)
+		return -EINVAL;
 
 	switch (optname) {
 
@@ -495,89 +497,53 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 	struct can_filter *filter = ro->filter;
 	int count = ro->count;
 	int len;
+	void *val;
 
 	if (level != SOL_CAN_RAW)
+		return -EINVAL;
+	if (get_user(len, optlen))
+		return -EFAULT;
+	if (len < 0)
 		return -EINVAL;
 
 	switch (optname) {
 
 	case CAN_RAW_FILTER:
-		if (get_user(len, optlen))
-			return -EFAULT;
-
 		if (count && filter) {
 			int filter_size = count * sizeof(struct can_filter);
-			if (len < filter_size)
-				return -EINVAL;
 			if (len > filter_size)
 				len = filter_size;
-			if (copy_to_user(optval, filter, len))
-				return -EFAULT;
+			val = filter;
 		} else
 			len = 0;
-
-		if (put_user(len, optlen))
-			return -EFAULT;
-
 		break;
 
 	case CAN_RAW_ERR_FILTER:
-		if (get_user(len, optlen))
-			return -EFAULT;
-
-		if (len < sizeof(can_err_mask_t))
-			return -EINVAL;
-
 		if (len > sizeof(can_err_mask_t))
 			len = sizeof(can_err_mask_t);
-
-		if (copy_to_user(optval, &ro->err_mask, len))
-			return -EFAULT;
-
-		if (put_user(len, optlen))
-			return -EFAULT;
-
+		val = &ro->err_mask;
 		break;
 
 	case CAN_RAW_LOOPBACK:
-		if (get_user(len, optlen))
-			return -EFAULT;
-
-		if (len < sizeof(int))
-			return -EINVAL;
-
 		if (len > sizeof(int))
 			len = sizeof(int);
-
-		if (copy_to_user(optval, &ro->loopback, len))
-			return -EFAULT;
-
-		if (put_user(len, optlen))
-			return -EFAULT;
-
+		val = &ro->loopback;
 		break;
 
 	case CAN_RAW_RECV_OWN_MSGS:
-		if (get_user(len, optlen))
-			return -EFAULT;
-
-		if (len < sizeof(int))
-			return -EINVAL;
-
 		if (len > sizeof(int))
 			len = sizeof(int);
-
-		if (copy_to_user(optval, &ro->recv_own_msgs, len))
-			return -EFAULT;
-
-		if (put_user(len, optlen))
-			return -EFAULT;
-
+		val = &ro->recv_own_msgs;
 		break;
 
 	default:
 		return -ENOPROTOOPT;
 	}
+
+	if (put_user(len, optlen))
+		return -EFAULT;
+	if (copy_to_user(optval, val, len))
+		return -EFAULT;
 	return 0;
 }
 
