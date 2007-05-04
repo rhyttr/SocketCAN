@@ -182,6 +182,7 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
  * In opposite to timeval_to_jiffies() provided in include/linux/jiffies.h this
  * function is intentionally more relaxed on precise timer ticks to get exact
  * one jiffy for requested 1000us on a 1000HZ machine.
+ * This code is to be removed when upgrading to kernel hrtimer.
  *
  * Return:
  *  calculated jiffies (max: ULONG_MAX)
