@@ -522,8 +522,13 @@ static void chipset_init(struct net_device *dev, int wake)
 	else
 		chipset_init_trx(dev);
 
-	if ((wake) && netif_queue_stopped(dev))
+	if ((wake) && netif_queue_stopped(dev)) {
+		if (priv->loop_skb) { /* pending loopback? */
+			dev_kfree_skb(priv->loop_skb);
+			priv->loop_skb = NULL;
+		}
 		netif_wake_queue(dev);
+	}
 }
 
 static void chipset_init_rx(struct net_device *dev)
@@ -650,6 +655,10 @@ static void can_tx_timeout(struct net_device *dev)
 	/* do not conflict with e.g. bus error handling */
 	if (!(priv->timer.expires)){ /* no restart on the run */
 		chipset_init_trx(dev); /* no tx queue wakeup */
+		if (priv->loop_skb) { /* pending loopback? */
+			dev_kfree_skb(priv->loop_skb);
+			priv->loop_skb = NULL;
+		}
 		netif_wake_queue(dev); /* wakeup here */
 	}
 	else
