@@ -174,6 +174,7 @@ struct can_priv {
 	int			rx_probe;
 	struct timer_list       timer;
 	int			state;
+	struct sk_buff		*loop_skb;
 };
 
 #define STATE_UNINITIALIZED	0

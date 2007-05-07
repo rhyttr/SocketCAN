@@ -148,6 +148,7 @@ static int rx_probe[MAXDEV]	= { 0 };
 static int clk			= DEFAULT_HW_CLK;
 static int debug		= 0;
 static int restart_ms		= 100;
+static int loopback		= 1;
 
 static int base_n;
 static int irq_n;
@@ -164,6 +165,7 @@ module_param_array(rx_probe, int, &rx_probe_n, 0);
 module_param(clk, int, 0);
 module_param(debug, int, 0);
 module_param(restart_ms, int, 0);
+module_param(loopback, int, S_IRUGO);
 
 MODULE_PARM_DESC(base, "CAN controller base address");
 MODULE_PARM_DESC(irq, "CAN controller interrupt");
@@ -174,6 +176,16 @@ MODULE_PARM_DESC(rx_probe, "switch to trx mode after correct msg receiption. (de
 MODULE_PARM_DESC(clk, "CAN controller chip clock (default: 16MHz)");
 MODULE_PARM_DESC(debug, "set debug mask (default: 0)");
 MODULE_PARM_DESC(restart_ms, "restart chip on heavy bus errors / bus off after x ms (default 100ms)");
+MODULE_PARM_DESC(loopback, "Loop back sent frames. default: 1 (On)");
+
+/*
+ * CAN network devices *should* support a local loopback functionality
+ * (see Documentation/networking/can.txt). To test the handling of CAN
+ * interfaces that do not support the loopback both driver types are
+ * implemented inside this vcan driver. In the case that the driver does
+ * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
+ * This causes the PF_CAN core to perform the loopback as a fallback solution.
+ */
 
 /* function declarations */
 
@@ -606,7 +618,25 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->trans_start = jiffies;
 
-	dev_kfree_skb(skb);
+	if (!loopback) {
+		dev_kfree_skb(skb);
+		return 0;
+	}
+
+	if (!priv->loop_skb) {
+		/* make settings for loopback to reduce code in irq context */
+		skb->protocol  = htons(ETH_P_CAN);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+		/* save this skb for tx interrupt loopback handling */
+		priv->loop_skb = skb;
+
+	} else {
+		/* locking problem with netif_stop_queue() ?? */
+		printk(KERN_ERR "%s: %s: occupied loop_skb!\n",
+		       dev->name, __FUNCTION__ );
+		dev_kfree_skb(skb);
+	}
 
 	return 0;
 }
@@ -815,6 +845,12 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 		if (isrc & IRQ_TI) {
 			/* transmission complete interrupt */
 			priv->stats.tx_packets++;
+
+			if (loopback && priv->loop_skb) {
+				netif_rx(priv->loop_skb);
+				priv->loop_skb = NULL;
+			}
+
 			netif_wake_queue(dev);
 		}
 		if (isrc & IRQ_RI) {
@@ -1034,6 +1070,11 @@ void can_netdev_setup(struct net_device *dev)
 	dev->tx_queue_len		= 10;
 
 	dev->flags			= IFF_NOARP;
+
+	/* set flags according to driver capabilities */
+	if (loopback)
+		dev->flags |= IFF_LOOPBACK;
+
 	dev->features			= NETIF_F_NO_CSUM;
 
 	dev->open			= can_open;
