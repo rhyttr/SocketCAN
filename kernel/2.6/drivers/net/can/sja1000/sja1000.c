@@ -524,7 +524,7 @@ static void chipset_init(struct net_device *dev, int wake)
 
 	if ((wake) && netif_queue_stopped(dev)) {
 		if (priv->loop_skb) { /* pending loopback? */
-			dev_kfree_skb(priv->loop_skb);
+			kfree_skb(priv->loop_skb);
 			priv->loop_skb = NULL;
 		}
 		netif_wake_queue(dev);
@@ -628,7 +628,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	loop = *(struct sock **)skb->cb != NULL;
 
 	if (!loopback || !loop) {
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 		return 0;
 	}
 
@@ -640,7 +640,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			DBG(KERN_INFO "%s: %s: freeing old skbuff %p, "
 			    "using new skbuff %p\n",
 			    dev->name, __FUNCTION__, old_skb, skb);
-			dev_kfree_skb(old_skb);
+			kfree_skb(old_skb);
 			if (!skb) {
 				return 0;
 			}
@@ -659,7 +659,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		/* locking problem with netif_stop_queue() ?? */
 		printk(KERN_ERR "%s: %s: occupied loop_skb!\n",
 		       dev->name, __FUNCTION__ );
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 	}
 
 	return 0;
@@ -675,7 +675,7 @@ static void can_tx_timeout(struct net_device *dev)
 	if (!(priv->timer.expires)){ /* no restart on the run */
 		chipset_init_trx(dev); /* no tx queue wakeup */
 		if (priv->loop_skb) { /* pending loopback? */
-			dev_kfree_skb(priv->loop_skb);
+			kfree_skb(priv->loop_skb);
 			priv->loop_skb = NULL;
 		}
 		netif_wake_queue(dev); /* wakeup here */

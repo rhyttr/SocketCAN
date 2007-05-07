@@ -242,7 +242,7 @@ static int mscan_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	list_add_tail( &priv->tx_queue[buf_id].list, &priv->tx_head);
 
-	dev_kfree_skb (skb);
+	kfree_skb(skb);
 
 	/* Enable interrupt. */
 	priv->tx_active |= 1<<buf_id;

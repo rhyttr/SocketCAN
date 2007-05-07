@@ -425,7 +425,7 @@ static int slc_xmit(struct sk_buff *skb, struct net_device *dev)
 	spin_unlock(&sl->lock);
 
 out:
-	dev_kfree_skb(skb);
+	kfree_skb(skb);
 	return 0;
 }
 

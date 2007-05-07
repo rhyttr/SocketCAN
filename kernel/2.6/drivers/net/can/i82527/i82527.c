@@ -761,7 +761,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->trans_start = jiffies;
 
-	dev_kfree_skb(skb);
+	kfree_skb(skb);
 
 	return 0;
 }
