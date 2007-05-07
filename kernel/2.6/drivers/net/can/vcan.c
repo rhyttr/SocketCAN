@@ -174,8 +174,9 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			struct sk_buff *old_skb = skb;
 
 			skb = skb_clone(old_skb, GFP_ATOMIC);
-			DBG("  freeing old skbuff %p, using new skbuff %p\n",
-			    old_skb, skb);
+			DBG(KERN_INFO "%s: %s: freeing old skbuff %p, "
+			    "using new skbuff %p\n",
+			    dev->name, __FUNCTION__, old_skb, skb);
 			kfree_skb(old_skb);
 			if (!skb) {
 				return 0;
