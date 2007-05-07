@@ -182,7 +182,7 @@ MODULE_PARM_DESC(loopback, "Loop back sent frames. default: 1 (On)");
  * CAN network devices *should* support a local loopback functionality
  * (see Documentation/networking/can.txt). To test the handling of CAN
  * interfaces that do not support the loopback both driver types are
- * implemented inside this vcan driver. In the case that the driver does
+ * implemented inside this sja1000 driver. In the case that the driver does
  * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
  * This causes the PF_CAN core to perform the loopback as a fallback solution.
  */
