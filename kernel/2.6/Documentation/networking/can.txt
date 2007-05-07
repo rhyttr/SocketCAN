@@ -127,8 +127,8 @@ solution for a couple of reasons:
   networking framework provided by the Linux kernel, and this is what
   Socket CAN does.
 
-The use of the networking framework of the Linux kernel is just the
-natural and most appropriate way to implement CAN for Linux.
+  The use of the networking framework of the Linux kernel is just the
+  natural and most appropriate way to implement CAN for Linux.
 
 3. Socket CAN concept
 ---------------------
@@ -197,34 +197,103 @@ natural and most appropriate way to implement CAN for Linux.
 
   3.3 network security issues (capabilities)
 
+  The Controller Area Network is a local field bus transmitting only
+  broadcast messages without any routing and security concepts.
+  In the majority of cases the user application has to deal with
+  raw CAN frames. Therefore it might be reasonable NOT to restrict
+  the CAN access only to the user root, as known from other networks.
+  Since the currently implemented CAN_RAW and CAN_BCM sockets can only
+  send and receive frames to/from CAN interfaces it does not affect
+  security of others networks to allow all users to access the CAN.
+  To enable non-root users to access CAN_RAW and CAN_BCM protocol
+  sockets the Kconfig options CAN_RAW_USER and/or CAN_BCM_USER may be
+  selected at kernel compile time. 
+
 4. How to use Socket CAN
 ------------------------
 
-Like TCP/IP, you first need to open a socket for communicating over a
-CAN network.  Since Socket CAN implements a new protocol family, you
-need to pass PF_CAN as the first argument to the socket(2) system
-call.  Currently, there are two CAN protocols to choose from, the raw
-socket protocol and the broadcast manager (BCM).  So to open a socket,
-you would write
+  Like TCP/IP, you first need to open a socket for communicating over a
+  CAN network. Since Socket CAN implements a new protocol family, you
+  need to pass PF_CAN as the first argument to the socket(2) system
+  call. Currently, there are two CAN protocols to choose from, the raw
+  socket protocol and the broadcast manager (BCM). So to open a socket,
+  you would write
 
     s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 
-and
+  and
 
     s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
 
-respectively.  After opening, you would normally use the bind(2)
-system call to bind to a CAN ID, then you can read(2) and write(2)
-from/to the socket or use send(2), sendto(2), sendmsg(2) and the recv*
-counterpart operations on the socket as usual.  There are also CAN
-specific socket options described in the bcm(7) and can-raw(7) manual
-pages.  Complete documentation can be found in the LaTeX file,
-currently only available in German.
+  respectively.  After the successful creation of the socket, you would
+  normally use the bind(2) system call to bind the socket to a CAN
+  interface (which is different to TCP/IP due to different addressing
+  - see chapter 3). After binding (CAN_RAW) or connecting (CAN_BCM)
+  the socket, you can read(2) and write(2) from/to the socket or use
+  send(2), sendto(2), sendmsg(2) and the recv* counterpart operations
+  on the socket as usual. There are also CAN specific socket options
+  described below.
 
-   4.1 RAW protocol sockets with can_filters (SOCK_RAW)
-   4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
-   4.3 connected transport protocols (SOCK_SEQPACKET)
-   4.4 unconnected transport protocols (SOCK_DGRAM)
+  The basic CAN frame structure and the sockaddr structure are defined
+  in include/linux/can.h:
+
+    struct can_frame {
+            canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+            __u8    can_dlc; /* data length code: 0 .. 8 */
+            __u8    data[8] __attribute__((aligned(8)));
+    };
+
+  The alignment of the (linear) payload data[] to a 64bit boundary
+  allows the user to define own structs and unions to easily access the
+  CAN payload. There is no given byteorder on the CAN bus by
+  default. A read(2) system call on a CAN_RAW socket transfers a
+  struct can_frame to the user space.
+
+  The sockaddr_can structure has an interface index analogue to the
+  PF_PACKET socket, that also binds to a specific interface:
+
+    struct sockaddr_can {
+            sa_family_t can_family;
+            int         can_ifindex;
+            union {
+                    struct { canid_t rx_id, tx_id; } tp16;
+                    struct { canid_t rx_id, tx_id; } tp20;
+                    struct { canid_t rx_id, tx_id; } mcnet;
+                    struct { canid_t rx_id, tx_id; } isotp;
+                    struct { int     lcu,   type;  } bap;
+            } can_addr;
+    };
+
+  To determine the interface index the an appropriate ioctl() has to
+  be used (example for CAN_RAW sockets without error checking):
+
+    int s;
+    struct sockaddr_can addr;
+    struct ifreq ifr;
+
+    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+
+    strcpy(ifr.ifr_name, "can0" );
+    ioctl(s, SIOCGIFINDEX, &ifr);
+
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+
+    bind(s, (struct sockaddr *)&addr, sizeof(addr));
+
+    (..)
+
+  To bind a socket to all(!) CAN interfaces the interface index might
+  be 0 (zero). In this case the socket receives CAN frames from every
+  enabled CAN interface. To determine the originating CAN interface
+  the system call recvfrom(2) may be used instead of read(2). To send
+  on a socket that is bound to 'any' interface sendto(2) is needed to
+  specify the outgoing interface.
+
+  4.1 RAW protocol sockets with can_filters (SOCK_RAW)
+  4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
+  4.3 connected transport protocols (SOCK_SEQPACKET)
+  4.4 unconnected transport protocols (SOCK_DGRAM)
 
 
 5. Socket CAN core module
