@@ -633,9 +633,24 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	if (!priv->loop_skb) {
+		if (atomic_read(&skb->users) != 1) {
+			struct sk_buff *old_skb = skb;
+
+			skb = skb_clone(old_skb, GFP_ATOMIC);
+			DBG(KERN_INFO "%s: %s: freeing old skbuff %p, "
+			    "using new skbuff %p\n",
+			    dev->name, __FUNCTION__, old_skb, skb);
+			dev_kfree_skb(old_skb);
+			if (!skb) {
+				return 0;
+			}
+		} else
+			skb_orphan(skb);
+
 		/* make settings for loopback to reduce code in irq context */
-		skb->protocol  = htons(ETH_P_CAN);
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		skb->protocol	= htons(ETH_P_CAN);
+		skb->ip_summed	= CHECKSUM_UNNECESSARY;
+		skb->dev	= dev;
 
 		/* save this skb for tx interrupt loopback handling */
 		priv->loop_skb = skb;
