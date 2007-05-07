@@ -43,7 +43,6 @@
  *
  */
 
-#include <linux/autoconf.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/slab.h>
