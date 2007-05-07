@@ -588,6 +588,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	uint8_t	dlc;
 	canid_t	id;
 	uint8_t	dreg;
+	int	loop;
 	int	i;
 
 	netif_stop_queue(dev);
@@ -623,7 +624,10 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->trans_start = jiffies;
 
-	if (!loopback) {
+	/* tx socket reference pointer: Loopback required if not NULL */
+	loop = *(struct sock **)skb->cb != NULL;
+
+	if (!loopback || !loop) {
 		dev_kfree_skb(skb);
 		return 0;
 	}
