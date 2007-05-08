@@ -1,7 +1,7 @@
 /*
  * proc.c -  proc file system functions for I82527 CAN driver.
  *
- * Copyright (c) 2002-2005 Volkswagen Group Electronic Research
+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
