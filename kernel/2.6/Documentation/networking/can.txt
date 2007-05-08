@@ -6,33 +6,35 @@ Readme file for the Controller Area Network Protocol Family (aka Socket CAN)
 
 This file contains
 
- 1 Overview / What is Socket CAN
+  1 Overview / What is Socket CAN
 
- 2 Motivation / Why using the socket API
+  2 Motivation / Why using the socket API
 
- 3 Socket CAN concept
-   3.1 receive lists
-   3.2 loopback
-   3.3 network security issues (capabilities)
+  3 Socket CAN concept
+    3.1 receive lists
+    3.2 loopback
+    3.3 network security issues (capabilities)
+    3.4 network problem notifications
 
- 4 How to use Socket CAN
-   4.1 RAW protocol sockets with can_filters (SOCK_RAW)
-   4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
-   4.3 connected transport protocols (SOCK_SEQPACKET)
-   4.4 unconnected transport protocols (SOCK_DGRAM)
+  4 How to use Socket CAN
+    4.1 RAW protocol sockets with can_filters (SOCK_RAW)
+    4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
+    4.3 connected transport protocols (SOCK_SEQPACKET)
+    4.4 unconnected transport protocols (SOCK_DGRAM)
 
- 5 Socket CAN core module
-   5.1 can.ko module params 
-   5.2 procfs content
-   5.3 writing own CAN protocol modules
+  5 Socket CAN core module
+    5.1 can.ko module params 
+    5.2 procfs content
+    5.3 writing own CAN protocol modules
 
- 6 CAN network drivers
-   6.1 general settings
-   6.2 loopback
-   6.3 currently supported CAN hardware
-   6.4 todo
+  6 CAN network drivers
+    6.1 general settings
+    6.2 loopback
+    6.3 CAN controller hardware filters
+    6.4 currently supported CAN hardware
+    6.5 todo
 
- 7 Credits
+  7 Credits
 
 ============================================================================
 
@@ -209,6 +211,24 @@ solution for a couple of reasons:
   sockets the Kconfig options CAN_RAW_USER and/or CAN_BCM_USER may be
   selected at kernel compile time. 
 
+  3.4 network problem notifications
+
+  The use of the CAN bus may lead to several problems on the physical
+  and media access control layer. Detecting and logging of these lower
+  layer problems is a vital requirement for CAN users to identify
+  hardware issues on the physical transceiver layer as well as
+  arbitration problems and error frames caused by the different
+  ECUs. The occurance of detected errors are important for diagnosis
+  and have to be logged together with the exact timestamp. For this
+  reason the CAN interface driver can generate so called Error Frames
+  that can optionally be passed to the user application on the same
+  way like other CAN frames. Whenever an error on the physical layer
+  or the MAC layer is detected (e.g. by the CAN controller) the driver
+  creates an appropriate error frame. Error frames can be requested by
+  the user application using the common CAN filter mechanisms. Inside
+  this filter definition the (interrested) type of errors may be
+  selected. The receiption of error frames is disabled by default.
+
 4. How to use Socket CAN
 ------------------------
 
@@ -299,17 +319,118 @@ solution for a couple of reasons:
 5. Socket CAN core module
 -------------------------
 
-   5.1 can.ko module params 
-   5.2 procfs content
-   5.3 writing own CAN protocol modules
+  The Socket CAN core module implements the protocol family
+  PF_CAN. CAN protocol modules are loaded by the core module at
+  runtime. The core module provides an interface for CAN protocol
+  modules to subscribe needed CAN IDs (see chapter 3.1).
+  
+  5.1 can.ko module params 
+
+  - stats_timer: To calculate the Socket CAN core statistics
+    (e.g. current/maximum frames per second) this 1 second timer is
+    invoked at can.ko module start time by default. This timer can be
+    disabled giving stattimer=0 on the module comandline.
+
+  - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
+    compile time, the debug output code is compiled into the module.
+    debug = 0x01 => print general debug information
+    debug = 0x02 => print content of processed CAN frames
+    debug = 0x04 => print content of processed socket buffers
+
+    It is possible or have ORed values e.g. 3 or 7 for an output off
+    all available debug information. Using 0x02 and 0x04 may flood
+    your kernel log - so be careful. 
+
+  5.2 procfs content
+  5.3 writing own CAN protocol modules
 
 6. CAN network drivers
 ----------------------
 
-   6.1 general settings
-   6.2 loopback
-   6.3 currently supported CAN hardware
-   6.4 todo
+  Writing a CAN network device driver is much easier than writing a
+  CAN character device driver. Analogue to other know network device
+  drivers you mainly have to deal with:
+
+  - TX: Put the CAN frame from the socket buffer to the CAN controller.
+  - RX: Put the CAN frame from the CAN controller to the socket buffer.
+
+  See e.g. at Documentation/networking/netdevices.txt . The differences
+  for writing CAN network device driver are described below: 
+
+  6.1 general settings
+
+    dev->type  = ARPHRD_CAN; /* the netdevice hardware type */
+    dev->flags = IFF_NOARP; /* CAN has no arp */
+
+    dev->mtu   = sizeof(struct can_frame);
+
+  The struct can_frame is the payload of each socket buffer in the
+  protocol family PF_CAN.
+
+  6.2 loopback
+
+  As described in chapter 3.2 the CAN network device driver should
+  support a local loopback functionality. If so the driver flag
+  IFF_LOOPBACK has to be set to omit the PF_CAN core to perform the
+  loopback as fallback solution:
+
+    dev->flags = (IFF_NOARP | IFF_LOOPBACK);
+
+  6.3 CAN controller hardware filters
+
+  To reduce the interrupt load on deep embedded systems some CAN
+  controllers support the filtering of CAN IDs or ranges of CAN IDs.
+  These hardware filter capabilities vary from controller to
+  controller and have to be identified as not feasible in a multi-user
+  networking approach. The use of the very controller specific
+  hardware filters could make sense in a very dedicated use-case, as a
+  filter on driver level would affect all users in the multi-user
+  system. The high efficient filter sets inside the PF_CAN core allow
+  to set different multiple filters for each socket separately.
+  Therefore the use of hardware filters goes to the category 'handmade
+  tuning on deep embedded systems'. The author is running a MPC603e
+  @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
+  load without any problems ...        
+  
+  6.4 currently supported CAN hardware (May 2007)
+
+  On the project website http://developer.berlios.de/projects/socketcan
+  there are different drivers available:
+
+    vcan:    Virtual CAN interface driver (if no real hardware is available)
+    sja1000: Philips SJA1000 CAN controller (recommended)
+    i82527:  Intel i82527 CAN controller
+    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
+    slcan:   For a bunch of CAN adaptors that are attached via a
+             serial line ASCII protocol (for serial / USB adaptors) 
+
+  Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
+  from PEAK Systemtechnik support the CAN netdevice driver modell
+  since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
+
+  Please check the Mailing Lists on the berlios OSS project website. 
+
+  6.5 todo (May 2007)
+
+  The configuration interface for CAN network drivers is still an open
+  issue that has not been finalized in the socketcan project. Also the
+  idea of having a library module (candev.ko) that holds functions
+  that are needed by all CAN netdevices is not ready to ship.
+  Your contribution is welcome.
 
 7. Credits
 ----------
+
+  Oliver Hartkopp (PF_CAN core, filters, drivers)
+  Urs Thuermann (PF_CAN core, kernel integration, socket interfaces)
+  Jan Kizka (RT-socketcan core, Socket-API reconciliation)
+  Wolfgang Grandegger (RT-socketcan core & drivers)
+  Robert Schwebel (OSELAS integration)
+  Marc Kleine-Budde (Kernel 2.6 cleanups, reviews, drivers)
+  Benedikt Spranger (reviews)
+  Thomas Gleixner (LKML reviews, coding style, posting hints)
+  Andrey Volkov (kernel subtree structure, ioctls, mscan driver)
+  Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
+  Klaus Hitschler (PEAK driver integration)
+  Uwe Koppe (CAN netdevices with PF_PACKET approach)
+  Michael Schulze (driver layer loopback requirement)
