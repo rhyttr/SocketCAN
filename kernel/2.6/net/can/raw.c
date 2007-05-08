@@ -79,8 +79,6 @@ MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #define RAW_CAP CAP_NET_RAW
 #endif
 
-#undef CAN_RAW_SUPPORT_REBIND /* allow bind on already bound socket */
-
 #define MASK_ALL 0
 
 /*
@@ -102,6 +100,7 @@ struct raw_opt {
 	struct can_filter dfilter; /* default/single filter */
 	struct can_filter *filter; /* pointer to filter(s) */
 	can_err_mask_t err_mask;
+	spinlock_t lock;
 };
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
@@ -131,8 +130,10 @@ static void raw_notifier(unsigned long msg, void *data)
 	switch (msg) {
 
 	case NETDEV_UNREGISTER:
+		spin_lock(&ro->lock);
 		ro->ifindex = 0;
 		ro->bound   = 0;
+		spin_unlock(&ro->lock);
 		/* fallthrough */
 	case NETDEV_DOWN:
 		sk->sk_err = ENETDOWN;
@@ -220,6 +221,8 @@ static int raw_init(struct sock *sk)
 	ro->loopback         = 1;
 	ro->recv_own_msgs    = 0;
 
+	spin_lock_init(&ro->lock);
+
 	return 0;
 }
 
@@ -232,8 +235,10 @@ static int raw_release(struct socket *sock)
 	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
 	    atomic_read(&sk->sk_refcnt));
 
+	spin_lock(&ro->lock);
 	if (ro->bound && ro->ifindex)
 		dev = dev_get_by_index(ro->ifindex);
+	spin_unlock(&ro->lock);
 
 	/* remove current filters & unregister */
 	if (ro->bound)
@@ -263,21 +268,25 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct sock *sk = sock->sk;
 	struct raw_opt *ro = raw_sk(sk);
 	struct net_device *dev;
+	int err = 0;
 
 	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
 
 	if (len < sizeof(*addr))
 		return -EINVAL;
 
+	lock_sock(sk);
+	spin_lock(&ro->lock);
+
 	if (ro->bound) {
-#ifdef CAN_RAW_SUPPORT_REBIND
 		/* remove current bindings / notifier */
 		if (ro->ifindex) {
 			dev = dev_get_by_index(ro->ifindex);
 			if (!dev) {
 				DBG("could not find device %d\n",
 				    addr->can_ifindex);
-				return -ENODEV;
+				err = -ENODEV;
+				goto out;
 			}
 			if (!(dev->flags & IFF_UP)) {
 				sk->sk_err = ENETDOWN;
@@ -296,16 +305,14 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 			dev_put(dev);
 
 		ro->bound = 0;
-#else
-		return -EINVAL;
-#endif
 	}
 
 	if (addr->can_ifindex) {
 		dev = dev_get_by_index(addr->can_ifindex);
 		if (!dev) {
 			DBG("could not find device %d\n", addr->can_ifindex);
-			return -ENODEV;
+			err = -ENODEV;
+			goto out;
 		}
 		if (!(dev->flags & IFF_UP)) {
 			sk->sk_err = ENETDOWN;
@@ -330,10 +337,13 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	ro->bound = 1;
 
  out:
+	spin_unlock(&ro->lock);
+	release_sock(sk);
+
 	if (dev)
 		dev_put(dev);
 
-	return 0;
+	return err;
 }
 
 static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
@@ -406,8 +416,12 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 				return err;
 		}
 
+		lock_sock(sk);
+
+		spin_lock(&ro->lock);
 		if (ro->bound && ro->ifindex)
 			dev = dev_get_by_index(ro->ifindex);
+		spin_unlock(&ro->lock);
 
 		/* remove current filters & unregister */
 		if (ro->bound)
@@ -430,6 +444,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		if (dev)
 			dev_put(dev);
+
+		release_sock(sk);
 
 		break;
 
@@ -496,7 +512,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 	struct can_filter *filter = ro->filter;
 	int count = ro->count;
 	int len;
-	void *val;
+	void *val = NULL;
 
 	if (level != SOL_CAN_RAW)
 		return -EINVAL;
