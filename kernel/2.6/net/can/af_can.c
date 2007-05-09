@@ -161,7 +161,7 @@ static int can_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
 	struct can_proto *cp;
-	char module_name[30];
+	char module_name[sizeof("can-proto-000")];
 	int ret = 0;
 
 	DBG("socket %p, type %d, proto %d\n", sock, sock->type, protocol);
