@@ -1042,7 +1042,7 @@ static __init int can_init(void)
 
 	/*
 	 * Insert struct dev_rcv_lists for reception on all devices.
-	 * This struct is zero initialized which is correct for the 
+	 * This struct is zero initialized which is correct for the
 	 * embedded hlist heads, the dev pointer, and the entries counter.
 	 */
 

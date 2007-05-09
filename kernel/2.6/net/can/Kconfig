@@ -23,7 +23,7 @@ config CAN_RAW
 	---help---
 	  The Raw CAN protocol option offers access to the CAN bus via
 	  the BSD socket API. You probably want to use the raw socket in
-	  most cases where no higher level protocol is being used. The raw 
+	  most cases where no higher level protocol is being used. The raw
 	  socket has several filter options e.g. ID-Masking / Errorframes.
 	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 
@@ -80,4 +80,3 @@ config CAN_DEBUG_CORE
 
 
 source "drivers/net/can/Kconfig"
-

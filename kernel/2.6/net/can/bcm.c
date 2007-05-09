@@ -309,7 +309,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
-/* 
+/*
  * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
  *              of the given bcm tx op
  */
@@ -356,7 +356,7 @@ static void bcm_can_tx(struct bcm_op *op)
 	dev_put(dev);
 }
 
-/* 
+/*
  * bcm_send_to_user - send a BCM message to the userspace
  *                    (consisting of bcm_msg_head + x CAN frames)
  */
@@ -512,9 +512,9 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 }
 
 /*
- * bcm_rx_update_and_send - process a detected relevant receive content change 
+ * bcm_rx_update_and_send - process a detected relevant receive content change
  *                          1. update the last received data
- *                          2. send a notification to the user (if possible) 
+ *                          2. send a notification to the user (if possible)
  */
 static void bcm_rx_update_and_send(struct bcm_op *op,
 				   struct can_frame *lastdata,
@@ -1019,7 +1019,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 	if (op->flags & TX_RESET_MULTI_IDX) {
 		/* start multiple frame transmission with index 0 */
-		op->currframe = 0; 
+		op->currframe = 0;
 	}
 
 	if (op->flags & SETTIMER) {
@@ -1296,7 +1296,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 				dev_put(dev);
 			}
 
-		} else 
+		} else
 			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
 					bcm_rx_handler, op, IDENT);
 	}
@@ -1367,7 +1367,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	if (!ifindex && msg->msg_name) {
 		/* no bound device as default => check msg_name */
-		struct sockaddr_can *addr = 
+		struct sockaddr_can *addr =
 			(struct sockaddr_can *)msg->msg_name;
 
 		if (addr->can_family != AF_CAN)
@@ -1407,7 +1407,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		else
 			ret = -EINVAL;
 		break;
-		    
+
 	case RX_DELETE:
 		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
 			ret = MHSIZ;

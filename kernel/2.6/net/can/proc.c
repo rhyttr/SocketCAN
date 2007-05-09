@@ -80,7 +80,7 @@ static struct proc_dir_entry *pde_rcvlist_err = NULL;
 
 static int user_reset = 0;
 
-/* 
+/*
  * af_can statistics stuff
  */
 
@@ -146,7 +146,7 @@ void can_stat_update(unsigned long data)
 
 	/* calc total values */
 	if (stats.rx_frames)
-		stats.total_rx_match_ratio = (stats.matches * 100) / 
+		stats.total_rx_match_ratio = (stats.matches * 100) /
 						stats.rx_frames;
 
 	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
@@ -182,7 +182,7 @@ void can_stat_update(unsigned long data)
 	add_timer(&stattimer);
 }
 
-/* 
+/*
  * proc read functions
  *
  * From known use-cases we expect about 10 entries in a receive list to be

@@ -54,7 +54,7 @@
 RCSID("$Id$");
 
 static __initdata const char banner[] =
-	KERN_INFO "vcan: Virtual CAN interface driver\n"; 
+	KERN_INFO "vcan: Virtual CAN interface driver\n";
 
 MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");

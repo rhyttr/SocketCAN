@@ -23,4 +23,3 @@ config CAN_DEBUG_DEVICES
 	  on.
 
 endmenu
-

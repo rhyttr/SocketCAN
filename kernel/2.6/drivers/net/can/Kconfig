@@ -82,4 +82,3 @@ config CAN_MPC52XX
 	  will be called mpc52xx_can.
 
 endmenu
-
