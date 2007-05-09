@@ -49,14 +49,25 @@ sub add_file {
     $ts = strftime "%F %T", gmtime((stat($file))[9]);
 
     for $i (0..$#lines) {
-	if ($lines[$i] =~ /include.*linux\/can\/version\.h/) {
+
+	if ($lines[$i] =~ /include.*linux(\/can)?\/version\.h/) {
 	    undef($lines[$i]);
 	    $count--;
 	}
+
 	if ($lines[$i] =~ /RCSID/) {
 	    undef($lines[$i]);
 	    $count--;
 	    while ($lines[++$i] eq "\n") {
+		undef($lines[$i]);
+		$count--;
+	    }
+	}
+
+	if ($lines[$i] =~ /\$Id.*\$/) {
+	    undef($lines[$i]);
+	    $count--;
+	    while ($lines[++$i] eq " *\n") {
 		undef($lines[$i]);
 		$count--;
 	    }
