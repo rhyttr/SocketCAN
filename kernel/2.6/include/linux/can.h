@@ -45,7 +45,7 @@ typedef __u32 can_err_mask_t;
 struct can_frame {
 	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
 	__u8    can_dlc; /* data length code: 0 .. 8 */
-	__u8    data[8] __attribute__ ((aligned(8)));
+	__u8    data[8] __attribute__((aligned(8)));
 };
 
 /* particular protocols of the protocol family PF_CAN */
