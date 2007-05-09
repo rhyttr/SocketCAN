@@ -176,9 +176,18 @@ static int can_create(struct socket *sock, int protocol)
 	/* try to load protocol module, when CONFIG_KMOD is defined */
 	if (!proto_tab[protocol]) {
 		sprintf(module_name, "can-proto-%d", protocol);
-		if (request_module(module_name) == -ENOSYS)
+		ret = request_module(module_name);
+
+		/* In case of error we only print a message but don't
+		 * return the error code immediately.  Below we will
+		 * return -EPROTONOSUPPORT
+		 */
+		if (ret == -ENOSYS)
 			printk(KERN_INFO "can: request_module(%s) not"
 			       " implemented.\n", module_name);
+		else if (ret)
+			printk(KERN_ERR "can: request_module(%s) failed\n",
+			       module_name);
 	}
 
 	/* check for success and correct type */
