@@ -249,9 +249,7 @@ static void vcan_init(struct net_device *dev)
 
 static __init int vcan_init_module(void)
 {
-	int i;
-	int ndev = 0;
-	int result = 0;
+	int i, result;
 
 	printk(banner);
 
@@ -289,12 +287,10 @@ static __init int vcan_init_module(void)
 		} else {
 			DBG("successfully registered interface %s\n",
 			    vcan_devs[i]->name);
-			ndev++;
 		}
 	}
 
-	if (ndev)
-		return 0;
+	return 0;
 
  out:
 	for (i = 0; i < numdev; i++) {
@@ -312,9 +308,6 @@ static __init int vcan_init_module(void)
 static __exit void vcan_cleanup_module(void)
 {
 	int i;
-
-	if (!vcan_devs)
-		return;
 
 	for (i = 0; i < numdev; i++) {
 		if (vcan_devs[i]) {
