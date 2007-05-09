@@ -57,11 +57,11 @@
 #include <linux/skbuff.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
+#include <linux/can.h>
+#include <linux/can/core.h>
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include <linux/can.h>
-#include <linux/can/core.h>
 #include "af_can.h"
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */

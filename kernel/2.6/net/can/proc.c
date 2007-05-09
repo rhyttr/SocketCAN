@@ -46,8 +46,8 @@
 #include <linux/proc_fs.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
-
 #include <linux/can/core.h>
+
 #include "af_can.h"
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */

@@ -47,7 +47,6 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-
 #include <linux/can.h>
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
@@ -178,9 +177,8 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			    "using new skbuff %p\n",
 			    dev->name, __FUNCTION__, old_skb, skb);
 			kfree_skb(old_skb);
-			if (!skb) {
+			if (!skb)
 				return 0;
-			}
 		} else
 			skb_orphan(skb);
 

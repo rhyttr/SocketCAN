@@ -49,11 +49,10 @@
 #include <linux/netdevice.h>
 #include <linux/uio.h>
 #include <linux/poll.h>
-#include <net/sock.h>
-
 #include <linux/can.h>
 #include <linux/can/core.h>
 #include <linux/can/raw.h>
+#include <net/sock.h>
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
