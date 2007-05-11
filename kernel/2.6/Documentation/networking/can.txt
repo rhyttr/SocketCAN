@@ -421,10 +421,10 @@ solution for a couple of reasons:
 7. Credits
 ----------
 
-  Oliver Hartkopp (PF_CAN core, filters, drivers)
-  Urs Thuermann (PF_CAN core, kernel integration, socket interfaces)
-  Jan Kizka (RT-socketcan core, Socket-API reconciliation)
-  Wolfgang Grandegger (RT-socketcan core & drivers)
+  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
+  Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
+  Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
+  Wolfgang Grandegger (RT-SocketCAN core & drivers)
   Robert Schwebel (OSELAS integration)
   Marc Kleine-Budde (Kernel 2.6 cleanups, reviews, drivers)
   Benedikt Spranger (reviews)
@@ -433,4 +433,4 @@ solution for a couple of reasons:
   Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
   Klaus Hitschler (PEAK driver integration)
   Uwe Koppe (CAN netdevices with PF_PACKET approach)
-  Michael Schulze (driver layer loopback requirement)
+  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
