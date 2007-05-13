@@ -621,7 +621,7 @@ solution for a couple of reasons:
   Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
   Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
   Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
-  Wolfgang Grandegger (RT-SocketCAN core & drivers)
+  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews)
   Robert Schwebel (design reviews, PTXdist integration)
   Marc Kleine-Budde (design reviews, Kernel 2.6 cleanups, drivers)
   Benedikt Spranger (reviews)
