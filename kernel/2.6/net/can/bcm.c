@@ -44,6 +44,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/version.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/proc_fs.h>

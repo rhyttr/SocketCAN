@@ -13,6 +13,7 @@
 #ifndef CAN_DEVICE_H
 #define CAN_DEVICE_H
 
+#include <linux/version.h>
 #include <linux/can/error.h>
 #include <linux/can/ioctl.h>
 
