@@ -11,6 +11,8 @@ $version = shift;
 
 if (-r "patches/$version.diff") {
     copy_file("patches/$version.diff");
+} else {
+    die "Patch patches/$version.diff not found";
 }
 
 while (<>) {

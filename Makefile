@@ -12,3 +12,6 @@ KERNELRELEASE = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
 patch26:
 	./mkpatch $(KERNELRELEASE) >patch-$(KERNELRELEASE)-socketcan < FILES-2.6
+
+patch26all:
+	./mkpatch $(KERNELRELEASE) >patch-$(KERNELRELEASE)-socketcan-all < FILES-2.6-ALL
