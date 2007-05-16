@@ -417,8 +417,9 @@ solution for a couple of reasons:
 
     setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
 
-  But indeed this is quite obsolete as we would not read from the socket
-  at all, but for this reason we can remove the receive list in the
+  To set the filters to zero filters is quite obsolete as not readed
+  data causes the raw socket to discard the received CAN frames. But
+  having this 'send only' use-case we may remove the receive list in the
   Kernel to save a little (really a very little!) CPU usage.
 
   4.1.2 RAW socket option CAN_RAW_ERR_FILTER
@@ -450,7 +451,8 @@ solution for a couple of reasons:
   4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
 
   When the local loopback is enabled, all the sent CAN frames are
-  looped back to the open CAN sockets to meet the multi user
+  looped back to the open CAN sockets that registered for the CAN
+  frames' CAN-ID on this given interface to meet the multi user
   needs. The receiption of the CAN frames on the same socket that was
   sending the CAN frame is assumed to be unwanted and therefore
   disabled by default. This default behaviour may be changed on
