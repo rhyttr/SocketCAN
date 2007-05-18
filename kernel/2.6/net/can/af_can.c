@@ -454,29 +454,46 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 }
 EXPORT_SYMBOL(can_rx_register);
 
-static void can_rcv_lists_delete(struct rcu_head *rp)
-{
-	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
-
-	kfree(d);
-}
-
-static void can_rx_delete(struct rcu_head *rp)
-{
-	struct receiver *r = container_of(rp, struct receiver, rcu);
-
-	kmem_cache_free(rcv_cache, r);
-}
-
-static void can_rx_delete_all(struct hlist_head *rl)
+static void can_rx_delete_list(struct hlist_head *rl)
 {
 	struct receiver *r;
 	struct hlist_node *n;
 
 	hlist_for_each_entry_rcu(r, n, rl, list) {
 		hlist_del_rcu(&r->list);
-		call_rcu(&r->rcu, can_rx_delete);
+		kmem_cache_free(rcv_cache, r);
 	}
+}
+
+/*
+ * can_rx_delete_device - rcu callback for dev_rcv_lists structure removal
+ */
+static void can_rx_delete_device(struct rcu_head *rp)
+{
+	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
+	int i;
+
+	/* remove all receivers hooked at this netdevice */
+	can_rx_delete_list(&d->rx_err);
+	can_rx_delete_list(&d->rx_all);
+	can_rx_delete_list(&d->rx_fil);
+	can_rx_delete_list(&d->rx_inv);
+	can_rx_delete_list(&d->rx_eff);
+
+	for (i = 0; i < 2048; i++)
+		can_rx_delete_list(&d->rx_sff[i]);
+
+	kfree(d);
+}
+
+/*
+ * can_rx_delete_receiver - rcu callback for single receiver entry removal
+ */
+static void can_rx_delete_receiver(struct rcu_head *rp)
+{
+	struct receiver *r = container_of(rp, struct receiver, rcu);
+
+	kmem_cache_free(rcv_cache, r);
 }
 
 /**
@@ -556,7 +573,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/* schedule the receiver item for deletion */
 	if (r)
-		call_rcu(&r->rcu, can_rx_delete);
+		call_rcu(&r->rcu, can_rx_delete_receiver);
 
 	return ret;
 }
@@ -945,7 +962,6 @@ static int can_notifier(struct notifier_block *nb,
 	struct net_device *dev = (struct net_device *)data;
 	struct notifier *n;
 	struct dev_rcv_lists *d;
-	int i;
 
 	DBG("called for %s, msg = %lu\n", dev->name, msg);
 
@@ -986,25 +1002,16 @@ static int can_notifier(struct notifier_block *nb,
 		spin_lock_bh(&rcv_lists_lock);
 
 		d = find_dev_rcv_lists(dev);
-		if (d) {
+		if (d)
 			hlist_del_rcu(&d->list);
-
-			/* remove all receivers hooked at this netdevice */
-			can_rx_delete_all(&d->rx_err);
-			can_rx_delete_all(&d->rx_all);
-			can_rx_delete_all(&d->rx_fil);
-			can_rx_delete_all(&d->rx_inv);
-			can_rx_delete_all(&d->rx_eff);
-			for (i = 0; i < 2048; i++)
-				can_rx_delete_all(&d->rx_sff[i]);
-		} else
+		else
 			printk(KERN_ERR "can: notifier: receive list not "
 			       "found for dev %s\n", dev->name);
 
 		spin_unlock_bh(&rcv_lists_lock);
 
 		if (d)
-			call_rcu(&d->rcu, can_rcv_lists_delete);
+			call_rcu(&d->rcu, can_rx_delete_device);
 
 		break;
 	}
