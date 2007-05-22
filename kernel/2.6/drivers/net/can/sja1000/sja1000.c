@@ -209,6 +209,7 @@ static __exit void sja1000_exit_module(void)
 			struct can_priv *priv = netdev_priv(can_dev[i]);
 			unregister_netdev(can_dev[i]);
 			del_timer(&priv->timer);
+			hw_detach(i);
 			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
 			free_netdev(can_dev[i]);
 		}
@@ -264,6 +265,7 @@ static __init int sja1000_init_module(void)
 		if (!sja1000_probe_chip(base[i])) {
 			printk(KERN_ERR "%s: probably missing controller"
 			       " hardware\n", drv_name);
+			hw_detach(i);
 			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
 			sja1000_exit_module();
 			return -ENODEV;
@@ -846,6 +848,8 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 	int n = 0;
 
 	hw_preirq(dev);
+
+	iiDBG(KERN_INFO "%s: interrupt\n", dev->name);
 
 	if (priv->state == STATE_UNINITIALIZED) {
 		printk(KERN_ERR "%s: %s: uninitialized controller!\n",
