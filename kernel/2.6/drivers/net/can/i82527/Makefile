@@ -60,9 +60,10 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
 		-DARPHRD_CAN=280
 endif
 
-obj-m := i82527-pc7io.o i82527-iomem.o
+obj-m := i82527-pc7io.o i82527-iomem.o i82527-esdio.o
 
 i82527-pc7io-objs := i82527.o proc.o ../hal/pc7io.o
 i82527-iomem-objs := i82527.o proc.o ../hal/iomem.o
+i82527-esdio-objs := i82527.o proc.o ../hal/esdio.o
 
 endif
