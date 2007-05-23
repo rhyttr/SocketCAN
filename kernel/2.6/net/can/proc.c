@@ -359,8 +359,9 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 }
 
 static int can_proc_read_rcvlist(char *page, char **start, off_t off,
-				 int count, int *eof, void *data, int idx)
+				 int count, int *eof, void *data)
 {
+	int idx = (int)data;
 	int len = 0;
 	struct dev_rcv_lists *d;
 	struct hlist_node *n;
@@ -368,7 +369,6 @@ static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"\nreceive list '%s':\n", rx_list_name[idx]);
 
-	/* find receive list for this device */
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
 
@@ -391,36 +391,6 @@ static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 	return len;
 }
 
-static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	return can_proc_read_rcvlist(page, start, off, count, eof, data, RX_ALL);
-}
-
-static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	return can_proc_read_rcvlist(page, start, off, count, eof, data, RX_FIL);
-}
-
-static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	return can_proc_read_rcvlist(page, start, off, count, eof, data, RX_INV);
-}
-
-static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	return can_proc_read_rcvlist(page, start, off, count, eof, data, RX_EFF);
-}
-
-static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	return can_proc_read_rcvlist(page, start, off, count, eof, data, RX_ERR);
-}
-
 static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 				     int count, int *eof, void *data)
 {
@@ -432,7 +402,6 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"\nreceive list 'rx_sff':\n");
 
-	/* find receive list for this device */
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
 		int i, all_empty = 1;
@@ -507,24 +476,24 @@ void can_init_proc(void)
 	can_dir->owner = THIS_MODULE;
 
 	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_readentry(CAN_PROC_VERSION,
-					0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_readentry(CAN_PROC_STATS,
-					0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_readentry(CAN_PROC_RESET_STATS,
-					0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_readentry(CAN_PROC_RCVLIST_ALL,
-					0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_readentry(CAN_PROC_RCVLIST_FIL,
-					0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_readentry(CAN_PROC_RCVLIST_INV,
-					0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF,
-					0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_readentry(CAN_PROC_RCVLIST_EFF,
-					0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_readentry(CAN_PROC_RCVLIST_ERR,
-					0644, can_proc_read_rcvlist_err, NULL);
+	pde_version     = can_create_proc_readentry(CAN_PROC_VERSION, 0644,
+					can_proc_read_version, NULL);
+	pde_stats       = can_create_proc_readentry(CAN_PROC_STATS, 0644,
+					can_proc_read_stats, NULL);
+	pde_reset_stats = can_create_proc_readentry(CAN_PROC_RESET_STATS, 0644,
+					can_proc_read_reset_stats, NULL);
+	pde_rcvlist_err = can_create_proc_readentry(CAN_PROC_RCVLIST_ERR, 0644,
+					can_proc_read_rcvlist, (void*)RX_ERR);
+	pde_rcvlist_all = can_create_proc_readentry(CAN_PROC_RCVLIST_ALL, 0644,
+					can_proc_read_rcvlist, (void*)RX_ALL);
+	pde_rcvlist_fil = can_create_proc_readentry(CAN_PROC_RCVLIST_FIL, 0644,
+					can_proc_read_rcvlist, (void*)RX_FIL);
+	pde_rcvlist_inv = can_create_proc_readentry(CAN_PROC_RCVLIST_INV, 0644,
+					can_proc_read_rcvlist, (void*)RX_INV);
+	pde_rcvlist_eff = can_create_proc_readentry(CAN_PROC_RCVLIST_EFF, 0644,
+					can_proc_read_rcvlist, (void*)RX_EFF);
+	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF, 0644,
+					can_proc_read_rcvlist_sff, NULL);
 }
 
 /*
@@ -541,6 +510,9 @@ void can_remove_proc(void)
 	if (pde_reset_stats)
 		can_remove_proc_readentry(CAN_PROC_RESET_STATS);
 
+	if (pde_rcvlist_err)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
+
 	if (pde_rcvlist_all)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
 
@@ -550,14 +522,11 @@ void can_remove_proc(void)
 	if (pde_rcvlist_inv)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
 
-	if (pde_rcvlist_sff)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
-
 	if (pde_rcvlist_eff)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
 
-	if (pde_rcvlist_err)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
+	if (pde_rcvlist_sff)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
 		remove_proc_entry(CAN_PROC_DIR, NULL);
