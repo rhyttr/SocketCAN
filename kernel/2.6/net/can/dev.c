@@ -24,6 +24,11 @@
 #include <linux/can.h>
 #include <linux/can/dev.h>
 
+MODULE_DESCRIPTION("CAN netdevice library");
+MODULE_LICENSE("GPL v2");
+MODULE_AUTHOR("Marc Kleine-Budde <mkl@pengutronix.de>, "
+	      "Andrey Volkov <avolkov@varma-el.com>");
+
 /*
  Abstract:
 	Baud rate calculated with next formula:
