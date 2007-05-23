@@ -56,7 +56,7 @@
 /* general function prototypes for CAN HAL */
 
 /* init the HAL - call at driver module init */
-int hal_init(void *irq_handler);
+int hal_init(void);
 
 /* exit the HAL - call at driver module exit */
 int hal_exit(void);

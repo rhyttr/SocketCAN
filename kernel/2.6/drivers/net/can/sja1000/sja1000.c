@@ -1115,7 +1115,7 @@ static __init int sja1000_init_module(void)
 	int i, ret;
 	struct net_device *dev;
 
-	if ((ret = hal_init(can_interrupt)))
+	if ((ret = hal_init()))
 		return ret;
 
 	if ((ret = can_set_drv_name()))

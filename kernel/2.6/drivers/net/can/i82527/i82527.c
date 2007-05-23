@@ -1174,7 +1174,7 @@ static __init int i82527_init_module(void)
 		return -EBUSY;
 	}
 
-	if ((ret = hal_init(can_interrupt)))
+	if ((ret = hal_init()))
 		return ret;
 
 	if ((ret = can_set_drv_name()))
