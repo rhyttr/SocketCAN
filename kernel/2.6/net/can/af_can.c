@@ -346,7 +346,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	if (*mask & CAN_ERR_FLAG) {
 		/* clear CAN_ERR_FLAG in list entry */
 		*mask &= CAN_ERR_MASK;
-		return &d->rx_err;
+		return &d->rx[RX_ERR];
 	}
 
 	/* ensure valid values in can_mask */
@@ -360,17 +360,17 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 
 	/* inverse can_id/can_mask filter */
 	if (inv)
-		return &d->rx_inv;
+		return &d->rx[RX_INV];
 
 	/* mask == 0 => no condition testing at receive time */
 	if (!(*mask))
-		return &d->rx_all;
+		return &d->rx[RX_ALL];
 
 	/* use extra filterset for the subscription of exactly *ONE* can_id */
 	if (*can_id & CAN_EFF_FLAG) {
 		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG)) {
 			/* RFC: a use-case for hash-tables in the future? */
-			return &d->rx_eff;
+			return &d->rx[RX_EFF];
 		}
 	} else {
 		if (*mask == CAN_SFF_MASK)
@@ -378,7 +378,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 	}
 
 	/* default: filter via can_id/can_mask */
-	return &d->rx_fil;
+	return &d->rx[RX_FIL];
 }
 
 /**
@@ -474,11 +474,11 @@ static void can_rx_delete_device(struct rcu_head *rp)
 	int i;
 
 	/* remove all receivers hooked at this netdevice */
-	can_rx_delete_list(&d->rx_err);
-	can_rx_delete_list(&d->rx_all);
-	can_rx_delete_list(&d->rx_fil);
-	can_rx_delete_list(&d->rx_inv);
-	can_rx_delete_list(&d->rx_eff);
+	can_rx_delete_list(&d->rx[RX_ERR]);
+	can_rx_delete_list(&d->rx[RX_ALL]);
+	can_rx_delete_list(&d->rx[RX_FIL]);
+	can_rx_delete_list(&d->rx[RX_INV]);
+	can_rx_delete_list(&d->rx[RX_EFF]);
 
 	for (i = 0; i < 2048; i++)
 		can_rx_delete_list(&d->rx_sff[i]);
@@ -603,7 +603,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 
 	if (can_id & CAN_ERR_FLAG) {
 		/* check for error frame entries only */
-		hlist_for_each_entry_rcu(r, n, &d->rx_err, list) {
+		hlist_for_each_entry_rcu(r, n, &d->rx[RX_ERR], list) {
 			if (can_id & r->mask) {
 				DBG("match on rx_err skbuff %p\n", skb);
 				deliver(skb, r);
@@ -614,14 +614,14 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	}
 
 	/* check for unfiltered entries */
-	hlist_for_each_entry_rcu(r, n, &d->rx_all, list) {
+	hlist_for_each_entry_rcu(r, n, &d->rx[RX_ALL], list) {
 		DBG("match on rx_all skbuff %p\n", skb);
 		deliver(skb, r);
 		matches++;
 	}
 
 	/* check for can_id/mask entries */
-	hlist_for_each_entry_rcu(r, n, &d->rx_fil, list) {
+	hlist_for_each_entry_rcu(r, n, &d->rx[RX_FIL], list) {
 		if ((can_id & r->mask) == r->can_id) {
 			DBG("match on rx_fil skbuff %p\n", skb);
 			deliver(skb, r);
@@ -630,7 +630,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	}
 
 	/* check for inverted can_id/mask entries */
-	hlist_for_each_entry_rcu(r, n, &d->rx_inv, list) {
+	hlist_for_each_entry_rcu(r, n, &d->rx[RX_INV], list) {
 		if ((can_id & r->mask) != r->can_id) {
 			DBG("match on rx_inv skbuff %p\n", skb);
 			deliver(skb, r);
@@ -640,7 +640,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 
 	/* check CAN_ID specific entries */
 	if (can_id & CAN_EFF_FLAG) {
-		hlist_for_each_entry_rcu(r, n, &d->rx_eff, list) {
+		hlist_for_each_entry_rcu(r, n, &d->rx[RX_EFF], list) {
 			if (r->can_id == can_id) {
 				DBG("match on rx_eff skbuff %p\n", skb);
 				deliver(skb, r);

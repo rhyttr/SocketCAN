@@ -64,16 +64,14 @@ struct receiver {
 	char *ident;
 };
 
+enum { RX_ERR, RX_ALL, RX_FIL, RX_INV, RX_EFF, RX_MAX };
+
 struct dev_rcv_lists {
 	struct hlist_node list;
 	struct rcu_head rcu;
 	struct net_device *dev;
-	struct hlist_head rx_err;
-	struct hlist_head rx_all;
-	struct hlist_head rx_fil;
-	struct hlist_head rx_inv;
+	struct hlist_head rx[RX_MAX];
 	struct hlist_head rx_sff[0x800];
-	struct hlist_head rx_eff;
 	int entries;
 };
 
