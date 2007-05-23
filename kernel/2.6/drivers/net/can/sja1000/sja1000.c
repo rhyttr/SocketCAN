@@ -198,93 +198,6 @@ static void can_netdev_setup(struct net_device *dev);
 static struct net_device* can_create_netdev(int dev_num, int hw_regs);
 static int  can_set_drv_name(void);
 int set_reset_mode(struct net_device *dev);
-static int sja1000_probe_chip(unsigned long base);
-
-static __exit void sja1000_exit_module(void)
-{
-	int i, ret;
-
-	for (i = 0; i < MAXDEV; i++) {
-		if (can_dev[i] != NULL) {
-			struct can_priv *priv = netdev_priv(can_dev[i]);
-			unregister_netdev(can_dev[i]);
-			del_timer(&priv->timer);
-			hw_detach(i);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
-			free_netdev(can_dev[i]);
-		}
-	}
-	can_proc_remove(drv_name);
-
-	if ((ret = hal_exit()))
-		printk(KERN_INFO "%s: hal_exit error %d.\n", drv_name, ret);
-}
-
-static __init int sja1000_init_module(void)
-{
-	int i, ret;
-	struct net_device *dev;
-
-	if ((ret = hal_init()))
-		return ret;
-
-	if ((ret = can_set_drv_name()))
-		return ret;
-
-	if (clk < 1000 ) /* MHz command line value */
-		clk *= 1000000;
-
-	if (clk < 1000000 ) /* kHz command line value */
-		clk *= 1000;
-
-	printk(KERN_INFO "%s driver v%s (%s)\n",
-	       drv_name, drv_version, drv_reldate);
-	printk(KERN_INFO "%s - options [clk %d.%06d MHz] [restart_ms %dms]"
-	       " [debug %d]\n",
-	       drv_name, clk/1000000, clk%1000000, restart_ms, debug);
-
-	if (!base[0]) {
-		printk(KERN_INFO "%s: loading defaults.\n", drv_name);
-		hal_use_defaults();
-	}
-		
-	for (i = 0; base[i]; i++) {
-		printk(KERN_DEBUG "%s: checking for %s on address 0x%lX ...\n",
-		       drv_name, CHIP_NAME, base[i]);
-
-		if (!hal_request_region(i, SJA1000_IO_SIZE_BASIC, drv_name)) {
-			printk(KERN_ERR "%s: memory already in use\n",
-			       drv_name);
-			sja1000_exit_module();
-			return -EBUSY;
-		}
-
-		hw_attach(i);
-		hw_reset_dev(i);
-
-		if (!sja1000_probe_chip(base[i])) {
-			printk(KERN_ERR "%s: probably missing controller"
-			       " hardware\n", drv_name);
-			hw_detach(i);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
-			sja1000_exit_module();
-			return -ENODEV;
-		}
-
-		dev = can_create_netdev(i, SJA1000_IO_SIZE_BASIC);
-
-		if (dev != NULL) {
-			can_dev[i] = dev;
-			set_reset_mode(dev);
-			can_proc_create(drv_name);
-		} else {
-			can_dev[i] = NULL;
-			hw_detach(i);
-			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
-		}
-	}
-	return 0;
-}
 
 static int sja1000_probe_chip(unsigned long base)
 {
@@ -1174,6 +1087,92 @@ int can_set_drv_name(void)
 		return -EINVAL;
 	}
 	sprintf(drv_name, "%s-%s", CHIP_NAME, hname);
+	return 0;
+}
+
+static __exit void sja1000_exit_module(void)
+{
+	int i, ret;
+
+	for (i = 0; i < MAXDEV; i++) {
+		if (can_dev[i] != NULL) {
+			struct can_priv *priv = netdev_priv(can_dev[i]);
+			unregister_netdev(can_dev[i]);
+			del_timer(&priv->timer);
+			hw_detach(i);
+			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
+			free_netdev(can_dev[i]);
+		}
+	}
+	can_proc_remove(drv_name);
+
+	if ((ret = hal_exit()))
+		printk(KERN_INFO "%s: hal_exit error %d.\n", drv_name, ret);
+}
+
+static __init int sja1000_init_module(void)
+{
+	int i, ret;
+	struct net_device *dev;
+
+	if ((ret = hal_init(can_interrupt)))
+		return ret;
+
+	if ((ret = can_set_drv_name()))
+		return ret;
+
+	if (clk < 1000 ) /* MHz command line value */
+		clk *= 1000000;
+
+	if (clk < 1000000 ) /* kHz command line value */
+		clk *= 1000;
+
+	printk(KERN_INFO "%s driver v%s (%s)\n",
+	       drv_name, drv_version, drv_reldate);
+	printk(KERN_INFO "%s - options [clk %d.%06d MHz] [restart_ms %dms]"
+	       " [debug %d]\n",
+	       drv_name, clk/1000000, clk%1000000, restart_ms, debug);
+
+	if (!base[0]) {
+		printk(KERN_INFO "%s: loading defaults.\n", drv_name);
+		hal_use_defaults();
+	}
+		
+	for (i = 0; base[i]; i++) {
+		printk(KERN_DEBUG "%s: checking for %s on address 0x%lX ...\n",
+		       drv_name, CHIP_NAME, base[i]);
+
+		if (!hal_request_region(i, SJA1000_IO_SIZE_BASIC, drv_name)) {
+			printk(KERN_ERR "%s: memory already in use\n",
+			       drv_name);
+			sja1000_exit_module();
+			return -EBUSY;
+		}
+
+		hw_attach(i);
+		hw_reset_dev(i);
+
+		if (!sja1000_probe_chip(base[i])) {
+			printk(KERN_ERR "%s: probably missing controller"
+			       " hardware\n", drv_name);
+			hw_detach(i);
+			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
+			sja1000_exit_module();
+			return -ENODEV;
+		}
+
+		dev = can_create_netdev(i, SJA1000_IO_SIZE_BASIC);
+
+		if (dev != NULL) {
+			can_dev[i] = dev;
+			set_reset_mode(dev);
+			can_proc_create(drv_name);
+		} else {
+			can_dev[i] = NULL;
+			hw_detach(i);
+			hal_release_region(i, SJA1000_IO_SIZE_BASIC);
+		}
+	}
 	return 0;
 }
 

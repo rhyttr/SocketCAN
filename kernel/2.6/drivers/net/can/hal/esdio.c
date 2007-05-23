@@ -53,7 +53,7 @@ int esd_ale_offset = 1;	//default for the sja1000 chip
 int esd_cs_offset = 0;	//default for the sja1000 chip
 
 /* init the HAL - call at driver module init */
-int hal_init(void) { return 0; }
+int hal_init(void *irq_handler) { return 0; }
 
 /* exit the HAL - call at driver module exit */
 int hal_exit(void) { return 0; }

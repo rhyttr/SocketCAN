@@ -54,7 +54,7 @@
 #define ADDR_GAP 1
 
 /* init the HAL - call at driver module init */
-int hal_init(void) { return 0; }
+int hal_init(void *irq_handler) { return 0; }
 
 /* exit the HAL - call at driver module exit */
 int hal_exit(void) { return 0; }

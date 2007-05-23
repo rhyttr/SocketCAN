@@ -161,144 +161,6 @@ static void can_netdev_setup(struct net_device *dev);
 static struct net_device* can_create_netdev(int dev_num, int hw_regs);
 static int  can_set_drv_name(void);
 int set_reset_mode(struct net_device *dev);
-static int i82527_probe_chip(unsigned long base);
-
-static __exit void i82527_exit_module(void)
-{
-	int i, ret;
-
-	for (i = 0; i < MAXDEV; i++) {
-		if (can_dev[i] != NULL) {
-			struct can_priv *priv = netdev_priv(can_dev[i]);
-			unregister_netdev(can_dev[i]);
-			del_timer(&priv->timer);
-			hw_detach(i);
-			hal_release_region(i, I82527_IO_SIZE);
-			free_netdev(can_dev[i]);
-		}
-	}
-	can_proc_remove(drv_name);
-
-	if ((ret = hal_exit()))
-		printk(KERN_INFO "%s: hal_exit error %d.\n", drv_name, ret);
-}
-
-static __init int i82527_init_module(void)
-{
-	int i, ret;
-	struct net_device *dev;
-
-	if ((sizeof(canmessage_t) != 15) || (sizeof(canregs_t) != 256)) {
-		printk(KERN_WARNING "%s sizes: canmessage_t %d canregs_t %d\n",
-		       CHIP_NAME, sizeof(canmessage_t), sizeof(canregs_t));
-		return -EBUSY;
-	}
-
-	if ((ret = hal_init()))
-		return ret;
-
-	if ((ret = can_set_drv_name()))
-		return ret;
-
-	if (clk < 1000 ) /* MHz command line value */
-		clk *= 1000000;
-
-	if (clk < 1000000 ) /* kHz command line value */
-		clk *= 1000;
-
-	printk(KERN_INFO "%s driver v%s (%s)\n",
-	       drv_name, drv_version, drv_reldate);
-	printk(KERN_INFO "%s - options [clk %d.%06d MHz] [restart_ms %dms]"
-	       " [debug %d]\n",
-	       drv_name, clk/1000000, clk%1000000, restart_ms, debug);
-
-	if (!base[0]) {
-		printk(KERN_INFO "%s: loading defaults.\n", drv_name);
-		hal_use_defaults();
-	}
-		
-	/* to ensure the proper access to the i82527 registers */
-	/* the timing dependend settings have to be done first */
-	if (clk > 10000000)
-		dsc = iCPU_DSC; /* devide system clock => MCLK is 8MHz save */
-	else if (clk > 8000000) /* 8MHz < clk <= 10MHz */
-		dmc = iCPU_DMC; /* devide memory clock */
-
-	/* devide memory clock even if it's not needed (regarding the spec) */
-	if (force_dmc)
-		dmc = iCPU_DMC;
-
-	for (i = 0; base[i]; i++) {
-		int clkout;
-		u8 clockdiv;
-
-		printk(KERN_DEBUG "%s: checking for %s on address 0x%lX ...\n",
-		       drv_name, CHIP_NAME, base[i]);
-
-		if (!hal_request_region(i, I82527_IO_SIZE, drv_name)) {
-			printk(KERN_ERR "%s: memory already in use\n",
-			       drv_name);
-			i82527_exit_module();
-			return -EBUSY;
-		}
-
-		hw_attach(i);
-		hw_reset_dev(i);
-
-		// Enable configuration, put chip in bus-off, disable ints
-		CANout(rbase[i], controlReg, iCTL_CCE | iCTL_INI);
-
-		// Configure cpu interface / CLKOUT disable
-		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc));
-
-		if (!i82527_probe_chip(rbase[i])) {
-			printk(KERN_ERR "%s: probably missing controller"
-			       " hardware\n", drv_name);
-			hw_detach(i);
-			hal_release_region(i, I82527_IO_SIZE);
-			i82527_exit_module();
-			return -ENODEV;
-		}
-
-		/* CLKOUT devider and slew rate calculation */
-		if ((cdv[i] < 0) || (cdv[i] > 14)) {
-			printk(KERN_WARNING "%s: adjusted cdv[%d]=%d to 0.\n",
-			       drv_name, i, cdv[i]);
-			cdv[i] = 0;
-		}
-
-		clkout = clk / (cdv[i] + 1); /* CLKOUT frequency */
-		clockdiv = (u8)cdv[i]; /* devider value (see i82527 spec) */
-
-		if (clkout <= 16000000) {
-			clockdiv |= iCLK_SL1;
-			if (clkout <= 8000000)
-				clockdiv |= iCLK_SL0;
-		} else if (clkout <= 24000000)
-				clockdiv |= iCLK_SL0;
-
-		// Set CLKOUT devider and slew rates
-		CANout(rbase[i], clkOutReg, clockdiv);
-
-		// Configure cpu interface / CLKOUT enable
-		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc | iCPU_CEN));
-
-		CANout(rbase[i], busConfigReg, bcr[i]);
-
-		dev = can_create_netdev(i, I82527_IO_SIZE);
-
-		if (dev != NULL) {
-			can_dev[i] = dev;
-			set_reset_mode(dev);
-			can_proc_create(drv_name);
-		} else {
-			can_dev[i] = NULL;
-			hw_detach(i);
-			hal_release_region(i, I82527_IO_SIZE);
-		}
-	}
-	return 0;
-}
 
 static int i82527_probe_chip(unsigned long base)
 {
@@ -1278,6 +1140,143 @@ int can_set_drv_name(void)
 		return -EINVAL;
 	}
 	sprintf(drv_name, "%s-%s", CHIP_NAME, hname);
+	return 0;
+}
+
+static __exit void i82527_exit_module(void)
+{
+	int i, ret;
+
+	for (i = 0; i < MAXDEV; i++) {
+		if (can_dev[i] != NULL) {
+			struct can_priv *priv = netdev_priv(can_dev[i]);
+			unregister_netdev(can_dev[i]);
+			del_timer(&priv->timer);
+			hw_detach(i);
+			hal_release_region(i, I82527_IO_SIZE);
+			free_netdev(can_dev[i]);
+		}
+	}
+	can_proc_remove(drv_name);
+
+	if ((ret = hal_exit()))
+		printk(KERN_INFO "%s: hal_exit error %d.\n", drv_name, ret);
+}
+
+static __init int i82527_init_module(void)
+{
+	int i, ret;
+	struct net_device *dev;
+
+	if ((sizeof(canmessage_t) != 15) || (sizeof(canregs_t) != 256)) {
+		printk(KERN_WARNING "%s sizes: canmessage_t %d canregs_t %d\n",
+		       CHIP_NAME, sizeof(canmessage_t), sizeof(canregs_t));
+		return -EBUSY;
+	}
+
+	if ((ret = hal_init(can_interrupt)))
+		return ret;
+
+	if ((ret = can_set_drv_name()))
+		return ret;
+
+	if (clk < 1000 ) /* MHz command line value */
+		clk *= 1000000;
+
+	if (clk < 1000000 ) /* kHz command line value */
+		clk *= 1000;
+
+	printk(KERN_INFO "%s driver v%s (%s)\n",
+	       drv_name, drv_version, drv_reldate);
+	printk(KERN_INFO "%s - options [clk %d.%06d MHz] [restart_ms %dms]"
+	       " [debug %d]\n",
+	       drv_name, clk/1000000, clk%1000000, restart_ms, debug);
+
+	if (!base[0]) {
+		printk(KERN_INFO "%s: loading defaults.\n", drv_name);
+		hal_use_defaults();
+	}
+		
+	/* to ensure the proper access to the i82527 registers */
+	/* the timing dependend settings have to be done first */
+	if (clk > 10000000)
+		dsc = iCPU_DSC; /* devide system clock => MCLK is 8MHz save */
+	else if (clk > 8000000) /* 8MHz < clk <= 10MHz */
+		dmc = iCPU_DMC; /* devide memory clock */
+
+	/* devide memory clock even if it's not needed (regarding the spec) */
+	if (force_dmc)
+		dmc = iCPU_DMC;
+
+	for (i = 0; base[i]; i++) {
+		int clkout;
+		u8 clockdiv;
+
+		printk(KERN_DEBUG "%s: checking for %s on address 0x%lX ...\n",
+		       drv_name, CHIP_NAME, base[i]);
+
+		if (!hal_request_region(i, I82527_IO_SIZE, drv_name)) {
+			printk(KERN_ERR "%s: memory already in use\n",
+			       drv_name);
+			i82527_exit_module();
+			return -EBUSY;
+		}
+
+		hw_attach(i);
+		hw_reset_dev(i);
+
+		// Enable configuration, put chip in bus-off, disable ints
+		CANout(rbase[i], controlReg, iCTL_CCE | iCTL_INI);
+
+		// Configure cpu interface / CLKOUT disable
+		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc));
+
+		if (!i82527_probe_chip(rbase[i])) {
+			printk(KERN_ERR "%s: probably missing controller"
+			       " hardware\n", drv_name);
+			hw_detach(i);
+			hal_release_region(i, I82527_IO_SIZE);
+			i82527_exit_module();
+			return -ENODEV;
+		}
+
+		/* CLKOUT devider and slew rate calculation */
+		if ((cdv[i] < 0) || (cdv[i] > 14)) {
+			printk(KERN_WARNING "%s: adjusted cdv[%d]=%d to 0.\n",
+			       drv_name, i, cdv[i]);
+			cdv[i] = 0;
+		}
+
+		clkout = clk / (cdv[i] + 1); /* CLKOUT frequency */
+		clockdiv = (u8)cdv[i]; /* devider value (see i82527 spec) */
+
+		if (clkout <= 16000000) {
+			clockdiv |= iCLK_SL1;
+			if (clkout <= 8000000)
+				clockdiv |= iCLK_SL0;
+		} else if (clkout <= 24000000)
+				clockdiv |= iCLK_SL0;
+
+		// Set CLKOUT devider and slew rates
+		CANout(rbase[i], clkOutReg, clockdiv);
+
+		// Configure cpu interface / CLKOUT enable
+		CANout(rbase[i], cpuInterfaceReg,(dsc | dmc | iCPU_CEN));
+
+		CANout(rbase[i], busConfigReg, bcr[i]);
+
+		dev = can_create_netdev(i, I82527_IO_SIZE);
+
+		if (dev != NULL) {
+			can_dev[i] = dev;
+			set_reset_mode(dev);
+			can_proc_create(drv_name);
+		} else {
+			can_dev[i] = NULL;
+			hw_detach(i);
+			hal_release_region(i, I82527_IO_SIZE);
+		}
+	}
 	return 0;
 }
 
