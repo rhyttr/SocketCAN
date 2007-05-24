@@ -60,12 +60,13 @@ EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
 		-DARPHRD_CAN=280
 endif
 
-obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o
+obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o sja1000-c200.o
 
 sja1000-io-objs    := sja1000.o proc.o ../hal/io.o
 sja1000-iomem-objs := sja1000.o proc.o ../hal/iomem.o
 sja1000-iomux-objs := sja1000.o proc.o ../hal/iomux.o
 sja1000-gw2-objs   := sja1000.o proc.o ../hal/gw2.o
 sja1000-esdio-objs := sja1000.o proc.o ../hal/esdio.o
+sja1000-c200-objs  := sja1000.o proc.o ../hal/c200.o
 
 endif
