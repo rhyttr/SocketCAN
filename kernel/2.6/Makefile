@@ -1,5 +1,7 @@
 TOPDIR		= $(shell pwd)
-KERNELDIR	= /lib/modules/`uname -r`/build
+KERNELVER	= $(shell uname -r)
+KERNELDIR	= /lib/modules/$(KERNELVER)/build
+MOD_DIR		= /lib/modules/$(KERNELVER)/kernel
 
 SUBDIRS 	= \
 	$(TOPDIR)/net/can \
@@ -32,6 +34,10 @@ net:
 drivers:
 	@$(call targetinfo, "running make in drivers/net/can")
 	cd drivers/net/can && make KERNELDIR=$(KERNELDIR)
+
+install: net drivers
+	find -name \*.ko -exec install -v -D {} $(MOD_DIR)/{} \;
+	depmod $(KERNELVER)
 
 clean:
 	@for dir in $(SUBDIRS); do \
