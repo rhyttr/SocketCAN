@@ -192,26 +192,6 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 }
 
-static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-	return -EOPNOTSUPP;
-}
-
-static int vcan_rebuild_header(struct sk_buff *skb)
-{
-	DBG("skbuff %p\n", skb);
-	return 0;
-}
-
-static int vcan_header(struct sk_buff *skb, struct net_device *dev,
-		       unsigned short type, void *daddr, void *saddr,
-		       unsigned int len)
-{
-	DBG("skbuff %p, device %p\n", skb, dev);
-	return 0;
-}
-
-
 static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
@@ -237,13 +217,8 @@ static void vcan_init(struct net_device *dev)
 
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
-	dev->set_config        = NULL;
 	dev->hard_start_xmit   = vcan_tx;
-	dev->do_ioctl          = vcan_ioctl;
 	dev->get_stats         = vcan_get_stats;
-	dev->hard_header       = vcan_header;
-	dev->rebuild_header    = vcan_rebuild_header;
-	dev->hard_header_cache = NULL;
 
 	SET_MODULE_OWNER(dev);
 }
