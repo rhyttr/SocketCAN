@@ -265,6 +265,8 @@ int can_send(struct sk_buff *skb, int loop)
 		return -EPERM;
 	}
 
+	skb->protocol = htons(ETH_P_CAN);
+
 	if (loop) {
 		/* local loopback of sent CAN frames (default) */
 
@@ -282,7 +284,6 @@ int can_send(struct sk_buff *skb, int loop)
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 
 			/* perform the local loopback here */
-			newskb->protocol  = htons(ETH_P_CAN);
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			netif_rx(newskb);
 		}
