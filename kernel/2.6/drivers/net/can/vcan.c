@@ -171,7 +171,8 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	/* perform standard loopback handling for CAN network interfaces */
 
 	if (loop) {
-		struct sock *sk = skb->sk;
+		struct sock *srcsk = skb->sk;
+
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
 
@@ -186,7 +187,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			skb_orphan(skb);
 
 		/* receive with packet counting */
-		skb->sk = sk;
+		skb->sk = srcsk;
 		vcan_rx(skb, dev);
 	} else {
 		/* no looped packets => no counting */

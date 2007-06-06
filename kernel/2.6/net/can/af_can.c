@@ -273,9 +273,13 @@ int can_send(struct sk_buff *skb, int loop)
 		skb->pkt_type = PACKET_LOOPBACK;
 
 		/*
-		 * The reference to the originating sock may be also required
+		 * The reference to the originating sock may be required
 		 * by the receiving socket to indicate (and ignore) his own
 		 * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
+		 * Therefore we have to ensure that skb->sk remains the
+		 * reference to the originating sock by restoring skb->sk
+		 * after each skb_clone() or skb_orphan() usage.
+		 * skb->sk is usually unused and unset in the rx path.
 		 */
 
 		/* interface not capabable to do the loopback itself? */
@@ -587,6 +591,7 @@ static inline void deliver(struct sk_buff *skb, struct receiver *r)
 
 	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
+		clone->sk = skb->sk;
 		r->func(clone, r->data);
 		r->matches++;
 	}
