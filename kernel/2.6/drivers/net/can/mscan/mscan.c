@@ -283,7 +283,9 @@ static void mscan_tx_timeout(struct net_device *ndev)
 
 	skb->dev = ndev;
 	skb->protocol = __constant_htons(ETH_P_CAN);
+	skb->pkt_type = PACKET_BROADCAST;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+
 	netif_rx(skb);
 
 }

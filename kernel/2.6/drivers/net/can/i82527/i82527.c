@@ -732,6 +732,8 @@ static void can_rx(struct net_device *dev, int obj)
 	}
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_CAN);
+	skb->pkt_type = PACKET_BROADCAST;
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	ctl1reg = CANin(base, msgArr[rxo].messageReg.msgCtrl1Reg);
 	msgctlreg = CANin(base, msgArr[rxo].messageReg.messageConfigReg);

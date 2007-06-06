@@ -565,6 +565,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		/* make settings for loopback to reduce code in irq context */
 		skb->protocol	= htons(ETH_P_CAN);
+		skb->pkt_type	= PACKET_BROADCAST;
 		skb->ip_summed	= CHECKSUM_UNNECESSARY;
 		skb->dev	= dev;
 

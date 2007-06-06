@@ -258,6 +258,8 @@ static void slc_bump(struct slcan *sl)
 
 	skb->dev = sl->dev;
 	skb->protocol = htons(ETH_P_CAN);
+	skb->pkt_type = PACKET_BROADCAST;
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	memcpy(skb_put(skb, sizeof(struct can_frame)),
 	       &cf, sizeof(struct can_frame));
 	netif_rx(skb);
