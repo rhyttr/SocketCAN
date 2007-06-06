@@ -257,7 +257,6 @@ static int can_create(struct socket *sock, int protocol)
  */
 int can_send(struct sk_buff *skb, int loop)
 {
-	struct sock **tx_sk = (struct sock **)skb->cb;
 	int err;
 
 	if (skb->dev->type != ARPHRD_CAN) {
@@ -271,7 +270,7 @@ int can_send(struct sk_buff *skb, int loop)
 		/* local loopback of sent CAN frames (default) */
 
 		/* indication for the CAN driver: do loopback */
-		*tx_sk = skb->sk;
+		skb->pkt_type = PACKET_LOOPBACK;
 
 		/*
 		 * The reference to the originating sock may be also required
@@ -284,13 +283,14 @@ int can_send(struct sk_buff *skb, int loop)
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 
 			/* perform the local loopback here */
+			newskb->sk = skb->sk;
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			newskb->pkt_type = PACKET_BROADCAST;
 			netif_rx(newskb);
 		}
 	} else {
 		/* indication for the CAN driver: no loopback required */
-		*tx_sk = NULL;
+		skb->pkt_type = PACKET_HOST;
 	}
 
 	if (!(skb->dev->flags & IFF_UP))

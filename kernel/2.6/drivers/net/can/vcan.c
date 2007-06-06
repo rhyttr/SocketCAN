@@ -150,8 +150,8 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
-	/* tx socket reference pointer: Loopback required if not NULL */
-	loop = *(struct sock **)skb->cb != NULL;
+	/* set flag whether this packet has to be looped back */
+	loop = skb->pkt_type == PACKET_LOOPBACK;
 
 	if (!loopback) {
 		/* no loopback handling available inside this driver */
@@ -171,6 +171,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	/* perform standard loopback handling for CAN network interfaces */
 
 	if (loop) {
+		struct sock *sk = skb->sk;
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
 
@@ -185,6 +186,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			skb_orphan(skb);
 
 		/* receive with packet counting */
+		skb->sk = sk;
 		vcan_rx(skb, dev);
 	} else {
 		/* no looped packets => no counting */

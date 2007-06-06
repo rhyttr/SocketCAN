@@ -154,7 +154,7 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 
 	if (!ro->recv_own_msgs) {
 		/* check the received tx sock reference */
-		if (*(struct sock **)skb->cb == sk) {
+		if (skb->sk == sk) {
 			DBG("trashed own tx msg\n");
 			kfree_skb(skb);
 			return;
