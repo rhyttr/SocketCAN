@@ -131,6 +131,7 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	stats->rx_bytes += skb->len;
 
 	skb->protocol  = htons(ETH_P_CAN);
+	skb->pkt_type  = PACKET_BROADCAST;
 	skb->dev       = dev;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
