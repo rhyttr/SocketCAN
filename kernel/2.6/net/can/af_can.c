@@ -285,6 +285,7 @@ int can_send(struct sk_buff *skb, int loop)
 
 			/* perform the local loopback here */
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
+			newskb->pkt_type = PACKET_BROADCAST;
 			netif_rx(newskb);
 		}
 	} else {
