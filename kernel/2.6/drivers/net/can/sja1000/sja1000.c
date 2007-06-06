@@ -540,8 +540,8 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	dev->trans_start = jiffies;
 
-	/* tx socket reference pointer: Loopback required if not NULL */
-	loop = *(struct sock **)skb->cb != NULL;
+	/* set flag whether this packet has to be looped back */
+	loop = skb->pkt_type == PACKET_LOOPBACK;
 
 	if (!loopback || !loop) {
 		kfree_skb(skb);
@@ -549,6 +549,8 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	if (!priv->loop_skb) {
+		struct sock *srcsk = skb->sk;
+
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
 
@@ -562,6 +564,8 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			}
 		} else
 			skb_orphan(skb);
+
+		skb->sk = srcsk;
 
 		/* make settings for loopback to reduce code in irq context */
 		skb->protocol	= htons(ETH_P_CAN);
