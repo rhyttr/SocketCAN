@@ -96,7 +96,11 @@ struct bcm_op {
 	unsigned long frames_abs, frames_filtered;
 	struct timer_list timer, thrtimer;
 	struct timeval ival1, ival2;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	ktime_t rx_stamp;
+#else
 	struct timeval rx_stamp;
+#endif
 	int rx_ifindex;
 	int count;
 	int nframes;
@@ -361,7 +365,7 @@ static void bcm_can_tx(struct bcm_op *op)
  *                    (consisting of bcm_msg_head + x CAN frames)
  */
 static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-			     struct can_frame *frames, struct timeval *tv)
+			     struct can_frame *frames, int has_timestamp)
 {
 	struct sk_buff *skb;
 	struct can_frame *firstframe;
@@ -380,8 +384,15 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	/* can_frames starting here */
 	firstframe = (struct can_frame *) skb->tail;
 
-	if (tv)
-		skb_set_timestamp(skb, tv); /* restore timestamp */
+
+	if (has_timestamp) {
+		/* restore rx timestamp */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		skb->tstamp = op->rx_stamp;
+#else
+		skb_set_timestamp(skb, &op->rx_stamp);
+#endif
+	}
 
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));
@@ -440,7 +451,7 @@ static void bcm_tx_timeout_handler(unsigned long data)
 			msg_head.can_id  = op->can_id;
 			msg_head.nframes = 0;
 
-			bcm_send_to_user(op, &msg_head, NULL, NULL);
+			bcm_send_to_user(op, &msg_head, NULL, 0);
 		}
 	}
 
@@ -508,7 +519,7 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 	head.can_id  = op->can_id;
 	head.nframes = 1;
 
-	bcm_send_to_user(op, &head, data, &op->rx_stamp);
+	bcm_send_to_user(op, &head, data, 1);
 }
 
 /*
@@ -638,7 +649,7 @@ static void bcm_rx_timeout_handler(unsigned long data)
 	msg_head.can_id  = op->can_id;
 	msg_head.nframes = 0;
 
-	bcm_send_to_user(op, &msg_head, NULL, NULL);
+	bcm_send_to_user(op, &msg_head, NULL, 0);
 
 	/* no restart of the timer is done here! */
 
@@ -702,7 +713,11 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 	if (skb->len == sizeof(rxframe)) {
 		memcpy(&rxframe, skb->data, sizeof(rxframe));
 		/* save rx timestamp */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		op->rx_stamp = skb->tstamp;
+#else
 		skb_get_timestamp(skb, &op->rx_stamp);
+#endif
 		/* save originator for recvfrom() */
 		op->rx_ifindex = skb->dev->ifindex;
 		/* update statistics */
@@ -890,7 +905,7 @@ static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
 	msg_head->ival2   = op->ival2;
 	msg_head->nframes = op->nframes;
 
-	bcm_send_to_user(op, msg_head, op->frames, NULL);
+	bcm_send_to_user(op, msg_head, op->frames, 0);
 
 	return MHSIZ;
 }
