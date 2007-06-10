@@ -177,6 +177,8 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
 
+static void bcm_notifier(unsigned long msg, void *data);
+
 /*
  * rounded_tv2jif - calculate jiffies from timeval including optional up
  * @tv: pointer to timeval
@@ -837,21 +839,9 @@ static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
 			 * problems) can_rx_unregister() is always a save
 			 * thing to do here.
 			 */
-			if (op->ifindex) {
-				struct net_device *dev =
-					dev_get_by_index(op->ifindex);
-
-				if (dev) {
-					can_rx_unregister(dev, op->can_id,
-							  REGMASK(op->can_id),
-							  bcm_rx_handler, op);
-					dev_put(dev);
-				}
-
-			} else
-				can_rx_unregister(NULL, op->can_id,
-						  REGMASK(op->can_id),
-						  bcm_rx_handler, op);
+			can_rx_unregister(op->ifindex, op->can_id,
+					  REGMASK(op->can_id),
+					  bcm_rx_handler, op);
 
 			list_del(&op->list);
 			bcm_remove_op(op);
@@ -1301,19 +1291,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		DBG("RX_SETUP: can_rx_register() for can_id %03X. "
 		    "rx_op is %p\n", op->can_id, op);
 
-		if (ifindex) {
-			struct net_device *dev = dev_get_by_index(ifindex);
-
-			if (dev) {
-				can_rx_register(dev, op->can_id,
-						REGMASK(op->can_id),
-						bcm_rx_handler, op, IDENT);
-				dev_put(dev);
-			}
-
-		} else
-			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
-					bcm_rx_handler, op, IDENT);
+		can_rx_register(ifindex, op->can_id, REGMASK(op->can_id),
+				bcm_rx_handler, op, IDENT);
 	}
 
 	return msg_head->nframes * CFSIZ + MHSIZ;
@@ -1479,35 +1458,8 @@ static int bcm_init(struct sock *sk)
 	return 0;
 }
 
-/*
- * notification handler for netdevice status changes
- */
-static void bcm_notifier(unsigned long msg, void *data)
+static int bcm_unbind(struct sock *sk)
 {
-	struct sock *sk = (struct sock *)data;
-	struct bcm_opt *bo = bcm_sk(sk);
-
-	DBG("called for sock %p\n", sk);
-
-	switch (msg) {
-
-	case NETDEV_UNREGISTER:
-		bo->bound   = 0;
-		bo->ifindex = 0;
-		/* fallthrough */
-	case NETDEV_DOWN:
-		sk->sk_err = ENETDOWN;
-		if (!sock_flag(sk, SOCK_DEAD))
-			sk->sk_error_report(sk);
-	}
-}
-
-/*
- * standard socket functions
- */
-static int bcm_release(struct socket *sock)
-{
-	struct sock *sk = sock->sk;
 	struct bcm_opt *bo = bcm_sk(sk);
 	struct bcm_op *op, *next;
 
@@ -1527,20 +1479,9 @@ static int bcm_release(struct socket *sock)
 		 * Don't care if we're bound or not (due to netdev problems)
 		 * can_rx_unregister() is always a save thing to do here.
 		 */
-		if (op->ifindex) {
-			struct net_device *dev = dev_get_by_index(op->ifindex);
-
-			if (dev) {
-				can_rx_unregister(dev, op->can_id,
-						  REGMASK(op->can_id),
-						  bcm_rx_handler, op);
-				dev_put(dev);
-			}
-
-		} else
-			can_rx_unregister(NULL, op->can_id,
-					  REGMASK(op->can_id),
-					  bcm_rx_handler, op);
+		can_rx_unregister(op->ifindex, op->can_id,
+				  REGMASK(op->can_id),
+				  bcm_rx_handler, op);
 
 		bcm_remove_op(op);
 	}
@@ -1550,14 +1491,53 @@ static int bcm_release(struct socket *sock)
 		remove_proc_entry(bo->procname, proc_dir);
 
 	/* remove device notifier */
-	if (bo->ifindex) {
-		struct net_device *dev = dev_get_by_index(bo->ifindex);
+	if (bo->ifindex)
+		can_dev_unregister(bo->ifindex, bcm_notifier, sk);
 
-		if (dev) {
-			can_dev_unregister(dev, bcm_notifier, sk);
-			dev_put(dev);
+	return 0;
+}
+
+/*
+ * notification handler for netdevice status changes
+ */
+static void bcm_notifier(unsigned long msg, void *data)
+{
+	struct sock *sk = (struct sock *)data;
+	//@@@@@@ struct bcm_opt *bo = bcm_sk(sk);
+
+	DBG("called for sock %p\n", sk);
+
+	switch (msg) {
+
+	case NETDEV_DOWN:
+#if 0
+		/*
+		 * TODO:
+		 * - put notifier into bcm_opt
+		 * - remove notifier with rcu
+		 * - put notifier list 'device dependend' into dev_rcv_lists
+		 */
+		if (bo->bound) {
+			bcm_unbind(sk);
+			bcm_init(sk);
 		}
+#endif
+		sk->sk_err = ENETDOWN;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
 	}
+}
+
+/*
+ * standard socket functions
+ */
+static int bcm_release(struct socket *sock)
+{
+	struct sock *sk = sock->sk;
+	struct bcm_opt *bo = bcm_sk(sk);
+
+	if (bo->bound)
+		bcm_unbind(sk);
 
 	sock_put(sk);
 
@@ -1576,23 +1556,16 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 
 	/* bind a device to this socket */
 	if (addr->can_ifindex) {
-		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
+		int ret;
 
-		if (!dev) {
-			DBG("could not find device index %d\n",
-			    addr->can_ifindex);
-			return -ENODEV;
-		}
-		bo->ifindex = dev->ifindex;
-		can_dev_register(dev, bcm_notifier, sk); /* register notif. */
-		dev_put(dev);
+		ret = can_dev_register(addr->can_ifindex, bcm_notifier, sk);
+		if (ret)
+			return ret;
 
-		DBG("socket %p bound to device %s (idx %d)\n",
-		    sock, dev->name, dev->ifindex);
+		bo->ifindex = addr->can_ifindex;
 
-	} else {
-		/* no notifier for ifindex = 0 ('any' CAN device) */
-		bo->ifindex = 0;
+		DBG("socket %p bound to interface index %d\n",
+		    sock, bo->ifindex);
 	}
 
 	bo->bound = 1;

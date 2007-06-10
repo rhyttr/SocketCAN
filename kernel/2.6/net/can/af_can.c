@@ -389,7 +389,7 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 
 /**
  * can_rx_register - subscribe CAN frames from a specific interface
- * @dev: pointer to netdevice (NULL => subcribe from 'all' CAN devices list)
+ * @ifindex: device index (zero => unsubcribe from 'all' CAN devices list)
  * @can_id: CAN identifier (see description)
  * @mask: CAN mask (see description)
  * @func: callback function on filter match
@@ -410,13 +410,14 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
  *  -ENOMEM on missing cache mem to create subscription entry
  *  -ENODEV unknown device
  */
-int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+int can_rx_register(int ifindex, canid_t can_id, canid_t mask,
 		    void (*func)(struct sk_buff *, void *), void *data,
 		    char *ident)
 {
 	struct receiver *r;
 	struct hlist_head *rl;
 	struct dev_rcv_lists *d;
+	struct net_device *dev = NULL;
 	int ret = 0;
 
 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
@@ -429,6 +430,9 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		return -ENOMEM;
 
 	spin_lock_bh(&rcv_lists_lock);
+
+	if (ifindex)
+		dev = dev_get_by_index(ifindex);
 
 	d = find_dev_rcv_lists(dev);
 	if (d) {
@@ -453,6 +457,9 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		kmem_cache_free(rcv_cache, r);
 		ret = -ENODEV;
 	}
+
+	if (dev)
+		dev_put(dev);
 
 	spin_unlock_bh(&rcv_lists_lock);
 
@@ -504,7 +511,7 @@ static void can_rx_delete_receiver(struct rcu_head *rp)
 
 /**
  * can_rx_unregister - unsubscribe CAN frames from a specific interface
- * @dev: pointer to netdevice (NULL => unsubcribe from 'all' CAN devices list)
+ * @ifindex: device index (zero => unsubcribe from 'all' CAN devices list)
  * @can_id: CAN identifier
  * @mask: CAN mask
  * @func: callback function on filter match
@@ -518,19 +525,23 @@ static void can_rx_delete_receiver(struct rcu_head *rp)
  *  -EINVAL on missing subscription entry
  *  -ENODEV unknown device
  */
-int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+int can_rx_unregister(int ifindex, canid_t can_id, canid_t mask,
 		      void (*func)(struct sk_buff *, void *), void *data)
 {
 	struct receiver *r = NULL;
 	struct hlist_head *rl;
 	struct hlist_node *next;
 	struct dev_rcv_lists *d;
+	struct net_device *dev = NULL;
 	int ret = 0;
 
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p\n",
 	    dev, can_id, mask, func, data);
 
 	spin_lock_bh(&rcv_lists_lock);
+
+	if (ifindex)
+		dev = dev_get_by_index(ifindex);
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
@@ -575,6 +586,9 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		pstats.rcv_entries--;
 
  out:
+	if (dev)
+		dev_put(dev);
+
 	spin_unlock_bh(&rcv_lists_lock);
 
 	/* schedule the receiver item for deletion */
@@ -888,7 +902,7 @@ EXPORT_SYMBOL(can_proto_unregister);
 
 /**
  * can_dev_register - subscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
+ * @ifindex: device index
  * @func: callback function on status change
  * @data: returned parameter for callback function
  *
@@ -899,21 +913,45 @@ EXPORT_SYMBOL(can_proto_unregister);
  * Return:
  *  0 on success
  *  -ENOMEM on missing mem to create subscription entry
- *  -ENODEV unknown device
+ *  -ENODEV unknown (CAN) device
+ *  -ENETDOWN given CAN interface is down
  */
-int can_dev_register(struct net_device *dev,
-		     void (*func)(unsigned long msg, void *), void *data)
+int can_dev_register(int ifindex, void (*func)(unsigned long msg, void *),
+		     void *data)
 {
 	struct notifier *n;
+	struct net_device *dev = NULL;
+	int ret = 0;
 
 	DBG("called for %s\n", dev->name);
 
-	if (!dev || dev->type != ARPHRD_CAN)
+	if (!ifindex)
 		return -ENODEV;
 
+	dev = dev_get_by_index(ifindex);
+
+	/*
+	 * TODO:
+	 * put notifier list 'device dependend' into dev_rcv_lists
+	 * Therefore this code should look more like the code in
+	 * can_rx_register()
+	 */
+
+	if (!dev || dev->type != ARPHRD_CAN) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (!(dev->flags & IFF_UP)) {
+		ret = -ENETDOWN;
+		goto out;
+	}
+
 	n = kmalloc(sizeof(*n), GFP_KERNEL);
-	if (!n)
-		return -ENOMEM;
+	if (!n) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	n->dev  = dev;
 	n->func = func;
@@ -923,13 +961,17 @@ int can_dev_register(struct net_device *dev,
 	list_add(&n->list, &notifier_list);
 	write_unlock(&notifier_lock);
 
-	return 0;
+out:
+	if (dev)
+		dev_put(dev);
+
+	return ret;
 }
 EXPORT_SYMBOL(can_dev_register);
 
 /**
  * can_dev_unregister - unsubscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
+ * @ifindex: device index
  * @func: callback function on filter match
  * @data: returned parameter for callback function
  *
@@ -939,16 +981,23 @@ EXPORT_SYMBOL(can_dev_register);
  * Return:
  *  0 on success
  *  -EINVAL on missing subscription entry
+ *  -ENODEV unknown device
  */
-int can_dev_unregister(struct net_device *dev,
-		       void (*func)(unsigned long msg, void *), void *data)
+int can_dev_unregister(int ifindex, void (*func)(unsigned long msg, void *),
+		       void *data)
 {
 	struct notifier *n, *next;
+	struct net_device *dev;
 	int ret = -EINVAL;
 
 	DBG("called for %s\n", dev->name);
 
+	if (!ifindex)
+		return -ENODEV;
+
 	write_lock(&notifier_lock);
+	dev = dev_get_by_index(ifindex);
+
 	list_for_each_entry_safe(n, next, &notifier_list, list) {
 		if (n->dev == dev && n->func == func && n->data == data) {
 			list_del(&n->list);
@@ -957,6 +1006,10 @@ int can_dev_unregister(struct net_device *dev,
 			break;
 		}
 	}
+
+	if (dev)
+		dev_put(dev);
+
 	write_unlock(&notifier_lock);
 
 	return ret;
