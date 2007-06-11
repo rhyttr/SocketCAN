@@ -374,7 +374,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	struct can_filter sfilter;         /* single filter */
 	can_err_mask_t err_mask = 0;
 	int count = 0;
-	int err;
+	int err = 0;
 
 	if (level != SOL_CAN_RAW)
 		return -EINVAL;
@@ -425,7 +425,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		ro->filter = filter;
 		ro->count  = count;
 		if (ro->bound)
-			raw_add_filters(ro->ifindex, sk);
+			err = raw_add_filters(ro->ifindex, sk);
 
 		release_sock(sk);
 
@@ -450,9 +450,9 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		/* add new error mask */
 		ro->err_mask = err_mask;
 		if (ro->err_mask && ro->bound)
-			can_rx_register(ro->ifindex, 0,
-					ro->err_mask | CAN_ERR_FLAG,
-					raw_rcv, sk, IDENT);
+			err = can_rx_register(ro->ifindex, 0,
+					      ro->err_mask | CAN_ERR_FLAG,
+					      raw_rcv, sk, IDENT);
 		break;
 
 	case CAN_RAW_LOOPBACK:
@@ -478,7 +478,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 	default:
 		return -ENOPROTOOPT;
 	}
-	return 0;
+	return err;
 }
 
 static int raw_getsockopt(struct socket *sock, int level, int optname,
