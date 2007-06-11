@@ -216,9 +216,6 @@ static int raw_unbind(struct sock *sk)
 	/* remove current filters & unregister */
 	raw_remove_filters(ifindex, sk);
 
-	if (ro->count > 1)
-		kfree(ro->filter);
-
 	/* remove current error mask */
 	if (ro->err_mask)
 		can_rx_unregister(ifindex, 0, ro->err_mask | CAN_ERR_FLAG,
@@ -226,6 +223,9 @@ static int raw_unbind(struct sock *sk)
 
 	if (ifindex)
 		can_dev_unregister(ifindex, raw_notifier, sk);
+
+	ro->bound   = 0;
+	ro->ifindex = 0;
 
 	return 0;
 }
@@ -267,8 +267,11 @@ static int raw_release(struct socket *sock)
 	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
 	    atomic_read(&sk->sk_refcnt));
 
-	if (ro->bound)
+	if (ro->bound) {
 		raw_unbind(sk);
+		if (ro->count > 1)
+			kfree(ro->filter);
+	}
 
 	sock_put(sk);
 
@@ -280,6 +283,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
 	struct raw_opt *ro = raw_sk(sk);
+	int ifindex = addr->can_ifindex;
 	int err = 0;
 
 	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
@@ -290,27 +294,41 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	lock_sock(sk);
 
 	if (ro->bound) {
-		/* remove current bindings / notifier */
+		/* 
+		 * remove current bindings, filters and notifier but
+		 * do not purge the current local filter content.
+		 */
 		raw_unbind(sk);
-		raw_init(sk);
 	}
 
-	if (addr->can_ifindex) {
-		err = can_dev_register(addr->can_ifindex, raw_notifier, sk);
-		if (err)
-			goto out;
-	}
+	if (ifindex)
+		err = can_dev_register(ifindex, raw_notifier, sk);
 
-	ro->ifindex = addr->can_ifindex;
+	if (err)
+		goto out;
 
 	/* filters set by default/setsockopt */
-	raw_add_filters(ro->ifindex, sk);
+	err = raw_add_filters(ifindex, sk);
+	if (err) {
+		raw_remove_filters(ifindex, sk);
+		if (ifindex)
+			can_dev_unregister(ifindex, raw_notifier, sk);
+		goto out;
+	}
 
 	/* error frame filter set by setsockopt */
 	if (ro->err_mask)
-		can_rx_register(ro->ifindex, 0, ro->err_mask | CAN_ERR_FLAG,
-				raw_rcv, sk, IDENT);
-
+		err = can_rx_register(ifindex, 0,
+				      ro->err_mask | CAN_ERR_FLAG,
+				      raw_rcv, sk, IDENT);
+	if (err) {
+		raw_remove_filters(ifindex, sk);
+		if (ifindex)
+			can_dev_unregister(ifindex, raw_notifier, sk);
+		goto out;
+	}
+	
+	ro->ifindex = ifindex;
 	ro->bound = 1;
 
  out:
