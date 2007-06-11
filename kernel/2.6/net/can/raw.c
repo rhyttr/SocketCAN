@@ -152,34 +152,41 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	}
 }
 
-static void raw_add_filters(int ifindex, struct sock *sk)
+static int raw_add_filters(int ifindex, struct sock *sk)
 {
 	struct raw_opt *ro = raw_sk(sk);
 	struct can_filter *filter = ro->filter;
+	int ret = 0;
 	int i;
 
-	for (i = 0; i < ro->count; i++) {
-		can_rx_register(ifindex, filter[i].can_id, filter[i].can_mask,
-				raw_rcv, sk, IDENT);
+	for (i = 0; i < ro->count && !ret; i++) {
+		ret = can_rx_register(ifindex, filter[i].can_id,
+				      filter[i].can_mask,
+				      raw_rcv, sk, IDENT);
 		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 		    filter[i].can_id, filter[i].can_mask,
 		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 	}
+
+	return ret;
 }
 
-static void raw_remove_filters(int ifindex, struct sock *sk)
+static int raw_remove_filters(int ifindex, struct sock *sk)
 {
 	struct raw_opt *ro = raw_sk(sk);
 	struct can_filter *filter = ro->filter;
+	int ret = 0;
 	int i;
 
-	for (i = 0; i < ro->count; i++) {
-		can_rx_unregister(ifindex, filter[i].can_id,
-				  filter[i].can_mask, raw_rcv, sk);
+	for (i = 0; i < ro->count && !ret; i++) {
+		ret = can_rx_unregister(ifindex, filter[i].can_id,
+					filter[i].can_mask, raw_rcv, sk);
 		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 		    filter[i].can_id, filter[i].can_mask,
 		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 	}
+
+	return ret;
 }
 
 static int raw_init(struct sock *sk)
