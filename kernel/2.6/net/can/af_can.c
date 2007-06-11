@@ -923,8 +923,6 @@ int can_dev_register(int ifindex, void (*func)(unsigned long msg, void *),
 	struct net_device *dev = NULL;
 	int ret = 0;
 
-	DBG("called for %s\n", dev->name);
-
 	if (!ifindex)
 		return -ENODEV;
 
@@ -942,10 +940,7 @@ int can_dev_register(int ifindex, void (*func)(unsigned long msg, void *),
 		goto out;
 	}
 
-	if (!(dev->flags & IFF_UP)) {
-		ret = -ENETDOWN;
-		goto out;
-	}
+	DBG("called for %s\n", dev->name);
 
 	n = kmalloc(sizeof(*n), GFP_KERNEL);
 	if (!n) {
