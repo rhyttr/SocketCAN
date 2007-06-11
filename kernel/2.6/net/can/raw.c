@@ -267,11 +267,10 @@ static int raw_release(struct socket *sock)
 	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
 	    atomic_read(&sk->sk_refcnt));
 
-	if (ro->bound) {
+	if (ro->bound)
 		raw_unbind(sk);
-		if (ro->count > 1)
-			kfree(ro->filter);
-	}
+	if (ro->count > 1)
+		kfree(ro->filter);
 
 	sock_put(sk);
 
