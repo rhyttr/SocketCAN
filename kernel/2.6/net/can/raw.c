@@ -326,6 +326,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct sock *sk = sock->sk;
 	struct raw_opt *ro = raw_sk(sk);
 	int err = 0;
+	int notify_enetdown = 0;
 
 	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
 
@@ -366,11 +367,9 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 			err = -ENODEV;
 			goto out;
 		}
-		if (!(dev->flags & IFF_UP)) {
-			sk->sk_err = ENETDOWN;
-			if (!sock_flag(sk, SOCK_DEAD))
-				sk->sk_error_report(sk);
-		}
+		if (!(dev->flags & IFF_UP))
+			notify_enetdown = 1;
+
 		ro->ifindex = dev->ifindex;
 
 		/* filters set by default/setsockopt */
@@ -390,6 +389,12 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
  out:
 	release_sock(sk);
+
+	if (notify_enetdown) {
+		sk->sk_err = ENETDOWN;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+	}
 
 	return err;
 }
