@@ -68,9 +68,8 @@
 RCSID("$Id$");
 
 #define IDENT "core"
-static __initdata const char banner[] =
-	KERN_INFO "can: controller area network core ("
-	CAN_VERSION_STRING ")\n";
+static __initdata const char banner[] = KERN_INFO 
+	"can: controller area network core (" CAN_VERSION_STRING ")\n";
 
 MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -244,7 +243,7 @@ static int can_create(struct socket *sock, int protocol)
  *  0 on success
  *  -ENETDOWN when the selected interface is down
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
- *  -ENOMEM when skb_clone() failed when performing the local loopback fallback
+ *  -ENOMEM when local loopback failed at calling skb_clone()
  */
 int can_send(struct sk_buff *skb, int loop)
 {
@@ -263,23 +262,25 @@ int can_send(struct sk_buff *skb, int loop)
 	skb->protocol = htons(ETH_P_CAN);
 
 	if (loop) {
-		/* local loopback of sent CAN frames (default) */
+		/* local loopback of sent CAN frames */
 
 		/* indication for the CAN driver: do loopback */
 		skb->pkt_type = PACKET_LOOPBACK;
 
 		/*
 		 * The reference to the originating sock may be required
-		 * by the receiving socket to indicate (and ignore) his own
-		 * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
+		 * by the receiving socket to check whether the frame is
+		 * its own. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
 		 * Therefore we have to ensure that skb->sk remains the
 		 * reference to the originating sock by restoring skb->sk
 		 * after each skb_clone() or skb_orphan() usage.
 		 * skb->sk is usually unused and unset in the rx path.
 		 */
 
-		/* interface not capabable to do the loopback itself? */
 		if (!(skb->dev->flags & IFF_LOOPBACK)) {
+			/* If the interface is not capable to do loopback
+			 * itself, we do it here.
+			 */
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 
 			if (!newskb) {
@@ -287,7 +288,6 @@ int can_send(struct sk_buff *skb, int loop)
 				return -ENOMEM;
 			}
 
-			/* perform the local loopback here */
 			newskb->sk = skb->sk;
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			newskb->pkt_type = PACKET_BROADCAST;
@@ -465,7 +465,7 @@ static void can_rx_delete_device(struct rcu_head *rp)
 {
 	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
 
-	DBG("removing dev_rcv_list at %p.\n", d);
+	DBG("removing dev_rcv_list at %p\n", d);
 	kfree(d);
 }
 
@@ -476,7 +476,7 @@ static void can_rx_delete_receiver(struct rcu_head *rp)
 {
 	struct receiver *r = container_of(rp, struct receiver, rcu);
 
-	DBG("removing receiver at %p.\n", r);
+	DBG("removing receiver at %p\n", r);
 	kmem_cache_free(rcv_cache, r);
 }
 
@@ -555,7 +555,7 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/* remove device structure requested by NETDEV_UNREGISTER */
 	if (d->remove_on_zero_entries && !d->entries) {
-		DBG("removing dev_rcv_list for %s on zero entries.\n",
+		DBG("removing dev_rcv_list for %s on zero entries\n",
 		    dev->name);
 		hlist_del_rcu(&d->list);
 	} else
@@ -727,13 +727,13 @@ int can_proto_register(struct can_proto *cp)
 	int err = 0;
 
 	if (proto < 0 || proto >= CAN_NPROTO) {
-		printk(KERN_ERR "can: protocol number %d out "
-		       "of range\n", proto);
+		printk(KERN_ERR "can: protocol number %d out of range\n",
+		       proto);
 		return -EINVAL;
 	}
 	if (proto_tab[proto]) {
-		printk(KERN_ERR "can: protocol %d already "
-		       "registered\n", proto);
+		printk(KERN_ERR "can: protocol %d already registered\n",
+		       proto);
 		return -EBUSY;
 	}
 
@@ -811,8 +811,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 		d = kzalloc(sizeof(*d),
 			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 		if (!d) {
-			printk(KERN_ERR "can: allocation of receive "
-			       "list failed\n");
+			printk(KERN_ERR
+			       "can: allocation of receive list failed\n");
 			return NOTIFY_DONE;
 		}
 		d->dev = dev;
@@ -834,7 +834,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 			if (d->entries) {
 				d->remove_on_zero_entries = 1;
 				d = NULL;
-			} else 
+			} else
 				hlist_del_rcu(&d->list);
 		} else
 			printk(KERN_ERR "can: notifier: receive list not "
@@ -981,7 +981,7 @@ static __init int can_init(void)
 		return -ENOMEM;
 
 	/*
-	 * Insert struct dev_rcv_lists for reception on all devices.
+	 * Insert rx_alldev_list for reception on all devices.
 	 * This struct is zero initialized which is correct for the
 	 * embedded hlist heads, the dev pointer, and the entries counter.
 	 */

@@ -1425,7 +1425,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 			}
 
 			dev_put(dev);
-                }
+		}
 	}
 
 	/* read message head information */
