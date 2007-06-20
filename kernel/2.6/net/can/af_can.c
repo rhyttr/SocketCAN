@@ -68,7 +68,7 @@
 RCSID("$Id$");
 
 #define IDENT "core"
-static __initdata const char banner[] = KERN_INFO 
+static __initdata const char banner[] = KERN_INFO
 	"can: controller area network core (" CAN_VERSION_STRING ")\n";
 
 MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
@@ -167,7 +167,7 @@ static int can_create(struct socket *sock, int protocol)
 		sprintf(module_name, "can-proto-%d", protocol);
 		ret = request_module(module_name);
 
-		/* 
+		/*
 		 * In case of error we only print a message but don't
 		 * return the error code immediately.  Below we will
 		 * return -EPROTONOSUPPORT
@@ -279,7 +279,7 @@ int can_send(struct sk_buff *skb, int loop)
 		 */
 
 		if (!(skb->dev->flags & IFF_LOOPBACK)) {
-			/* 
+			/*
 			 * If the interface is not capable to do loopback
 			 * itself, we do it here.
 			 */
