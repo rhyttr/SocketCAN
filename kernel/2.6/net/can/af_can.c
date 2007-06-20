@@ -167,7 +167,8 @@ static int can_create(struct socket *sock, int protocol)
 		sprintf(module_name, "can-proto-%d", protocol);
 		ret = request_module(module_name);
 
-		/* In case of error we only print a message but don't
+		/* 
+		 * In case of error we only print a message but don't
 		 * return the error code immediately.  Below we will
 		 * return -EPROTONOSUPPORT
 		 */
@@ -278,7 +279,8 @@ int can_send(struct sk_buff *skb, int loop)
 		 */
 
 		if (!(skb->dev->flags & IFF_LOOPBACK)) {
-			/* If the interface is not capable to do loopback
+			/* 
+			 * If the interface is not capable to do loopback
 			 * itself, we do it here.
 			 */
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
