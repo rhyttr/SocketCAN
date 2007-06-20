@@ -564,10 +564,9 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 {
 	struct sock *sk = sock->sk;
 	struct raw_opt *ro = raw_sk(sk);
-	struct can_filter *filter = ro->filter;
-	int count = ro->count;
 	int len;
-	void *val = NULL;
+	void *val;
+	int err = 0;
 
 	if (level != SOL_CAN_RAW)
 		return -EINVAL;
@@ -579,14 +578,19 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 	switch (optname) {
 
 	case CAN_RAW_FILTER:
-		if (count && filter) {
-			int filter_size = count * sizeof(struct can_filter);
-			if (len > filter_size)
-				len = filter_size;
-			val = filter;
+		lock_sock(sk);
+		if (ro->count > 0) {
+			int fsize = ro->count * sizeof(struct can_filter);
+			if (len > fsize)
+				len = fsize;
+			err = copy_to_user(optval, ro->filter, len);
 		} else
 			len = 0;
-		break;
+		release_sock(sk);
+
+		if (!err)
+			err = put_user(len, optlen);
+		return err;
 
 	case CAN_RAW_ERR_FILTER:
 		if (len > sizeof(can_err_mask_t))
