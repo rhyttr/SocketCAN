@@ -393,7 +393,13 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	}
 
 	/* restore originator for recvfrom() */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 	skb->iif = op->rx_ifindex;
+#else
+	skb->input_dev = dev_get_by_index(op->rx_ifindex);
+	if (skb->input_dev)
+		dev_put(skb->input_dev);
+#endif
 
 	if (head->nframes) {
 		memcpy(skb_put(skb, datalen), frames, datalen);
@@ -1725,7 +1731,17 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
 		msg->msg_namelen = sizeof(*addr);
 		memset(addr, 0, sizeof(*addr));
 		addr->can_family  = AF_CAN;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 		addr->can_ifindex = skb->iif;
+#else
+		/* FIXME: Race condition, skb->input_dev might disappear
+		 *        while skb is waiting on the queue.
+		 */
+		if (skb->input_dev)
+			addr->can_ifindex = skb->input_dev->ifindex;
+		else
+			addr->can_ifindex = 0;
+#endif
 	}
 
 	DBG("freeing sock %p, skbuff %p\n", sk, skb);

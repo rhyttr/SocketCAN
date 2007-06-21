@@ -291,7 +291,11 @@ int can_send(struct sk_buff *skb, int loop)
 			}
 
 			newskb->sk = skb->sk;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 			newskb->iif = 0;
+#else
+			newskb->input_dev = NULL;
+#endif
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			newskb->pkt_type = PACKET_BROADCAST;
 			netif_rx(newskb);
@@ -586,7 +590,11 @@ static inline void deliver(struct sk_buff *skb, struct receiver *r)
 	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
 		clone->sk  = skb->sk;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 		clone->iif = skb->iif;
+#else
+		clone->input_dev = skb->input_dev;
+#endif
 		r->func(clone, r->data);
 		r->matches++;
 	}

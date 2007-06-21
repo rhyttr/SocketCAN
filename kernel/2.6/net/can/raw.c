@@ -709,7 +709,14 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 		msg->msg_namelen = sizeof(*addr);
 		memset(addr, 0, sizeof(*addr));
 		addr->can_family  = AF_CAN;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 		addr->can_ifindex = skb->iif;
+#else
+		/* FIXME: Race condition, skb->input_dev might disappear
+		 *        while skb is waiting on the queue.
+		 */
+		addr->can_ifindex = skb->input_dev->ifindex;
+#endif
 	}
 
 	DBG("freeing sock %p, skbuff %p\n", sk, skb);
