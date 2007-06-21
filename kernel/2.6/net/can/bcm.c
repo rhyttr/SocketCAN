@@ -1734,7 +1734,8 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 		addr->can_ifindex = skb->iif;
 #else
-		/* FIXME: Race condition, skb->input_dev might disappear
+		/*
+		 * FIXME: Race condition, skb->input_dev might disappear
 		 *        while skb is waiting on the queue.
 		 */
 		if (skb->input_dev)
