@@ -120,7 +120,6 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 {
 	struct sock *sk = (struct sock*)data;
 	struct raw_sock *ro = raw_sk(sk);
-	struct sockaddr_can *addr;
 	int error;
 
 	DBG("received skbuff %p, sk %p\n", skb, sk);
@@ -134,11 +133,6 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 			return;
 		}
 	}
-
-	addr = (struct sockaddr_can *)skb->cb;
-	memset(addr, 0, sizeof(*addr));
-	addr->can_family  = AF_CAN;
-	addr->can_ifindex = skb->dev->ifindex;
 
 	error = sock_queue_rcv_skb(sk, skb);
 	if (error < 0) {
@@ -711,8 +705,11 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 	sock_recv_timestamp(msg, sk, skb);
 
 	if (msg->msg_name) {
-		msg->msg_namelen = sizeof(struct sockaddr_can);
-		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+		struct sockaddr_can *addr = msg->msg_name;
+		msg->msg_namelen = sizeof(*addr);
+		memset(addr, 0, sizeof(*addr));
+		addr->can_family  = AF_CAN;
+		addr->can_ifindex = skb->iif;
 	}
 
 	DBG("freeing sock %p, skbuff %p\n", sk, skb);

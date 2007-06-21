@@ -370,7 +370,6 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	struct can_frame *firstframe;
 	struct sock *sk = op->sk;
 	int datalen = head->nframes * CFSIZ;
-	struct sockaddr_can *addr;
 	int err;
 
 	skb = alloc_skb(sizeof(*head) + datalen,
@@ -393,11 +392,8 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 #endif
 	}
 
-	addr = (struct sockaddr_can *)skb->cb;
-	memset(addr, 0, sizeof(*addr));
-	addr->can_family  = AF_CAN;
 	/* restore originator for recvfrom() */
-	addr->can_ifindex = op->rx_ifindex;
+	skb->iif = op->rx_ifindex;
 
 	if (head->nframes) {
 		memcpy(skb_put(skb, datalen), frames, datalen);
@@ -1725,8 +1721,11 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
 	sock_recv_timestamp(msg, sk, skb);
 
 	if (msg->msg_name) {
-		msg->msg_namelen = sizeof(struct sockaddr_can);
-		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+		struct sockaddr_can *addr = msg->msg_name;
+		msg->msg_namelen = sizeof(*addr);
+		memset(addr, 0, sizeof(*addr));
+		addr->can_family  = AF_CAN;
+		addr->can_ifindex = skb->iif;
 	}
 
 	DBG("freeing sock %p, skbuff %p\n", sk, skb);

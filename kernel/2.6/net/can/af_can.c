@@ -291,6 +291,7 @@ int can_send(struct sk_buff *skb, int loop)
 			}
 
 			newskb->sk = skb->sk;
+			newskb->iif = 0;
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			newskb->pkt_type = PACKET_BROADCAST;
 			netif_rx(newskb);
@@ -584,7 +585,8 @@ static inline void deliver(struct sk_buff *skb, struct receiver *r)
 
 	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
-		clone->sk = skb->sk;
+		clone->sk  = skb->sk;
+		clone->iif = skb->iif;
 		r->func(clone, r->data);
 		r->matches++;
 	}
