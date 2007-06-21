@@ -113,7 +113,20 @@ struct bcm_op {
 	struct net_device *rx_reg_dev;
 };
 
-struct bcm_opt {
+static struct proc_dir_entry *proc_dir = NULL;
+
+#ifdef CONFIG_CAN_BCM_USER
+#define BCM_CAP (-1)
+#else
+#define BCM_CAP CAP_NET_RAW
+#endif
+
+struct bcm_sock {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	struct sock sk;
+#else
+	struct sock *sk;
+#endif
 	int bound;
 	int ifindex;
 	struct notifier_block notifier;
@@ -124,30 +137,14 @@ struct bcm_opt {
 	char procname [9]; /* pointer printed in ASCII with \0 */
 };
 
-static struct proc_dir_entry *proc_dir = NULL;
-
-#ifdef CONFIG_CAN_BCM_USER
-#define BCM_CAP (-1)
-#else
-#define BCM_CAP CAP_NET_RAW
-#endif
-
+static inline struct bcm_sock *bcm_sk(const struct sock *sk)
+{
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-struct bcm_sock {
-	struct sock    sk;
-	struct bcm_opt opt;
-};
-
-static inline struct bcm_opt *bcm_sk(const struct sock *sk)
-{
-	return &((struct bcm_sock *)sk)->opt;
-}
+	return (struct bcm_sock *)sk;
 #else
-static inline struct bcm_opt *bcm_sk(const struct sock *sk)
-{
-	return (struct bcm_opt *)sk->sk_protinfo;
-}
+	return (struct bcm_sock *)sk->sk_protinfo;
 #endif
+}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
@@ -234,7 +231,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 {
 	int len = 0;
 	struct sock *sk = (struct sock *)data;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 
 	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
@@ -417,7 +414,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 
 	err = sock_queue_rcv_skb(sk, skb);
 	if (err < 0) {
-		struct bcm_opt *bo = bcm_sk(sk);
+		struct bcm_sock *bo = bcm_sk(sk);
 
 		DBG("sock_queue_rcv_skb failed: %d\n", err);
 		kfree_skb(skb);
@@ -935,7 +932,7 @@ static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
 static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 	int i, err;
 
@@ -1116,7 +1113,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 	int do_rx_register;
 	int err;
@@ -1388,7 +1385,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		       struct msghdr *msg, size_t size)
 {
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
 	struct bcm_msg_head msg_head;
 	int ret; /* read bytes or error codes as return value */
@@ -1500,12 +1497,11 @@ static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
 			void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
-	struct bcm_opt *bo = container_of(nb, struct bcm_opt, notifier);
+	struct bcm_sock *bo = container_of(nb, struct bcm_sock, notifier);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	struct bcm_sock *bs = container_of(bo, struct bcm_sock, opt);
-	struct sock *sk = &bs->sk;
+	struct sock *sk = &bo->sk;
 #else
-#error TODO (if needed): Notifier support for Kernel Versions < 2.6.12
+	struct sock *sk = bo->sk;
 #endif
 	struct bcm_op *op;
 	int notify_enodev = 0;
@@ -1558,8 +1554,11 @@ static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
  */
 static int bcm_init(struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,12)
+	bo->sk               = sk;
+#endif
 	bo->bound            = 0;
 	bo->ifindex          = 0;
 	bo->dropped_usr_msgs = 0;
@@ -1582,7 +1581,7 @@ static int bcm_init(struct sock *sk)
 static int bcm_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op, *next;
 
 	DBG("socket %p, sk %p\n", sock, sk);
@@ -1649,7 +1648,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 {
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 
 	if (bo->bound)
 		return -EISCONN;
@@ -1789,7 +1788,7 @@ static struct can_proto bcm_can_proto = {
 	.capability = BCM_CAP,
 	.ops        = &bcm_ops,
 	.owner      = THIS_MODULE,
-	.obj_size   = sizeof(struct bcm_opt),
+	.obj_size   = sizeof(struct bcm_sock),
 	.init       = bcm_init,
 };
 #endif

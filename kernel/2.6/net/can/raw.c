@@ -90,7 +90,12 @@ MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
  * storing the single filter in dfilter, to avoid using dynamic memory.
  */
 
-struct raw_opt {
+struct raw_sock {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	struct sock sk;
+#else
+	struct sock *sk;
+#endif
 	int bound;
 	int ifindex;
 	struct notifier_block notifier;
@@ -102,27 +107,19 @@ struct raw_opt {
 	can_err_mask_t err_mask;
 };
 
+static inline struct raw_sock *raw_sk(const struct sock *sk)
+{
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-struct raw_sock {
-	struct sock    sk;
-	struct raw_opt opt;
-};
-
-static inline struct raw_opt *raw_sk(const struct sock *sk)
-{
-	return &((struct raw_sock *)sk)->opt;
-}
+	return (struct raw_sock *)sk;
 #else
-static inline struct raw_opt *raw_sk(const struct sock *sk)
-{
-	return (struct raw_opt *)sk->sk_protinfo;
-}
+	return (struct raw_sock *)sk->sk_protinfo;
 #endif
+}
 
 static void raw_rcv(struct sk_buff *skb, void *data)
 {
 	struct sock *sk = (struct sock*)data;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	struct sockaddr_can *addr;
 	int error;
 
@@ -153,7 +150,7 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 
 static void raw_enable_filters(struct net_device *dev, struct sock *sk)
 {
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	struct can_filter *filter = ro->filter;
 	int i;
 
@@ -169,7 +166,7 @@ static void raw_enable_filters(struct net_device *dev, struct sock *sk)
 
 static void raw_enable_errfilter(struct net_device *dev, struct sock *sk)
 {
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 
 	if (ro->err_mask)
 		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
@@ -178,7 +175,7 @@ static void raw_enable_errfilter(struct net_device *dev, struct sock *sk)
 
 static void raw_disable_filters(struct net_device *dev, struct sock *sk)
 {
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	struct can_filter *filter = ro->filter;
 	int i;
 
@@ -194,7 +191,7 @@ static void raw_disable_filters(struct net_device *dev, struct sock *sk)
 
 static void raw_disable_errfilter(struct net_device *dev, struct sock *sk)
 {
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 
 	if (ro->err_mask)
 		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
@@ -205,12 +202,11 @@ static int raw_notifier(struct notifier_block *nb,
 			unsigned long msg, void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
-	struct raw_opt *ro = container_of(nb, struct raw_opt, notifier);
+	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	struct raw_sock *rs = container_of(ro, struct raw_sock, opt);
-	struct sock *sk = &rs->sk;
+	struct sock *sk = &ro->sk;
 #else
-#error TODO (if needed): Notifier support for Kernel Versions < 2.6.12
+	struct sock *sk = ro->sk;
 #endif
 
 	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
@@ -257,8 +253,11 @@ static int raw_notifier(struct notifier_block *nb,
 
 static int raw_init(struct sock *sk)
 {
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,12)
+	ro->sk               = sk;
+#endif
 	ro->bound            = 0;
 	ro->ifindex          = 0;
 
@@ -283,7 +282,7 @@ static int raw_init(struct sock *sk)
 static int raw_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 
 	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
 	    atomic_read(&sk->sk_refcnt));
@@ -324,7 +323,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 {
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	int err = 0;
 	int notify_enetdown = 0;
 
@@ -404,7 +403,7 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
 {
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 
 	if (peer)
 		return -EOPNOTSUPP;
@@ -432,7 +431,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			  char __user *optval, int optlen)
 {
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
 	struct can_filter sfilter;         /* single filter */
 	struct net_device *dev = NULL;
@@ -563,7 +562,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 			  char __user *optval, int __user *optlen)
 {
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	int len;
 	void *val;
 	int err = 0;
@@ -625,7 +624,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		       struct msghdr *msg, size_t size)
 {
 	struct sock *sk = sock->sk;
-	struct raw_opt *ro = raw_sk(sk);
+	struct raw_sock *ro = raw_sk(sk);
 	struct sk_buff *skb;
 	struct net_device *dev;
 	int ifindex;
@@ -764,7 +763,7 @@ static struct can_proto raw_can_proto = {
 	.capability = RAW_CAP,
 	.ops        = &raw_ops,
 	.owner      = THIS_MODULE,
-	.obj_size   = sizeof(struct raw_opt),
+	.obj_size   = sizeof(struct raw_sock),
 	.init       = raw_init,
 };
 #endif
