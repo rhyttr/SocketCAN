@@ -275,7 +275,6 @@ int can_send(struct sk_buff *skb, int loop)
 		 * Therefore we have to ensure that skb->sk remains the
 		 * reference to the originating sock by restoring skb->sk
 		 * after each skb_clone() or skb_orphan() usage.
-		 * skb->sk is usually unused and unset in the rx path.
 		 */
 
 		if (!(skb->dev->flags & IFF_LOOPBACK)) {
