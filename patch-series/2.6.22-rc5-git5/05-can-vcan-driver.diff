@@ -10,16 +10,16 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  drivers/net/Makefile     |    1 
- drivers/net/can/Kconfig  |   25 +++
+ drivers/net/can/Kconfig  |   25 ++++
  drivers/net/can/Makefile |    5 
- drivers/net/can/vcan.c   |  308 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  287 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 342 insertions(+)
+ 5 files changed, 321 insertions(+)
 
-Index: linux-2.6.22-rc2-git3/drivers/net/Makefile
+Index: linux-2.6.22-rc5/drivers/net/Makefile
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/drivers/net/Makefile	2007-05-23 12:25:10.%N +0200
-+++ linux-2.6.22-rc2-git3/drivers/net/Makefile	2007-05-23 12:25:53.%N +0200
+--- linux-2.6.22-rc5.orig/drivers/net/Makefile	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/drivers/net/Makefile	2007-06-20 14:11:19.000000000 +0200
 @@ -8,6 +8,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -28,10 +28,10 @@ Index: linux-2.6.22-rc2-git3/drivers/net/Makefile
  obj-$(CONFIG_BONDING) += bonding/
  obj-$(CONFIG_ATL1) += atl1/
  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-Index: linux-2.6.22-rc2-git3/drivers/net/can/Kconfig
+Index: linux-2.6.22-rc5/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/drivers/net/can/Kconfig	2007-05-23 12:25:53.%N +0200
++++ linux-2.6.22-rc5/drivers/net/can/Kconfig	2007-06-20 14:11:19.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -58,21 +58,21 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/Kconfig
 +	  on.
 +
 +endmenu
-Index: linux-2.6.22-rc2-git3/drivers/net/can/Makefile
+Index: linux-2.6.22-rc5/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/drivers/net/can/Makefile	2007-05-23 12:25:53.%N +0200
++++ linux-2.6.22-rc5/drivers/net/can/Makefile	2007-06-20 14:11:19.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
 +#
 +
 +obj-$(CONFIG_CAN_VCAN)		+= vcan.o
-Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
+Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/drivers/net/can/vcan.c	2007-05-23 12:25:53.%N +0200
-@@ -0,0 +1,308 @@
++++ linux-2.6.22-rc5/drivers/net/can/vcan.c	2007-06-20 14:11:19.000000000 +0200
+@@ -0,0 +1,287 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -190,6 +190,7 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +	stats->rx_bytes += skb->len;
 +
 +	skb->protocol  = htons(ETH_P_CAN);
++	skb->pkt_type  = PACKET_BROADCAST;
 +	skb->dev       = dev;
 +	skb->ip_summed = CHECKSUM_UNNECESSARY;
 +
@@ -208,8 +209,8 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +	stats->tx_packets++;
 +	stats->tx_bytes += skb->len;
 +
-+	/* tx socket reference pointer: Loopback required if not NULL */
-+	loop = *(struct sock **)skb->cb != NULL;
++	/* set flag whether this packet has to be looped back */
++	loop = skb->pkt_type == PACKET_LOOPBACK;
 +
 +	if (!loopback) {
 +		/* no loopback handling available inside this driver */
@@ -229,6 +230,8 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +	/* perform standard loopback handling for CAN network interfaces */
 +
 +	if (loop) {
++		struct sock *srcsk = skb->sk;
++
 +		if (atomic_read(&skb->users) != 1) {
 +			struct sk_buff *old_skb = skb;
 +
@@ -243,6 +246,7 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +			skb_orphan(skb);
 +
 +		/* receive with packet counting */
++		skb->sk = srcsk;
 +		vcan_rx(skb, dev);
 +	} else {
 +		/* no looped packets => no counting */
@@ -250,26 +254,6 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +	}
 +	return 0;
 +}
-+
-+static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int vcan_rebuild_header(struct sk_buff *skb)
-+{
-+	DBG("skbuff %p\n", skb);
-+	return 0;
-+}
-+
-+static int vcan_header(struct sk_buff *skb, struct net_device *dev,
-+		       unsigned short type, void *daddr, void *saddr,
-+		       unsigned int len)
-+{
-+	DBG("skbuff %p, device %p\n", skb, dev);
-+	return 0;
-+}
-+
 +
 +static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 +{
@@ -296,13 +280,8 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +
 +	dev->open              = vcan_open;
 +	dev->stop              = vcan_stop;
-+	dev->set_config        = NULL;
 +	dev->hard_start_xmit   = vcan_tx;
-+	dev->do_ioctl          = vcan_ioctl;
 +	dev->get_stats         = vcan_get_stats;
-+	dev->hard_header       = vcan_header;
-+	dev->rebuild_header    = vcan_rebuild_header;
-+	dev->hard_header_cache = NULL;
 +
 +	SET_MODULE_OWNER(dev);
 +}
@@ -381,10 +360,10 @@ Index: linux-2.6.22-rc2-git3/drivers/net/can/vcan.c
 +
 +module_init(vcan_init_module);
 +module_exit(vcan_cleanup_module);
-Index: linux-2.6.22-rc2-git3/net/can/Kconfig
+Index: linux-2.6.22-rc5/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/net/can/Kconfig	2007-05-23 12:25:52.%N +0200
-+++ linux-2.6.22-rc2-git3/net/can/Kconfig	2007-05-23 12:25:53.%N +0200
+--- linux-2.6.22-rc5.orig/net/can/Kconfig	2007-06-20 14:11:13.000000000 +0200
++++ linux-2.6.22-rc5/net/can/Kconfig	2007-06-20 14:11:19.000000000 +0200
 @@ -77,3 +77,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a

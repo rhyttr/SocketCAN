@@ -11,10 +11,10 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  MAINTAINERS |    9 +++++++++
  2 files changed, 25 insertions(+)
 
-Index: linux-2.6.22-rc2-git3/CREDITS
+Index: linux-2.6.22-rc5/CREDITS
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/CREDITS	2007-05-27 07:40:05.%N +0200
-+++ linux-2.6.22-rc2-git3/CREDITS	2007-05-27 07:41:06.%N +0200
+--- linux-2.6.22-rc5.orig/CREDITS	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/CREDITS	2007-06-20 14:11:27.000000000 +0200
 @@ -1330,6 +1330,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
@@ -45,11 +45,11 @@ Index: linux-2.6.22-rc2-git3/CREDITS
  N: Jon Tombs
  E: jon@gte.esi.us.es
  W: http://www.esi.us.es/~jon
-Index: linux-2.6.22-rc2-git3/MAINTAINERS
+Index: linux-2.6.22-rc5/MAINTAINERS
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/MAINTAINERS	2007-05-27 07:40:05.%N +0200
-+++ linux-2.6.22-rc2-git3/MAINTAINERS	2007-05-27 07:41:06.%N +0200
-@@ -943,6 +943,15 @@
+--- linux-2.6.22-rc5.orig/MAINTAINERS	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/MAINTAINERS	2007-06-20 14:11:27.000000000 +0200
+@@ -951,6 +951,15 @@
  L:	video4linux-list@redhat.com
  S:	Maintained
  

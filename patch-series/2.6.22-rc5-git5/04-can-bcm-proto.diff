@@ -10,13 +10,13 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   28 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1671 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1767 insertions(+)
+ net/can/bcm.c           | 1750 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1846 insertions(+)
 
-Index: linux-2.6.22-rc2-git3/include/linux/can/bcm.h
+Index: linux-2.6.22-rc5-git5/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/include/linux/can/bcm.h	2007-05-23 12:25:52.%N +0200
++++ linux-2.6.22-rc5-git5/include/linux/can/bcm.h	2007-06-21 14:08:38.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -83,10 +83,10 @@ Index: linux-2.6.22-rc2-git3/include/linux/can/bcm.h
 +#define RX_RTR_FRAME        0x0400
 +
 +#endif /* CAN_BCM_H */
-Index: linux-2.6.22-rc2-git3/net/can/Kconfig
+Index: linux-2.6.22-rc5-git5/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/net/can/Kconfig	2007-05-23 12:25:52.%N +0200
-+++ linux-2.6.22-rc2-git3/net/can/Kconfig	2007-05-23 12:25:52.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/can/Kconfig	2007-06-21 14:05:26.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 14:08:38.000000000 +0200
 @@ -42,6 +42,34 @@
  	  Say Y here if you want non-root users to be able to access CAN_RAW
  	  sockets.
@@ -122,10 +122,10 @@ Index: linux-2.6.22-rc2-git3/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: linux-2.6.22-rc2-git3/net/can/Makefile
+Index: linux-2.6.22-rc5-git5/net/can/Makefile
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/net/can/Makefile	2007-05-23 12:25:52.%N +0200
-+++ linux-2.6.22-rc2-git3/net/can/Makefile	2007-05-23 12:25:52.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/can/Makefile	2007-06-21 14:05:26.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 14:08:38.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -133,11 +133,11 @@ Index: linux-2.6.22-rc2-git3/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 +can-bcm-objs		:= bcm.o
-Index: linux-2.6.22-rc2-git3/net/can/bcm.c
+Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/net/can/bcm.c	2007-05-23 12:25:52.%N +0200
-@@ -0,0 +1,1671 @@
++++ linux-2.6.22-rc5-git5/net/can/bcm.c	2007-06-21 14:08:51.000000000 +0200
+@@ -0,0 +1,1750 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -205,7 +205,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +#define IDENT "bcm"
 +#define CAN_BCM_VERSION CAN_VERSION
 +static __initdata const char banner[] = KERN_INFO
-+	"can: broadcast manager protocol # rev " CAN_BCM_VERSION "\n";
++	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
 +
 +MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 +MODULE_LICENSE("Dual BSD/GPL");
@@ -232,7 +232,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	unsigned long frames_abs, frames_filtered;
 +	struct timer_list timer, thrtimer;
 +	struct timeval ival1, ival2;
-+	struct timeval rx_stamp;
++	ktime_t rx_stamp;
 +	int rx_ifindex;
 +	int count;
 +	int nframes;
@@ -242,16 +242,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	struct can_frame sframe;
 +	struct can_frame last_sframe;
 +	struct sock *sk;
-+};
-+
-+struct bcm_opt {
-+	int bound;
-+	int ifindex;
-+	struct list_head rx_ops;
-+	struct list_head tx_ops;
-+	unsigned long dropped_usr_msgs;
-+	struct proc_dir_entry *bcm_proc_read;
-+	char procname [9]; /* pointer printed in ASCII with \0 */
++	struct net_device *rx_reg_dev;
 +};
 +
 +static struct proc_dir_entry *proc_dir = NULL;
@@ -263,13 +254,20 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +#endif
 +
 +struct bcm_sock {
-+	struct sock    sk;
-+	struct bcm_opt opt;
++	struct sock sk;
++	int bound;
++	int ifindex;
++	struct notifier_block notifier;
++	struct list_head rx_ops;
++	struct list_head tx_ops;
++	unsigned long dropped_usr_msgs;
++	struct proc_dir_entry *bcm_proc_read;
++	char procname [9]; /* pointer printed in ASCII with \0 */
 +};
 +
-+static inline struct bcm_opt *bcm_sk(const struct sock *sk)
++static inline struct bcm_sock *bcm_sk(const struct sock *sk)
 +{
-+	return &((struct bcm_sock *)sk)->opt;
++	return (struct bcm_sock *)sk;
 +}
 +
 +#define CFSIZ sizeof(struct can_frame)
@@ -331,7 +329,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +{
 +	int len = 0;
 +	struct sock *sk = (struct sock *)data;
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +	struct bcm_op *op;
 +
 +	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
@@ -464,13 +462,12 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 + *                    (consisting of bcm_msg_head + x CAN frames)
 + */
 +static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-+			     struct can_frame *frames, struct timeval *tv)
++			     struct can_frame *frames, int has_timestamp)
 +{
 +	struct sk_buff *skb;
 +	struct can_frame *firstframe;
 +	struct sock *sk = op->sk;
 +	int datalen = head->nframes * CFSIZ;
-+	struct sockaddr_can *addr;
 +	int err;
 +
 +	skb = alloc_skb(sizeof(*head) + datalen,
@@ -483,14 +480,14 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	/* can_frames starting here */
 +	firstframe = (struct can_frame *) skb->tail;
 +
-+	if (tv)
-+		skb_set_timestamp(skb, tv); /* restore timestamp */
 +
-+	addr = (struct sockaddr_can *)skb->cb;
-+	memset(addr, 0, sizeof(*addr));
-+	addr->can_family  = AF_CAN;
++	if (has_timestamp) {
++		/* restore rx timestamp */
++		skb->tstamp = op->rx_stamp;
++	}
++
 +	/* restore originator for recvfrom() */
-+	addr->can_ifindex = op->rx_ifindex;
++	skb->iif = op->rx_ifindex;
 +
 +	if (head->nframes) {
 +		memcpy(skb_put(skb, datalen), frames, datalen);
@@ -507,7 +504,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +
 +	err = sock_queue_rcv_skb(sk, skb);
 +	if (err < 0) {
-+		struct bcm_opt *bo = bcm_sk(sk);
++		struct bcm_sock *bo = bcm_sk(sk);
 +
 +		DBG("sock_queue_rcv_skb failed: %d\n", err);
 +		kfree_skb(skb);
@@ -543,7 +540,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +			msg_head.can_id  = op->can_id;
 +			msg_head.nframes = 0;
 +
-+			bcm_send_to_user(op, &msg_head, NULL, NULL);
++			bcm_send_to_user(op, &msg_head, NULL, 0);
 +		}
 +	}
 +
@@ -611,7 +608,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	head.can_id  = op->can_id;
 +	head.nframes = 1;
 +
-+	bcm_send_to_user(op, &head, data, &op->rx_stamp);
++	bcm_send_to_user(op, &head, data, 1);
 +}
 +
 +/*
@@ -741,7 +738,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	msg_head.can_id  = op->can_id;
 +	msg_head.nframes = 0;
 +
-+	bcm_send_to_user(op, &msg_head, NULL, NULL);
++	bcm_send_to_user(op, &msg_head, NULL, 0);
 +
 +	/* no restart of the timer is done here! */
 +
@@ -805,7 +802,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	if (skb->len == sizeof(rxframe)) {
 +		memcpy(&rxframe, skb->data, sizeof(rxframe));
 +		/* save rx timestamp */
-+		skb_get_timestamp(skb, &op->rx_stamp);
++		op->rx_stamp = skb->tstamp;
 +		/* save originator for recvfrom() */
 +		op->rx_ifindex = skb->dev->ifindex;
 +		/* update statistics */
@@ -908,6 +905,19 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	return;
 +}
 +
++static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
++{
++	if (op->rx_reg_dev == dev) {
++		can_rx_unregister(dev, op->can_id, REGMASK(op->can_id),
++				  bcm_rx_handler, op);
++
++		/* mark as removed subscription */
++		op->rx_reg_dev = NULL;
++	} else
++		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
++		       "mismatch %p %p\n", op->rx_reg_dev, dev);
++}
++
 +/*
 + * bcm_delete_rx_op - find and remove a rx op (returns number of removed ops)
 + */
@@ -926,16 +936,20 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +			 * thing to do here.
 +			 */
 +			if (op->ifindex) {
-+				struct net_device *dev =
-+					dev_get_by_index(op->ifindex);
++				/*
++				 * Only remove subscriptions that had not
++				 * been removed due to NETDEV_UNREGISTER
++				 * in bcm_notifier()
++				 */
++				if (op->rx_reg_dev) {
++					struct net_device *dev;
 +
-+				if (dev) {
-+					can_rx_unregister(dev, op->can_id,
-+							  REGMASK(op->can_id),
-+							  bcm_rx_handler, op);
-+					dev_put(dev);
++					dev = dev_get_by_index(op->ifindex);
++					if (dev) {
++						bcm_rx_unreg(dev, op);
++						dev_put(dev);
++					}
 +				}
-+
 +			} else
 +				can_rx_unregister(NULL, op->can_id,
 +						  REGMASK(op->can_id),
@@ -993,7 +1007,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	msg_head->ival2   = op->ival2;
 +	msg_head->nframes = op->nframes;
 +
-+	bcm_send_to_user(op, msg_head, op->frames, NULL);
++	bcm_send_to_user(op, msg_head, op->frames, 0);
 +
 +	return MHSIZ;
 +}
@@ -1004,7 +1018,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 +			int ifindex, struct sock *sk)
 +{
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +	struct bcm_op *op;
 +	int i, err;
 +
@@ -1185,7 +1199,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 +			int ifindex, struct sock *sk)
 +{
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +	struct bcm_op *op;
 +	int do_rx_register;
 +	int err;
@@ -1396,6 +1410,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +				can_rx_register(dev, op->can_id,
 +						REGMASK(op->can_id),
 +						bcm_rx_handler, op, IDENT);
++				op->rx_reg_dev = dev;
 +				dev_put(dev);
 +			}
 +
@@ -1456,7 +1471,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +		       struct msghdr *msg, size_t size)
 +{
 +	struct sock *sk = sock->sk;
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
 +	struct bcm_msg_head msg_head;
 +	int ret; /* read bytes or error codes as return value */
@@ -1478,9 +1493,21 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +
 +		ifindex = addr->can_ifindex; /* ifindex from sendto() */
 +
-+		if (ifindex && !dev_get_by_index(ifindex)) {
-+			DBG("device %d not found\n", ifindex);
-+			return -ENODEV;
++		if (ifindex) {
++			struct net_device *dev = dev_get_by_index(ifindex);
++
++			if (!dev) {
++				DBG("device %d not found\n", ifindex);
++				return -ENODEV;
++			}
++
++			if (dev->type != ARPHRD_CAN) {
++				DBG("device %d no CAN device\n", ifindex);
++				dev_put(dev);
++				return -ENODEV;
++			}
++
++			dev_put(dev);
 +		}
 +	}
 +
@@ -1550,11 +1577,66 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +}
 +
 +/*
++ * notification handler for netdevice status changes
++ */
++static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
++			void *data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct bcm_sock *bo = container_of(nb, struct bcm_sock, notifier);
++	struct sock *sk = &bo->sk;
++	struct bcm_op *op;
++	int notify_enodev = 0;
++
++	DBG("msg %ld for dev %p (%s idx %d) sk %p bo->ifindex %d\n",
++	    msg, dev, dev->name, dev->ifindex, sk, bo->ifindex);
++
++	if (dev->type != ARPHRD_CAN)
++		return NOTIFY_DONE;
++
++	switch (msg) {
++
++	case NETDEV_UNREGISTER:
++		lock_sock(sk);
++
++		/* remove device specific receive entries */
++		list_for_each_entry(op, &bo->rx_ops, list)
++			if (op->rx_reg_dev == dev)
++				bcm_rx_unreg(dev, op);
++
++		/* remove device reference, if this is our bound device */
++		if (bo->bound && bo->ifindex == dev->ifindex) {
++			bo->bound   = 0;
++			bo->ifindex = 0;
++			notify_enodev = 1;
++		}
++
++		release_sock(sk);
++
++		if (notify_enodev) {
++			sk->sk_err = ENODEV;
++			if (!sock_flag(sk, SOCK_DEAD))
++				sk->sk_error_report(sk);
++		}
++		break;
++
++	case NETDEV_DOWN:
++		if (bo->bound && bo->ifindex == dev->ifindex) {
++			sk->sk_err = ENETDOWN;
++			if (!sock_flag(sk, SOCK_DEAD))
++				sk->sk_error_report(sk);
++		}
++	}
++
++	return NOTIFY_DONE;
++}
++
++/*
 + * initial settings for all BCM sockets to be set at socket creation time
 + */
 +static int bcm_init(struct sock *sk)
 +{
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +
 +	bo->bound            = 0;
 +	bo->ifindex          = 0;
@@ -1564,30 +1646,12 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	INIT_LIST_HEAD(&bo->tx_ops);
 +	INIT_LIST_HEAD(&bo->rx_ops);
 +
++	/* set notifier */
++	bo->notifier.notifier_call = bcm_notifier;
++
++	register_netdevice_notifier(&bo->notifier);
++
 +	return 0;
-+}
-+
-+/*
-+ * notification handler for netdevice status changes
-+ */
-+static void bcm_notifier(unsigned long msg, void *data)
-+{
-+	struct sock *sk = (struct sock *)data;
-+	struct bcm_opt *bo = bcm_sk(sk);
-+
-+	DBG("called for sock %p\n", sk);
-+
-+	switch (msg) {
-+
-+	case NETDEV_UNREGISTER:
-+		bo->bound   = 0;
-+		bo->ifindex = 0;
-+		/* fallthrough */
-+	case NETDEV_DOWN:
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+	}
 +}
 +
 +/*
@@ -1596,12 +1660,16 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +static int bcm_release(struct socket *sock)
 +{
 +	struct sock *sk = sock->sk;
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +	struct bcm_op *op, *next;
 +
 +	DBG("socket %p, sk %p\n", sock, sk);
 +
 +	/* remove bcm_ops, timer, rx_unregister(), etc. */
++
++	unregister_netdevice_notifier(&bo->notifier);
++
++	lock_sock(sk);
 +
 +	list_for_each_entry_safe(op, next, &bo->tx_ops, list) {
 +		DBG("removing tx_op %p for can_id %03X\n", op, op->can_id);
@@ -1616,15 +1684,20 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +		 * can_rx_unregister() is always a save thing to do here.
 +		 */
 +		if (op->ifindex) {
-+			struct net_device *dev = dev_get_by_index(op->ifindex);
++			/*
++			 * Only remove subscriptions that had not
++			 * been removed due to NETDEV_UNREGISTER
++			 * in bcm_notifier()
++			 */
++			if (op->rx_reg_dev) {
++				struct net_device *dev;
 +
-+			if (dev) {
-+				can_rx_unregister(dev, op->can_id,
-+						  REGMASK(op->can_id),
-+						  bcm_rx_handler, op);
-+				dev_put(dev);
++				dev = dev_get_by_index(op->ifindex);
++				if (dev) {
++					bcm_rx_unreg(dev, op);
++					dev_put(dev);
++				}
 +			}
-+
 +		} else
 +			can_rx_unregister(NULL, op->can_id,
 +					  REGMASK(op->can_id),
@@ -1637,16 +1710,13 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	if (proc_dir && bo->bcm_proc_read)
 +		remove_proc_entry(bo->procname, proc_dir);
 +
-+	/* remove device notifier */
-+	if (bo->ifindex) {
-+		struct net_device *dev = dev_get_by_index(bo->ifindex);
-+
-+		if (dev) {
-+			can_dev_unregister(dev, bcm_notifier, sk);
-+			dev_put(dev);
-+		}
++	/* remove device reference */
++	if (bo->bound) {
++		bo->bound   = 0;
++		bo->ifindex = 0;
 +	}
 +
++	release_sock(sk);
 +	sock_put(sk);
 +
 +	return 0;
@@ -1657,7 +1727,7 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +{
 +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 +	struct sock *sk = sock->sk;
-+	struct bcm_opt *bo = bcm_sk(sk);
++	struct bcm_sock *bo = bcm_sk(sk);
 +
 +	if (bo->bound)
 +		return -EISCONN;
@@ -1671,15 +1741,21 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +			    addr->can_ifindex);
 +			return -ENODEV;
 +		}
++
++		if (dev->type != ARPHRD_CAN) {
++			DBG("device %d no CAN device\n", addr->can_ifindex);
++			dev_put(dev);
++			return -ENODEV;
++		}
++
 +		bo->ifindex = dev->ifindex;
-+		can_dev_register(dev, bcm_notifier, sk); /* register notif. */
 +		dev_put(dev);
 +
 +		DBG("socket %p bound to device %s (idx %d)\n",
 +		    sock, dev->name, dev->ifindex);
 +
 +	} else {
-+		/* no notifier for ifindex = 0 ('any' CAN device) */
++		/* no interface reference for ifindex = 0 ('any' CAN device) */
 +		bo->ifindex = 0;
 +	}
 +
@@ -1728,8 +1804,11 @@ Index: linux-2.6.22-rc2-git3/net/can/bcm.c
 +	sock_recv_timestamp(msg, sk, skb);
 +
 +	if (msg->msg_name) {
-+		msg->msg_namelen = sizeof(struct sockaddr_can);
-+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
++		struct sockaddr_can *addr = msg->msg_name;
++		msg->msg_namelen = sizeof(*addr);
++		memset(addr, 0, sizeof(*addr));
++		addr->can_family  = AF_CAN;
++		addr->can_ifindex = skb->iif;
 +	}
 +
 +	DBG("freeing sock %p, skbuff %p\n", sk, skb);

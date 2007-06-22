@@ -7,16 +7,16 @@ Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- include/linux/can/raw.h |   31 ++
+ include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   26 +
  net/can/Makefile        |    3 
- net/can/raw.c           |  703 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 763 insertions(+)
+ net/can/raw.c           |  751 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 811 insertions(+)
 
-Index: linux-2.6.22-rc2-git3/include/linux/can/raw.h
+Index: linux-2.6.22-rc5-git5/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/include/linux/can/raw.h	2007-05-23 12:25:52.%N +0200
++++ linux-2.6.22-rc5-git5/include/linux/can/raw.h	2007-06-21 14:05:26.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -49,10 +49,10 @@ Index: linux-2.6.22-rc2-git3/include/linux/can/raw.h
 +};
 +
 +#endif
-Index: linux-2.6.22-rc2-git3/net/can/Kconfig
+Index: linux-2.6.22-rc5-git5/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/net/can/Kconfig	2007-05-23 12:25:51.%N +0200
-+++ linux-2.6.22-rc2-git3/net/can/Kconfig	2007-05-23 12:25:52.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/can/Kconfig	2007-06-21 14:03:50.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 14:05:26.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -86,10 +86,10 @@ Index: linux-2.6.22-rc2-git3/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: linux-2.6.22-rc2-git3/net/can/Makefile
+Index: linux-2.6.22-rc5-git5/net/can/Makefile
 ===================================================================
---- linux-2.6.22-rc2-git3.orig/net/can/Makefile	2007-05-23 12:25:51.%N +0200
-+++ linux-2.6.22-rc2-git3/net/can/Makefile	2007-05-23 12:25:52.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/can/Makefile	2007-06-21 14:03:50.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 14:05:26.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -97,11 +97,11 @@ Index: linux-2.6.22-rc2-git3/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 +can-raw-objs		:= raw.o
-Index: linux-2.6.22-rc2-git3/net/can/raw.c
+Index: linux-2.6.22-rc5-git5/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc2-git3/net/can/raw.c	2007-05-23 12:25:52.%N +0200
-@@ -0,0 +1,703 @@
++++ linux-2.6.22-rc5-git5/net/can/raw.c	2007-06-21 14:05:42.000000000 +0200
+@@ -0,0 +1,751 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -160,7 +160,7 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +#define IDENT "raw"
 +#define CAN_RAW_VERSION CAN_VERSION
 +static __initdata const char banner[] =
-+	KERN_INFO "can: raw protocol # rev " CAN_RAW_VERSION "\n";
++	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
 +
 +MODULE_DESCRIPTION("PF_CAN raw protocol");
 +MODULE_LICENSE("Dual BSD/GPL");
@@ -190,56 +190,28 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 + * storing the single filter in dfilter, to avoid using dynamic memory.
 + */
 +
-+struct raw_opt {
++struct raw_sock {
++	struct sock sk;
 +	int bound;
 +	int ifindex;
++	struct notifier_block notifier;
 +	int loopback;
 +	int recv_own_msgs;
 +	int count;                 /* number of active filters */
 +	struct can_filter dfilter; /* default/single filter */
 +	struct can_filter *filter; /* pointer to filter(s) */
 +	can_err_mask_t err_mask;
-+	spinlock_t lock;
 +};
 +
-+struct raw_sock {
-+	struct sock    sk;
-+	struct raw_opt opt;
-+};
-+
-+static inline struct raw_opt *raw_sk(const struct sock *sk)
++static inline struct raw_sock *raw_sk(const struct sock *sk)
 +{
-+	return &((struct raw_sock *)sk)->opt;
-+}
-+
-+static void raw_notifier(unsigned long msg, void *data)
-+{
-+	struct sock *sk = (struct sock *)data;
-+	struct raw_opt *ro = raw_sk(sk);
-+
-+	DBG("called for sock %p\n", sk);
-+
-+	switch (msg) {
-+
-+	case NETDEV_UNREGISTER:
-+		spin_lock(&ro->lock);
-+		ro->ifindex = 0;
-+		ro->bound   = 0;
-+		spin_unlock(&ro->lock);
-+		/* fallthrough */
-+	case NETDEV_DOWN:
-+		sk->sk_err = ENETDOWN;
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_error_report(sk);
-+		break;
-+	}
++	return (struct raw_sock *)sk;
 +}
 +
 +static void raw_rcv(struct sk_buff *skb, void *data)
 +{
 +	struct sock *sk = (struct sock*)data;
-+	struct raw_opt *ro = raw_sk(sk);
-+	struct sockaddr_can *addr;
++	struct raw_sock *ro = raw_sk(sk);
 +	int error;
 +
 +	DBG("received skbuff %p, sk %p\n", skb, sk);
@@ -247,17 +219,12 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +
 +	if (!ro->recv_own_msgs) {
 +		/* check the received tx sock reference */
-+		if (*(struct sock **)skb->cb == sk) {
++		if (skb->sk == sk) {
 +			DBG("trashed own tx msg\n");
 +			kfree_skb(skb);
 +			return;
 +		}
 +	}
-+
-+	addr = (struct sockaddr_can *)skb->cb;
-+	memset(addr, 0, sizeof(*addr));
-+	addr->can_family  = AF_CAN;
-+	addr->can_ifindex = skb->dev->ifindex;
 +
 +	error = sock_queue_rcv_skb(sk, skb);
 +	if (error < 0) {
@@ -267,41 +234,111 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +	}
 +}
 +
-+static void raw_add_filters(struct net_device *dev, struct sock *sk)
++static void raw_enable_filters(struct net_device *dev, struct sock *sk)
 +{
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
 +	struct can_filter *filter = ro->filter;
 +	int i;
 +
 +	for (i = 0; i < ro->count; i++) {
-+		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
-+				raw_rcv, sk, IDENT);
 +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 +		    filter[i].can_id, filter[i].can_mask,
 +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
++
++		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
++				raw_rcv, sk, IDENT);
 +	}
 +}
 +
-+static void raw_remove_filters(struct net_device *dev, struct sock *sk)
++static void raw_enable_errfilter(struct net_device *dev, struct sock *sk)
 +{
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
++
++	if (ro->err_mask)
++		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
++				raw_rcv, sk, IDENT);
++}
++
++static void raw_disable_filters(struct net_device *dev, struct sock *sk)
++{
++	struct raw_sock *ro = raw_sk(sk);
 +	struct can_filter *filter = ro->filter;
 +	int i;
 +
 +	for (i = 0; i < ro->count; i++) {
-+		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
-+				  raw_rcv, sk);
 +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 +		    filter[i].can_id, filter[i].can_mask,
 +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
++
++		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
++				  raw_rcv, sk);
 +	}
++}
++
++static void raw_disable_errfilter(struct net_device *dev, struct sock *sk)
++{
++	struct raw_sock *ro = raw_sk(sk);
++
++	if (ro->err_mask)
++		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
++				  raw_rcv, sk);
++}
++
++static int raw_notifier(struct notifier_block *nb,
++			unsigned long msg, void *data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
++	struct sock *sk = &ro->sk;
++
++	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
++	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
++
++	if (dev->type != ARPHRD_CAN)
++		return NOTIFY_DONE;
++
++	if (ro->ifindex != dev->ifindex)
++		return NOTIFY_DONE;
++
++	switch (msg) {
++
++	case NETDEV_UNREGISTER:
++		lock_sock(sk);
++		/* remove current filters & unregister */
++		if (ro->bound) {
++			raw_disable_filters(dev, sk);
++			raw_disable_errfilter(dev, sk);
++		}
++
++		if (ro->count > 1)
++			kfree(ro->filter);
++
++		ro->ifindex = 0;
++		ro->bound   = 0;
++		ro->count   = 0;
++		release_sock(sk);
++
++		sk->sk_err = ENODEV;
++		if (!sock_flag(sk, SOCK_DEAD))
++			sk->sk_error_report(sk);
++		break;
++
++	case NETDEV_DOWN:
++		sk->sk_err = ENETDOWN;
++		if (!sock_flag(sk, SOCK_DEAD))
++			sk->sk_error_report(sk);
++		break;
++	}
++
++	return NOTIFY_DONE;
 +}
 +
 +static int raw_init(struct sock *sk)
 +{
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
 +
 +	ro->bound            = 0;
++	ro->ifindex          = 0;
 +
 +	/* set default filter to single entry dfilter */
 +	ro->dfilter.can_id   = 0;
@@ -313,7 +350,10 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +	ro->loopback         = 1;
 +	ro->recv_own_msgs    = 0;
 +
-+	spin_lock_init(&ro->lock);
++	/* set notifier */
++	ro->notifier.notifier_call = raw_notifier;
++
++	register_netdevice_notifier(&ro->notifier);
 +
 +	return 0;
 +}
@@ -321,34 +361,38 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +static int raw_release(struct socket *sock)
 +{
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
-+	struct net_device *dev = NULL;
++	struct raw_sock *ro = raw_sk(sk);
 +
 +	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
 +	    atomic_read(&sk->sk_refcnt));
 +
-+	spin_lock(&ro->lock);
-+	if (ro->bound && ro->ifindex)
-+		dev = dev_get_by_index(ro->ifindex);
-+	spin_unlock(&ro->lock);
++	unregister_netdevice_notifier(&ro->notifier);
++
++	lock_sock(sk);
 +
 +	/* remove current filters & unregister */
-+	if (ro->bound)
-+		raw_remove_filters(dev, sk);
++	if (ro->bound) {
++		if (ro->ifindex) {
++			struct net_device *dev = dev_get_by_index(ro->ifindex);
++			if (dev) {
++				raw_disable_filters(dev, sk);
++				raw_disable_errfilter(dev, sk);
++				dev_put(dev);
++			}
++		} else {
++			raw_disable_filters(NULL, sk);
++			raw_disable_errfilter(NULL, sk);
++		}
++	}
 +
 +	if (ro->count > 1)
 +		kfree(ro->filter);
 +
-+	/* remove current error mask */
-+	if (ro->err_mask && ro->bound)
-+		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+				  raw_rcv, sk);
++	ro->ifindex = 0;
++	ro->bound   = 0;
++	ro->count   = 0;
 +
-+	if (dev) {
-+		can_dev_unregister(dev, raw_notifier, sk);
-+		dev_put(dev);
-+	}
-+
++	release_sock(sk);
 +	sock_put(sk);
 +
 +	return 0;
@@ -358,9 +402,9 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +{
 +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
-+	struct net_device *dev;
++	struct raw_sock *ro = raw_sk(sk);
 +	int err = 0;
++	int notify_enetdown = 0;
 +
 +	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
 +
@@ -368,72 +412,67 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +		return -EINVAL;
 +
 +	lock_sock(sk);
-+	spin_lock(&ro->lock);
 +
 +	if (ro->bound) {
-+		/* remove current bindings / notifier */
-+		if (ro->ifindex) {
-+			dev = dev_get_by_index(ro->ifindex);
-+			if (!dev) {
-+				DBG("could not find device %d\n",
-+				    addr->can_ifindex);
-+				err = -ENODEV;
-+				goto out;
-+			}
-+			if (!(dev->flags & IFF_UP)) {
-+				sk->sk_err = ENETDOWN;
-+				if (!sock_flag(sk, SOCK_DEAD))
-+					sk->sk_error_report(sk);
-+				goto out;
-+			}
-+			can_dev_unregister(dev, raw_notifier, sk);
-+		} else
-+			dev = NULL;
-+
 +		/* unregister current filters for this device */
-+		raw_remove_filters(dev, sk);
++		if (ro->ifindex) {
++			struct net_device *dev = dev_get_by_index(ro->ifindex);
++			if (dev) {
++				raw_disable_filters(dev, sk);
++				raw_disable_errfilter(dev, sk);
++				dev_put(dev);
++			}
++			ro->ifindex = 0;
 +
-+		if (dev)
-+			dev_put(dev);
++		} else {
++			raw_disable_filters(NULL, sk);
++			raw_disable_errfilter(NULL, sk);
++		}
 +
 +		ro->bound = 0;
 +	}
 +
 +	if (addr->can_ifindex) {
-+		dev = dev_get_by_index(addr->can_ifindex);
++		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
 +		if (!dev) {
 +			DBG("could not find device %d\n", addr->can_ifindex);
 +			err = -ENODEV;
 +			goto out;
 +		}
-+		if (!(dev->flags & IFF_UP)) {
-+			sk->sk_err = ENETDOWN;
-+			if (!sock_flag(sk, SOCK_DEAD))
-+				sk->sk_error_report(sk);
++		if (dev->type != ARPHRD_CAN) {
++			DBG("device %d no CAN device\n", addr->can_ifindex);
++			dev_put(dev);
++			err = -ENODEV;
 +			goto out;
 +		}
-+		can_dev_register(dev, raw_notifier, sk);
-+	} else
-+		dev = NULL;
++		if (!(dev->flags & IFF_UP))
++			notify_enetdown = 1;
 +
-+	ro->ifindex = addr->can_ifindex;
++		ro->ifindex = dev->ifindex;
 +
-+	/* filters set by default/setsockopt */
-+	raw_add_filters(dev, sk);
++		/* filters set by default/setsockopt */
++		raw_enable_filters(dev, sk);
++		raw_enable_errfilter(dev, sk);
++		dev_put(dev);
 +
-+	/* error frame filter set by setsockopt */
-+	if (ro->err_mask)
-+		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+				raw_rcv, sk, IDENT);
++	} else {
++		ro->ifindex = 0;
++
++		/* filters set by default/setsockopt */
++		raw_enable_filters(NULL, sk);
++		raw_enable_errfilter(NULL, sk);
++	}
 +
 +	ro->bound = 1;
 +
 + out:
-+	spin_unlock(&ro->lock);
 +	release_sock(sk);
 +
-+	if (dev)
-+		dev_put(dev);
++	if (notify_enetdown) {
++		sk->sk_err = ENETDOWN;
++		if (!sock_flag(sk, SOCK_DEAD))
++			sk->sk_error_report(sk);
++	}
 +
 +	return err;
 +}
@@ -443,13 +482,14 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +{
 +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
 +
 +	if (peer)
 +		return -EOPNOTSUPP;
 +
 +	addr->can_family  = AF_CAN;
 +	addr->can_ifindex = ro->ifindex;
++
 +	*len = sizeof(*addr);
 +
 +	return 0;
@@ -470,7 +510,7 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +			  char __user *optval, int optlen)
 +{
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
 +	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
 +	struct can_filter sfilter;         /* single filter */
 +	struct net_device *dev = NULL;
@@ -510,14 +550,12 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +
 +		lock_sock(sk);
 +
-+		spin_lock(&ro->lock);
 +		if (ro->bound && ro->ifindex)
 +			dev = dev_get_by_index(ro->ifindex);
-+		spin_unlock(&ro->lock);
 +
 +		/* remove current filters & unregister */
 +		if (ro->bound)
-+			raw_remove_filters(dev, sk);
++			raw_disable_filters(dev, sk);
 +
 +		if (ro->count > 1)
 +			kfree(ro->filter);
@@ -532,7 +570,7 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +		ro->filter = filter;
 +		ro->count  = count;
 +		if (ro->bound)
-+			raw_add_filters(dev, sk);
++			raw_enable_filters(dev, sk);
 +
 +		if (dev)
 +			dev_put(dev);
@@ -551,22 +589,25 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +
 +		err_mask &= CAN_ERR_MASK;
 +
++		lock_sock(sk);
++
 +		if (ro->bound && ro->ifindex)
 +			dev = dev_get_by_index(ro->ifindex);
 +
 +		/* remove current error mask */
-+		if (ro->err_mask && ro->bound)
-+			can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+					  raw_rcv, sk);
++		if (ro->bound)
++			raw_disable_errfilter(dev, sk);
++
++		ro->err_mask = err_mask;
 +
 +		/* add new error mask */
-+		ro->err_mask = err_mask;
-+		if (ro->err_mask && ro->bound)
-+			can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+					raw_rcv, sk, IDENT);
++		if (ro->bound)
++			raw_enable_errfilter(dev, sk);
 +
 +		if (dev)
 +			dev_put(dev);
++
++		release_sock(sk);
 +
 +		break;
 +
@@ -600,11 +641,10 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +			  char __user *optval, int __user *optlen)
 +{
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
-+	struct can_filter *filter = ro->filter;
-+	int count = ro->count;
++	struct raw_sock *ro = raw_sk(sk);
 +	int len;
-+	void *val = NULL;
++	void *val;
++	int err = 0;
 +
 +	if (level != SOL_CAN_RAW)
 +		return -EINVAL;
@@ -616,14 +656,19 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +	switch (optname) {
 +
 +	case CAN_RAW_FILTER:
-+		if (count && filter) {
-+			int filter_size = count * sizeof(struct can_filter);
-+			if (len > filter_size)
-+				len = filter_size;
-+			val = filter;
++		lock_sock(sk);
++		if (ro->count > 0) {
++			int fsize = ro->count * sizeof(struct can_filter);
++			if (len > fsize)
++				len = fsize;
++			err = copy_to_user(optval, ro->filter, len);
 +		} else
 +			len = 0;
-+		break;
++		release_sock(sk);
++
++		if (!err)
++			err = put_user(len, optlen);
++		return err;
 +
 +	case CAN_RAW_ERR_FILTER:
 +		if (len > sizeof(can_err_mask_t))
@@ -658,7 +703,7 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +		       struct msghdr *msg, size_t size)
 +{
 +	struct sock *sk = sock->sk;
-+	struct raw_opt *ro = raw_sk(sk);
++	struct raw_sock *ro = raw_sk(sk);
 +	struct sk_buff *skb;
 +	struct net_device *dev;
 +	int ifindex;
@@ -745,8 +790,11 @@ Index: linux-2.6.22-rc2-git3/net/can/raw.c
 +	sock_recv_timestamp(msg, sk, skb);
 +
 +	if (msg->msg_name) {
-+		msg->msg_namelen = sizeof(struct sockaddr_can);
-+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
++		struct sockaddr_can *addr = msg->msg_name;
++		msg->msg_namelen = sizeof(*addr);
++		memset(addr, 0, sizeof(*addr));
++		addr->can_family  = AF_CAN;
++		addr->can_ifindex = skb->iif;
 +	}
 +
 +	DBG("freeing sock %p, skbuff %p\n", sk, skb);

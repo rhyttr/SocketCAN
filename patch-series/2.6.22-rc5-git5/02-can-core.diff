@@ -10,21 +10,21 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can.h       |   98 ++++
- include/linux/can/core.h  |   88 +++
+ include/linux/can/core.h  |   80 +++
  include/linux/can/error.h |   95 ++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/can/Kconfig           |   25 +
  net/can/Makefile          |    6 
- net/can/af_can.c          | 1070 ++++++++++++++++++++++++++++++++++++++++++++++
- net/can/af_can.h          |  120 +++++
- net/can/proc.c            |  530 ++++++++++++++++++++++
- 10 files changed, 2034 insertions(+)
+ net/can/af_can.c          |  997 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.h          |  121 +++++
+ net/can/proc.c            |  530 ++++++++++++++++++++++++
+ 10 files changed, 1954 insertions(+)
 
-Index: linux-2.6.22-rc3/include/linux/can.h
+Index: linux-2.6.22-rc5-git5/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/include/linux/can.h	2007-05-29 10:14:54.%N +0200
++++ linux-2.6.22-rc5-git5/include/linux/can.h	2007-06-21 14:03:14.000000000 +0200
 @@ -0,0 +1,98 @@
 +/*
 + * linux/can.h
@@ -124,11 +124,11 @@ Index: linux-2.6.22-rc3/include/linux/can.h
 +#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
 +
 +#endif /* CAN_H */
-Index: linux-2.6.22-rc3/include/linux/can/core.h
+Index: linux-2.6.22-rc5-git5/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/include/linux/can/core.h	2007-05-29 10:14:54.%N +0200
-@@ -0,0 +1,88 @@
++++ linux-2.6.22-rc5-git5/include/linux/can/core.h	2007-06-21 14:03:14.000000000 +0200
+@@ -0,0 +1,80 @@
 +/*
 + * linux/can/core.h
 + *
@@ -150,7 +150,7 @@ Index: linux-2.6.22-rc3/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20070523"
++#define CAN_VERSION "20070619"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -192,14 +192,6 @@ Index: linux-2.6.22-rc3/include/linux/can/core.h
 +			     void (*func)(struct sk_buff *, void *),
 +			     void *data);
 +
-+extern int can_dev_register(struct net_device *dev,
-+			    void (*func)(unsigned long msg, void *),
-+			    void *data);
-+
-+extern int can_dev_unregister(struct net_device *dev,
-+			      void (*func)(unsigned long msg, void *),
-+			      void *data);
-+
 +extern int can_send(struct sk_buff *skb, int loop);
 +
 +#ifdef CONFIG_CAN_DEBUG_CORE
@@ -217,10 +209,10 @@ Index: linux-2.6.22-rc3/include/linux/can/core.h
 +#endif
 +
 +#endif /* CAN_CORE_H */
-Index: linux-2.6.22-rc3/net/Kconfig
+Index: linux-2.6.22-rc5-git5/net/Kconfig
 ===================================================================
---- linux-2.6.22-rc3.orig/net/Kconfig	2007-05-29 10:03:02.%N +0200
-+++ linux-2.6.22-rc3/net/Kconfig	2007-05-29 10:14:54.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/Kconfig	2007-06-21 14:02:05.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/Kconfig	2007-06-21 14:03:14.000000000 +0200
 @@ -210,6 +210,7 @@
  endmenu
  
@@ -229,10 +221,10 @@ Index: linux-2.6.22-rc3/net/Kconfig
  source "net/irda/Kconfig"
  source "net/bluetooth/Kconfig"
  source "net/rxrpc/Kconfig"
-Index: linux-2.6.22-rc3/net/Makefile
+Index: linux-2.6.22-rc5-git5/net/Makefile
 ===================================================================
---- linux-2.6.22-rc3.orig/net/Makefile	2007-05-29 10:03:02.%N +0200
-+++ linux-2.6.22-rc3/net/Makefile	2007-05-29 10:14:54.%N +0200
+--- linux-2.6.22-rc5-git5.orig/net/Makefile	2007-06-21 14:02:05.000000000 +0200
++++ linux-2.6.22-rc5-git5/net/Makefile	2007-06-21 14:03:14.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -241,10 +233,10 @@ Index: linux-2.6.22-rc3/net/Makefile
  obj-$(CONFIG_IRDA)		+= irda/
  obj-$(CONFIG_BT)		+= bluetooth/
  obj-$(CONFIG_SUNRPC)		+= sunrpc/
-Index: linux-2.6.22-rc3/net/can/Kconfig
+Index: linux-2.6.22-rc5-git5/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/net/can/Kconfig	2007-05-30 12:38:26.%N +0200
++++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 15:34:24.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -271,10 +263,10 @@ Index: linux-2.6.22-rc3/net/can/Kconfig
 +	  Say Y here if you want the CAN core to produce a bunch of debug
 +	  messages to the system log.  Select this if you are having a
 +	  problem with CAN support and want to see more of what is going on.
-Index: linux-2.6.22-rc3/net/can/Makefile
+Index: linux-2.6.22-rc5-git5/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/net/can/Makefile	2007-05-30 12:38:26.%N +0200
++++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 15:34:24.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -282,11 +274,11 @@ Index: linux-2.6.22-rc3/net/can/Makefile
 +
 +obj-$(CONFIG_CAN)	+= can.o
 +can-objs		:= af_can.o proc.o
-Index: linux-2.6.22-rc3/net/can/af_can.c
+Index: linux-2.6.22-rc5-git5/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/net/can/af_can.c	2007-05-29 10:14:54.%N +0200
-@@ -0,0 +1,1070 @@
++++ linux-2.6.22-rc5-git5/net/can/af_can.c	2007-06-21 15:34:35.000000000 +0200
+@@ -0,0 +1,997 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -353,9 +345,8 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +#include "af_can.h"
 +
 +#define IDENT "core"
-+static __initdata const char banner[] =
-+	KERN_INFO "can: controller area network core # "
-+	CAN_VERSION_STRING "\n";
++static __initdata const char banner[] = KERN_INFO
++	"can: controller area network core (" CAN_VERSION_STRING ")\n";
 +
 +MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 +MODULE_LICENSE("Dual BSD/GPL");
@@ -373,16 +364,6 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +module_param(debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 +#endif
-+
-+struct notifier {
-+	struct list_head list;
-+	struct net_device *dev;
-+	void (*func)(unsigned long msg, void *data);
-+	void *data;
-+};
-+
-+static LIST_HEAD(notifier_list);
-+static DEFINE_RWLOCK(notifier_lock);
 +
 +HLIST_HEAD(rx_dev_list);
 +static struct dev_rcv_lists rx_alldev_list;
@@ -445,7 +426,8 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +		sprintf(module_name, "can-proto-%d", protocol);
 +		ret = request_module(module_name);
 +
-+		/* In case of error we only print a message but don't
++		/*
++		 * In case of error we only print a message but don't
 +		 * return the error code immediately.  Below we will
 +		 * return -EPROTONOSUPPORT
 +		 */
@@ -501,10 +483,10 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 + *  0 on success
 + *  -ENETDOWN when the selected interface is down
 + *  -ENOBUFS on full driver queue (see net_xmit_errno())
++ *  -ENOMEM when local loopback failed at calling skb_clone()
 + */
 +int can_send(struct sk_buff *skb, int loop)
 +{
-+	struct sock **tx_sk = (struct sock **)skb->cb;
 +	int err;
 +
 +	if (skb->dev->type != ARPHRD_CAN) {
@@ -512,34 +494,50 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +		return -EPERM;
 +	}
 +
++	if (!(skb->dev->flags & IFF_UP)) {
++		kfree_skb(skb);
++		return -ENETDOWN;
++	}
++
++	skb->protocol = htons(ETH_P_CAN);
++
 +	if (loop) {
-+		/* local loopback of sent CAN frames (default) */
++		/* local loopback of sent CAN frames */
 +
 +		/* indication for the CAN driver: do loopback */
-+		*tx_sk = skb->sk;
++		skb->pkt_type = PACKET_LOOPBACK;
 +
 +		/*
-+		 * The reference to the originating sock may be also required
-+		 * by the receiving socket to indicate (and ignore) his own
-+		 * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
++		 * The reference to the originating sock may be required
++		 * by the receiving socket to check whether the frame is
++		 * its own. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
++		 * Therefore we have to ensure that skb->sk remains the
++		 * reference to the originating sock by restoring skb->sk
++		 * after each skb_clone() or skb_orphan() usage.
 +		 */
 +
-+		/* interface not capabable to do the loopback itself? */
 +		if (!(skb->dev->flags & IFF_LOOPBACK)) {
++			/*
++			 * If the interface is not capable to do loopback
++			 * itself, we do it here.
++			 */
 +			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 +
-+			/* perform the local loopback here */
-+			newskb->protocol  = htons(ETH_P_CAN);
++			if (!newskb) {
++				kfree_skb(skb);
++				return -ENOMEM;
++			}
++
++			newskb->sk = skb->sk;
++			newskb->iif = 0;
 +			newskb->ip_summed = CHECKSUM_UNNECESSARY;
++			newskb->pkt_type = PACKET_BROADCAST;
 +			netif_rx(newskb);
 +		}
 +	} else {
 +		/* indication for the CAN driver: no loopback required */
-+		*tx_sk = NULL;
++		skb->pkt_type = PACKET_HOST;
 +	}
-+
-+	if (!(skb->dev->flags & IFF_UP))
-+		return -ENETDOWN;
 +
 +	/* send to netdevice */
 +	err = dev_queue_xmit(skb);
@@ -662,8 +660,8 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +
 +	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 +
-+	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
-+	    dev, can_id, mask, func, data, ident);
++	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p, "
++	    "ident %s\n", dev, DNAME(dev), can_id, mask, func, data, ident);
 +
 +	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
 +	if (!r)
@@ -701,35 +699,14 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +}
 +EXPORT_SYMBOL(can_rx_register);
 +
-+static void can_rx_delete_list(struct hlist_head *rl)
-+{
-+	struct receiver *r;
-+	struct hlist_node *n;
-+
-+	hlist_for_each_entry_rcu(r, n, rl, list) {
-+		hlist_del_rcu(&r->list);
-+		kmem_cache_free(rcv_cache, r);
-+	}
-+}
-+
 +/*
 + * can_rx_delete_device - rcu callback for dev_rcv_lists structure removal
 + */
 +static void can_rx_delete_device(struct rcu_head *rp)
 +{
 +	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
-+	int i;
 +
-+	/* remove all receivers hooked at this netdevice */
-+	can_rx_delete_list(&d->rx[RX_ERR]);
-+	can_rx_delete_list(&d->rx[RX_ALL]);
-+	can_rx_delete_list(&d->rx[RX_FIL]);
-+	can_rx_delete_list(&d->rx[RX_INV]);
-+	can_rx_delete_list(&d->rx[RX_EFF]);
-+
-+	for (i = 0; i < 2048; i++)
-+		can_rx_delete_list(&d->rx_sff[i]);
-+
++	DBG("removing dev_rcv_list at %p\n", d);
 +	kfree(d);
 +}
 +
@@ -740,6 +717,7 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +{
 +	struct receiver *r = container_of(rp, struct receiver, rcu);
 +
++	DBG("removing receiver at %p\n", r);
 +	kmem_cache_free(rcv_cache, r);
 +}
 +
@@ -768,8 +746,8 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +	struct dev_rcv_lists *d;
 +	int ret = 0;
 +
-+	DBG("dev %p, id %03X, mask %03X, callback %p, data %p\n",
-+	    dev, can_id, mask, func, data);
++	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p\n",
++	    dev, DNAME(dev), can_id, mask, func, data);
 +
 +	spin_lock_bh(&rcv_lists_lock);
 +
@@ -806,6 +784,7 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +		    "dev %s, id %03X, mask %03X\n", DNAME(dev), can_id, mask);
 +		ret = -EINVAL;
 +		r = NULL;
++		d = NULL;
 +		goto out;
 +	}
 +
@@ -815,12 +794,24 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +	if (pstats.rcv_entries > 0)
 +		pstats.rcv_entries--;
 +
++	/* remove device structure requested by NETDEV_UNREGISTER */
++	if (d->remove_on_zero_entries && !d->entries) {
++		DBG("removing dev_rcv_list for %s on zero entries\n",
++		    dev->name);
++		hlist_del_rcu(&d->list);
++	} else
++		d = NULL;
++
 + out:
 +	spin_unlock_bh(&rcv_lists_lock);
 +
 +	/* schedule the receiver item for deletion */
 +	if (r)
 +		call_rcu(&r->rcu, can_rx_delete_receiver);
++
++	/* schedule the device structure for deletion */
++	if (d)
++		call_rcu(&d->rcu, can_rx_delete_device);
 +
 +	return ret;
 +}
@@ -832,6 +823,8 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +
 +	DBG("skbuff %p cloned to %p\n", skb, clone);
 +	if (clone) {
++		clone->sk  = skb->sk;
++		clone->iif = skb->iif;
 +		r->func(clone, r->data);
 +		r->matches++;
 +	}
@@ -952,6 +945,146 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +}
 +
 +/*
++ * af_can protocol functions
++ */
++
++/**
++ * can_proto_register - register CAN transport protocol
++ * @cp: pointer to CAN protocol structure
++ *
++ * Return:
++ *  0 on success
++ *  -EINVAL invalid (out of range) protocol number
++ *  -EBUSY  protocol already in use
++ *  -ENOBUF if proto_register() fails
++ */
++int can_proto_register(struct can_proto *cp)
++{
++	int proto = cp->protocol;
++	int err = 0;
++
++	if (proto < 0 || proto >= CAN_NPROTO) {
++		printk(KERN_ERR "can: protocol number %d out of range\n",
++		       proto);
++		return -EINVAL;
++	}
++	if (proto_tab[proto]) {
++		printk(KERN_ERR "can: protocol %d already registered\n",
++		       proto);
++		return -EBUSY;
++	}
++
++	err = proto_register(cp->prot, 0);
++	if (err < 0)
++		return err;
++
++	proto_tab[proto] = cp;
++
++	/* use generic ioctl function if the module doesn't bring its own */
++	if (!cp->ops->ioctl)
++		cp->ops->ioctl = can_ioctl;
++
++	return err;
++}
++EXPORT_SYMBOL(can_proto_register);
++
++/**
++ * can_proto_unregister - unregister CAN transport protocol
++ * @cp: pointer to CAN protocol structure
++ *
++ * Return:
++ *  0 on success
++ *  -ESRCH protocol number was not registered
++ */
++int can_proto_unregister(struct can_proto *cp)
++{
++	int proto = cp->protocol;
++
++	if (!proto_tab[proto]) {
++		printk(KERN_ERR "can: protocol %d is not registered\n", proto);
++		return -ESRCH;
++	}
++	proto_unregister(cp->prot);
++	proto_tab[proto] = NULL;
++
++	return 0;
++}
++EXPORT_SYMBOL(can_proto_unregister);
++
++/*
++ * af_can notifier to create/remove CAN netdevice specific structs
++ */
++static int can_notifier(struct notifier_block *nb, unsigned long msg,
++			void *data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct dev_rcv_lists *d;
++
++	DBG("msg %ld for dev %p (%s idx %d)\n",
++	    msg, dev, dev->name, dev->ifindex);
++
++	if (dev->type != ARPHRD_CAN)
++		return NOTIFY_DONE;
++
++	switch (msg) {
++
++	case NETDEV_REGISTER:
++
++		/*
++		 * create new dev_rcv_lists for this device
++		 *
++		 * N.B. zeroing the struct is the correct initialization
++		 * for the embedded hlist_head structs.
++		 * Another list type, e.g. list_head, would require
++		 * explicit initialization.
++		 */
++
++		DBG("creating new dev_rcv_lists for %s\n", dev->name);
++
++		d = kzalloc(sizeof(*d),
++			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
++		if (!d) {
++			printk(KERN_ERR
++			       "can: allocation of receive list failed\n");
++			return NOTIFY_DONE;
++		}
++		d->dev = dev;
++
++		spin_lock_bh(&rcv_lists_lock);
++		hlist_add_head_rcu(&d->list, &rx_dev_list);
++		spin_unlock_bh(&rcv_lists_lock);
++
++		break;
++
++	case NETDEV_UNREGISTER:
++		spin_lock_bh(&rcv_lists_lock);
++
++		d = find_dev_rcv_lists(dev);
++		if (d) {
++			DBG("remove dev_rcv_list for %s (%d entries)\n",
++			    dev->name, d->entries);
++
++			if (d->entries) {
++				d->remove_on_zero_entries = 1;
++				d = NULL;
++			} else
++				hlist_del_rcu(&d->list);
++		} else
++			printk(KERN_ERR "can: notifier: receive list not "
++			       "found for dev %s\n", dev->name);
++
++		spin_unlock_bh(&rcv_lists_lock);
++
++		if (d)
++			call_rcu(&d->rcu, can_rx_delete_device);
++
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++/*
 + * af_can debugging stuff
 + */
 +
@@ -1051,220 +1184,6 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +#endif
 +
 +/*
-+ * af_can protocol functions
-+ */
-+
-+/**
-+ * can_proto_register - register CAN transport protocol
-+ * @cp: pointer to CAN protocol structure
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -EINVAL invalid (out of range) protocol number
-+ *  -EBUSY  protocol already in use
-+ *  -ENOBUF if proto_register() fails
-+ */
-+int can_proto_register(struct can_proto *cp)
-+{
-+	int proto = cp->protocol;
-+	int err = 0;
-+
-+	if (proto < 0 || proto >= CAN_NPROTO) {
-+		printk(KERN_ERR "can: protocol number %d out "
-+		       "of range\n", proto);
-+		return -EINVAL;
-+	}
-+	if (proto_tab[proto]) {
-+		printk(KERN_ERR "can: protocol %d already "
-+		       "registered\n", proto);
-+		return -EBUSY;
-+	}
-+
-+	err = proto_register(cp->prot, 0);
-+	if (err < 0)
-+		return err;
-+
-+	proto_tab[proto] = cp;
-+
-+	/* use generic ioctl function if the module doesn't bring its own */
-+	if (!cp->ops->ioctl)
-+		cp->ops->ioctl = can_ioctl;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(can_proto_register);
-+
-+/**
-+ * can_proto_unregister - unregister CAN transport protocol
-+ * @cp: pointer to CAN protocol structure
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -ESRCH protocol number was not registered
-+ */
-+int can_proto_unregister(struct can_proto *cp)
-+{
-+	int proto = cp->protocol;
-+
-+	if (!proto_tab[proto]) {
-+		printk(KERN_ERR "can: protocol %d is not registered\n", proto);
-+		return -ESRCH;
-+	}
-+	proto_unregister(cp->prot);
-+	proto_tab[proto] = NULL;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(can_proto_unregister);
-+
-+/**
-+ * can_dev_register - subscribe notifier for CAN device status changes
-+ * @dev: pointer to netdevice
-+ * @func: callback function on status change
-+ * @data: returned parameter for callback function
-+ *
-+ * Description:
-+ *  Invokes the callback function with the status 'msg' and the given
-+ *  parameter 'data' on a status change of the given CAN network device.
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -ENOMEM on missing mem to create subscription entry
-+ *  -ENODEV unknown device
-+ */
-+int can_dev_register(struct net_device *dev,
-+		     void (*func)(unsigned long msg, void *), void *data)
-+{
-+	struct notifier *n;
-+
-+	DBG("called for %s\n", dev->name);
-+
-+	if (!dev || dev->type != ARPHRD_CAN)
-+		return -ENODEV;
-+
-+	n = kmalloc(sizeof(*n), GFP_KERNEL);
-+	if (!n)
-+		return -ENOMEM;
-+
-+	n->dev  = dev;
-+	n->func = func;
-+	n->data = data;
-+
-+	write_lock(&notifier_lock);
-+	list_add(&n->list, &notifier_list);
-+	write_unlock(&notifier_lock);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(can_dev_register);
-+
-+/**
-+ * can_dev_unregister - unsubscribe notifier for CAN device status changes
-+ * @dev: pointer to netdevice
-+ * @func: callback function on filter match
-+ * @data: returned parameter for callback function
-+ *
-+ * Description:
-+ *  Removes subscription entry depending on given (subscription) values.
-+ *
-+ * Return:
-+ *  0 on success
-+ *  -EINVAL on missing subscription entry
-+ */
-+int can_dev_unregister(struct net_device *dev,
-+		       void (*func)(unsigned long msg, void *), void *data)
-+{
-+	struct notifier *n, *next;
-+	int ret = -EINVAL;
-+
-+	DBG("called for %s\n", dev->name);
-+
-+	write_lock(&notifier_lock);
-+	list_for_each_entry_safe(n, next, &notifier_list, list) {
-+		if (n->dev == dev && n->func == func && n->data == data) {
-+			list_del(&n->list);
-+			kfree(n);
-+			ret = 0;
-+			break;
-+		}
-+	}
-+	write_unlock(&notifier_lock);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(can_dev_unregister);
-+
-+static int can_notifier(struct notifier_block *nb,
-+			unsigned long msg, void *data)
-+{
-+	struct net_device *dev = (struct net_device *)data;
-+	struct notifier *n;
-+	struct dev_rcv_lists *d;
-+
-+	DBG("called for %s, msg = %lu\n", dev->name, msg);
-+
-+	if (dev->type != ARPHRD_CAN)
-+		return NOTIFY_DONE;
-+
-+	switch (msg) {
-+
-+	case NETDEV_REGISTER:
-+
-+		/*
-+		 * create new dev_rcv_lists for this device
-+		 *
-+		 * N.B. zeroing the struct is the correct initialization
-+		 * for the embedded hlist_head structs.
-+		 * Another list type, e.g. list_head, would require
-+		 * explicit initialization.
-+		 */
-+
-+		DBG("creating new dev_rcv_lists for %s\n", dev->name);
-+
-+		d = kzalloc(sizeof(*d),
-+			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-+		if (!d) {
-+			printk(KERN_ERR "can: allocation of receive "
-+			       "list failed\n");
-+			return NOTIFY_DONE;
-+		}
-+		d->dev = dev;
-+
-+		spin_lock_bh(&rcv_lists_lock);
-+		hlist_add_head_rcu(&d->list, &rx_dev_list);
-+		spin_unlock_bh(&rcv_lists_lock);
-+
-+		break;
-+
-+	case NETDEV_UNREGISTER:
-+		spin_lock_bh(&rcv_lists_lock);
-+
-+		d = find_dev_rcv_lists(dev);
-+		if (d)
-+			hlist_del_rcu(&d->list);
-+		else
-+			printk(KERN_ERR "can: notifier: receive list not "
-+			       "found for dev %s\n", dev->name);
-+
-+		spin_unlock_bh(&rcv_lists_lock);
-+
-+		if (d)
-+			call_rcu(&d->rcu, can_rx_delete_device);
-+
-+		break;
-+	}
-+
-+	read_lock(&notifier_lock);
-+	list_for_each_entry(n, &notifier_list, list) {
-+		if (n->dev == dev)
-+			n->func(msg, n->data);
-+	}
-+	read_unlock(&notifier_lock);
-+
-+	return NOTIFY_DONE;
-+}
-+
-+/*
 + * af_can module init/exit functions
 + */
 +
@@ -1295,7 +1214,7 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +		return -ENOMEM;
 +
 +	/*
-+	 * Insert struct dev_rcv_lists for reception on all devices.
++	 * Insert rx_alldev_list for reception on all devices.
 +	 * This struct is zero initialized which is correct for the
 +	 * embedded hlist heads, the dev pointer, and the entries counter.
 +	 */
@@ -1357,11 +1276,11 @@ Index: linux-2.6.22-rc3/net/can/af_can.c
 +
 +module_init(can_init);
 +module_exit(can_exit);
-Index: linux-2.6.22-rc3/net/can/af_can.h
+Index: linux-2.6.22-rc5-git5/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/net/can/af_can.h	2007-05-29 10:14:54.%N +0200
-@@ -0,0 +1,120 @@
++++ linux-2.6.22-rc5-git5/net/can/af_can.h	2007-06-21 14:03:14.000000000 +0200
+@@ -0,0 +1,121 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 + * All rights reserved.
@@ -1434,6 +1353,7 @@ Index: linux-2.6.22-rc3/net/can/af_can.h
 +	struct net_device *dev;
 +	struct hlist_head rx[RX_MAX];
 +	struct hlist_head rx_sff[0x800];
++	int remove_on_zero_entries;
 +	int entries;
 +};
 +
@@ -1482,10 +1402,10 @@ Index: linux-2.6.22-rc3/net/can/af_can.h
 +extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
 +
 +#endif /* AF_CAN_H */
-Index: linux-2.6.22-rc3/net/can/proc.c
+Index: linux-2.6.22-rc5-git5/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/net/can/proc.c	2007-05-29 10:14:54.%N +0200
++++ linux-2.6.22-rc5-git5/net/can/proc.c	2007-06-21 14:03:14.000000000 +0200
 @@ -0,0 +1,530 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
@@ -2017,10 +1937,10 @@ Index: linux-2.6.22-rc3/net/can/proc.c
 +	if (can_dir)
 +		remove_proc_entry(CAN_PROC_DIR, NULL);
 +}
-Index: linux-2.6.22-rc3/include/linux/can/error.h
+Index: linux-2.6.22-rc5-git5/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc3/include/linux/can/error.h	2007-05-30 12:42:27.%N +0200
++++ linux-2.6.22-rc5-git5/include/linux/can/error.h	2007-06-21 14:03:14.000000000 +0200
 @@ -0,0 +1,95 @@
 +/*
 + * linux/can/error.h
