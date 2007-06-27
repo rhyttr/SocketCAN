@@ -49,6 +49,7 @@
 #include <linux/netdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
+#include <linux/if_arp.h>
 #include <linux/can.h>
 #include <linux/can/core.h>
 #include <linux/can/bcm.h>
