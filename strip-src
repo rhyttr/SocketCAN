@@ -1,0 +1,155 @@
+#!/usr/bin/perl
+#
+# $Id$ 
+#
+# Strip lines from sources files:
+# 
+# * Eliminate CPP conditional compilation for different kernel version, i.e.
+#   eliminate all occurences of #if LINUX_VERSION_CODE < KERNEL_VERSION(...)
+#   and likewise for <=, >, and >=.
+#
+# * Eliminate all Subversion $Id$ and RCSID() lines.
+#
+# Call the program as
+#
+#     strip-src [-v <version>] [-i] [-d] [<file>]
+#
+# The -v option will generate a source file for specified kernel version
+# where <version> is the kernel version you want the code to be generated
+# for, in the form <major>.<minor>.<patchlevel>.
+#
+# The -i option will strip all Subversion $Id$ lines from the the source.
+#
+# The -d (debug) option will give you some output on what the program does.
+#
+# If <file> is given, read that source file, otherwise stdin.
+#
+# The result will be output on stdout.
+
+require("getopts.pl");
+
+$re = "^\\#if LINUX_VERSION_CODE (<|<=|>|>=) " .
+    "KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
+
+Getopts("div:");
+$debug = $opt_d;
+
+if (defined($opt_v)) {
+    $version = $opt_v;
+}
+
+@lines = <>;
+unshift(@lines, "");
+
+if (defined($opt_v)) {
+    strip_kversion($opt_v);
+}
+
+if (defined($opt_i)) {
+    strip_id();
+}
+
+for (@lines) {
+    print if (defined($_));
+}
+
+sub strip_id {
+    my($i);
+    
+    for $i (0..$#lines) {
+	
+	if ($lines[$i] =~ /include.*linux(\/can)?\/version\.h/) {
+	    delete_line($i, "<del>");
+	}
+	
+	if ($lines[$i] =~ /RCSID/ || $lines[$i] =~ /\$Id.*\$/) {
+	    delete_line($i, "<del>");
+	    while ($lines[++$i] eq "\n") {
+		delete_line($i, "<skip>");
+	    }
+	}
+    }
+}
+
+
+sub strip_kversion {
+    my($version) = @_;
+    my($i, $state, $skip, $level);
+
+    $level   = 0;
+    $state   = -1;
+
+    for ($i = 1; $i <= $#lines; $i++) {
+	$_ = $lines[$i];
+	if ($state == -1) {
+	    if (/$re/) {
+		$state = compare($version, $1, $2, $3, $4);
+		delete_line($i, "<del>");
+		$skip = ($lines[$i-1] eq "\n");
+	    }
+	} else {
+	    if ($level == 0 && /^\#else/) {
+		$state = !$state;
+		delete_line($i, "<del>");
+	    } elsif ($level == 0 && /^\#endif/) {
+		$state = -1;
+		delete_line($i, "<del>");
+
+		while ($skip && $lines[$i+1] eq "\n") {
+		    $i++;
+		    delete_line($i, "<skip>");
+		}
+	    } elsif (/^\#if/) {
+		$level++;
+		delete_line($i, "<del>");
+	    } elsif (/^\#endif/) {
+		$level--;
+		delete_line($i, "<del>");
+	    } elsif ($state == 1) {
+		$skip = 0;
+	    } else {
+		delete_line($i, "<del>");
+	    }
+	}
+    }
+}
+
+sub compare {
+    my($version, $op, $major, $minor, $patchlevel) = @_;
+
+    my($mj, $mn, $pl) = split(/\./, $version);
+    
+    if ($op eq "<" &&
+	($mj < $major ||
+	 $mj == $major && ($mn < $minor || 
+			   $mn == $minor && $pl < $patchlevel))) {
+	return 1;
+    } elsif ($op eq "<=" &&
+	     ($mj < $major ||
+	      $mj == $major && ($mn < $minor || 
+				$mn == $minor && $pl <= $patchlevel))) {
+	return 1;
+    } elsif ($op eq ">" &&
+	     ($mj > $major ||
+	      $mj == $major && ($mn > $minor || 
+				$mn == $minor && $pl > $patchlevel))) {
+	return 1;
+    } elsif ($op eq ">=" &&
+	     ($mj > $major ||
+	      $mj == $major && ($mn > $minor || 
+				$mn == $minor && $pl >= $patchlevel))) {
+	return 1;
+    } else {
+	return 0;
+    }
+}
+
+sub delete_line {
+    my($lineno, $dbg) = @_;
+    
+    if ($debug) {
+	$lines[$lineno] = "$dbg\n";
+    } else {
+	undef($lines[$lineno]);
+    }
+}

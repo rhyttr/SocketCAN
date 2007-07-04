@@ -42,45 +42,19 @@ sub copy_file {
 
 sub add_file {
     my ($file, $name) = @_;
-    my (@lines, $count, $ts, $mtime);
+    my (@lines, $count, $ts);
 
-    open file, "./kv $version $file |" || die "open $file\n";
+    open file, "./strip-src -i -v $version $file |" || die "open $file\n";
     @lines = <file>;
+    close file;
+
     $count = $#lines + 1;
-    $mtime = (stat($file))[9];
     $ts = strftime "%F %T", gmtime((stat($file))[9]);
-
-    for $i (0..$#lines) {
-
-	if ($lines[$i] =~ /include.*linux(\/can)?\/version\.h/) {
-	    undef($lines[$i]);
-	    $count--;
-	}
-
-	if ($lines[$i] =~ /RCSID/) {
-	    undef($lines[$i]);
-	    $count--;
-	    while ($lines[++$i] eq "\n") {
-		undef($lines[$i]);
-		$count--;
-	    }
-	}
-
-	if ($lines[$i] =~ /\$Id.*\$/) {
-	    undef($lines[$i]);
-	    $count--;
-	    while ($lines[++$i] eq " *\n") {
-		undef($lines[$i]);
-		$count--;
-	    }
-	}
-    }
 
     print "--- a/$name 1970-01-01 00:00:00\n";
     print "+++ b/$name $ts\n";
     print "@@ -0,0 +1,$count @@\n";
     for (@lines) {
-	print "+$_" if (defined($_));
+	print "+$_";
     }
-    close file;
 }
