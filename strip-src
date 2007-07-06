@@ -62,9 +62,16 @@ sub strip_id {
 	    delete_line($i, "<del>");
 	}
 	
-	if ($lines[$i] =~ /RCSID/ || $lines[$i] =~ /\$Id.*\$/) {
+	if ($lines[$i] =~ /RCSID/) {
 	    delete_line($i, "<del>");
 	    while ($lines[++$i] eq "\n") {
+		delete_line($i, "<skip>");
+	    }
+	}
+
+	if ($lines[$i] =~ /\$Id.*\$/) {
+	    delete_line($i, "<del>");
+	    while ($lines[++$i] eq " *\n") {
 		delete_line($i, "<skip>");
 	    }
 	}
