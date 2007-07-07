@@ -89,9 +89,11 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 }
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static int numdev = 4; /* default number of virtual CAN interfaces */
 module_param(numdev, int, S_IRUGO);
 MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
+#endif
 
 /*
  * CAN network devices *should* support a local loopback functionality
@@ -294,48 +296,6 @@ static __init int vcan_init_module(void)
 
 	rtnl_lock();
 	err = __rtnl_link_register(&vcan_link_ops);
-	if (err < 0)
-		goto out;
-
-	printk(KERN_INFO
-	       "vcan: registering %d virtual CAN interfaces. (loopback %s)\n",
-	       numdev, loopback ? "enabled" : "disabled");
-
-	for (i = 0; i < numdev; i++) {
-		dev = alloc_netdev(PRIVSIZE, "vcan%d", vcan_setup);
-		if (!dev) {
-			printk(KERN_ERR "vcan: error allocating net_device\n");
-			err = -ENOMEM;
-			break;
-		}
-		err = dev_alloc_name(dev, dev->name);
-		if (err < 0)
-			break;
-
-		dev->rtnl_link_ops = &vcan_link_ops;
-		err = register_netdevice(dev);
-		if (err < 0) {
-			printk(KERN_ERR
-			       "vcan: error %d registering interface %s\n",
-			       err, dev->name);
-			free_netdev(dev);
-			break;
-
-		} else {
-			priv = netdev_priv(dev);
-			priv->dev = dev;
-			list_add_tail(&priv->list, &vcan_devs);
-			DBG("successfully registered interface %s\n",
-			    vcan_devs[i]->name);
-		}
-	}
-
-	if (err < 0) {
-		list_for_each_entry_safe(priv, n, &vcan_devs, list)
-			vcan_dellink(priv->dev);
-		__rtnl_link_unregister(&vcan_link_ops);
-	}
- out:
 	rtnl_unlock();
 	return err;
 }
