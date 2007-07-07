@@ -49,6 +49,9 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/can.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+#include <net/rtnetlink.h>
+#endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -86,8 +89,6 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 }
 #endif
 
-#define STATSIZE sizeof(struct net_device_stats)
-
 static int numdev = 4; /* default number of virtual CAN interfaces */
 module_param(numdev, int, S_IRUGO);
 MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
@@ -105,7 +106,19 @@ static int loopback = 0; /* vcan default: no loopback, just free the skb */
 module_param(loopback, int, S_IRUGO);
 MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+struct vcan_priv {
+	struct net_device *dev;
+	struct list_head list;
+};
+static LIST_HEAD(vcan_devs);
+
+#define PRIVSIZE sizeof(struct vcan_priv)
+#else
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
+
+#define PRIVSIZE sizeof(struct net_device_stats)
+#endif
 
 static int vcan_open(struct net_device *dev)
 {
@@ -125,7 +138,11 @@ static int vcan_stop(struct net_device *dev)
 
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = &dev->stats;
+#else
 	struct net_device_stats *stats = netdev_priv(dev);
+#endif
 
 	stats->rx_packets++;
 	stats->rx_bytes += skb->len;
@@ -142,7 +159,11 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = &dev->stats;
+#else
 	struct net_device_stats *stats = netdev_priv(dev);
+#endif
 	int loop;
 
 	DBG("sending skbuff on interface %s\n", dev->name);
@@ -196,20 +217,20 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
 
 	return stats;
 }
+#endif
 
-static void vcan_init(struct net_device *dev)
+static void vcan_setup(struct net_device *dev)
 {
 	DBG("dev %s\n", dev->name);
 
 	ether_setup(dev);
-
-	memset(dev->priv, 0, STATSIZE);
 
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
@@ -222,11 +243,114 @@ static void vcan_init(struct net_device *dev)
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
 	dev->hard_start_xmit   = vcan_tx;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+	dev->destructor        = free_netdev;
+#else
 	dev->get_stats         = vcan_get_stats;
+#endif
 
 	SET_MODULE_OWNER(dev);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+static int vcan_newlink(struct net_device *dev,
+			struct nlattr *tb[], struct nlattr *data[])
+{
+	struct vcan_priv *priv = netdev_priv(dev);
+	int err;
+
+	err = register_netdevice(dev);
+	if (err < 0)
+		return err;
+
+	priv->dev = dev;
+	list_add_tail(&priv->list, &vcan_devs);
+	return 0;
+}
+
+static void vcan_dellink(struct net_device *dev)
+{
+	struct vcan_priv *priv = netdev_priv(dev);
+
+	list_del(&priv->list);
+	unregister_netdevice(dev);
+}
+
+static struct rtnl_link_ops vcan_link_ops __read_mostly = {
+       .kind           = "vcan",
+       .priv_size      = sizeof(struct vcan_priv),
+       .setup          = vcan_setup,
+       .newlink        = vcan_newlink,
+       .dellink        = vcan_dellink,
+};
+
+static __init int vcan_init_module(void)
+{
+	int i, err = 0;
+	struct net_device *dev;
+	struct vcan_priv *priv, *n;
+
+	printk(banner);
+
+	rtnl_lock();
+	err = __rtnl_link_register(&vcan_link_ops);
+	if (err < 0)
+		goto out;
+
+	printk(KERN_INFO
+	       "vcan: registering %d virtual CAN interfaces. (loopback %s)\n",
+	       numdev, loopback ? "enabled" : "disabled");
+
+	for (i = 0; i < numdev; i++) {
+		dev = alloc_netdev(PRIVSIZE, "vcan%d", vcan_setup);
+		if (!dev) {
+			printk(KERN_ERR "vcan: error allocating net_device\n");
+			err = -ENOMEM;
+			break;
+		}
+		err = dev_alloc_name(dev, dev->name);
+		if (err < 0)
+			break;
+
+		dev->rtnl_link_ops = &vcan_link_ops;
+		err = register_netdevice(dev);
+		if (err < 0) {
+			printk(KERN_ERR
+			       "vcan: error %d registering interface %s\n",
+			       err, dev->name);
+			free_netdev(dev);
+			break;
+
+		} else {
+			priv = netdev_priv(dev);
+			priv->dev = dev;
+			list_add_tail(&priv->list, &vcan_devs);
+			DBG("successfully registered interface %s\n",
+			    vcan_devs[i]->name);
+		}
+	}
+
+	if (err < 0) {
+		list_for_each_entry_safe(priv, n, &vcan_devs, list)
+			vcan_dellink(priv->dev);
+		__rtnl_link_unregister(&vcan_link_ops);
+	}
+ out:
+	rtnl_unlock();
+	return err;
+}
+
+static __exit void vcan_cleanup_module(void)
+{
+	struct vcan_priv *priv, *n;
+
+	rtnl_lock();
+	list_for_each_entry_safe(priv, n, &vcan_devs, list)
+		vcan_dellink(priv->dev);
+	__rtnl_link_unregister(&vcan_link_ops);
+	rtnl_unlock();
+}
+#else
 static __init int vcan_init_module(void)
 {
 	int i, result;
@@ -248,7 +372,7 @@ static __init int vcan_init_module(void)
 	}
 
 	for (i = 0; i < numdev; i++) {
-		vcan_devs[i] = alloc_netdev(STATSIZE, "vcan%d", vcan_init);
+		vcan_devs[i] = alloc_netdev(PRIVSIZE, "vcan%d", vcan_setup);
 		if (!vcan_devs[i]) {
 			printk(KERN_ERR "vcan: error allocating net_device\n");
 			result = -ENOMEM;
@@ -298,6 +422,7 @@ static __exit void vcan_cleanup_module(void)
 
 	kfree(vcan_devs);
 }
+#endif
 
 module_init(vcan_init_module);
 module_exit(vcan_cleanup_module);
