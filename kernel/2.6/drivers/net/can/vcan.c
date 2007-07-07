@@ -294,6 +294,9 @@ static __init int vcan_init_module(void)
 
 	printk(banner);
 
+	if (loopback)
+		printk(KERN_INFO "vcan: enabled loopback on driver level.\n");
+
 	rtnl_lock();
 	err = __rtnl_link_register(&vcan_link_ops);
 	rtnl_unlock();
