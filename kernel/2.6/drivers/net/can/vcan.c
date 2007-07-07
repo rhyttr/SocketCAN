@@ -114,8 +114,6 @@ struct vcan_priv {
 	struct list_head list;
 };
 static LIST_HEAD(vcan_devs);
-
-#define PRIVSIZE sizeof(struct vcan_priv)
 #else
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
