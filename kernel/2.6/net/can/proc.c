@@ -208,12 +208,11 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 	hlist_for_each_entry_rcu(r, n, rx_list, list) {
 		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
-			"   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
+			"   %-5s     %03X    %08x  %p  %p  %8ld  %s\n";
 
 		len += snprintf(page + len, PAGE_SIZE - len, fmt,
 				DNAME(dev), r->can_id, r->mask,
-				(unsigned int)r->func, (unsigned int)r->data,
-				r->matches, r->ident);
+				r->func, r->data, r->matches, r->ident);
 
 		/* does a typical line fit into the current buffer? */
 
@@ -361,7 +360,7 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
-	int idx = (int)data;
+	long idx = (long)data;
 	int len = 0;
 	struct dev_rcv_lists *d;
 	struct hlist_node *n;
