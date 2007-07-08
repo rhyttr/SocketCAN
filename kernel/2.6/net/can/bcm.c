@@ -386,8 +386,11 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
 
 	/* can_frames starting here */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	firstframe = (struct can_frame *) skb_tail_pointer(skb);
+#else
 	firstframe = (struct can_frame *) skb->tail;
-
+#endif
 
 	if (has_timestamp) {
 		/* restore rx timestamp */
