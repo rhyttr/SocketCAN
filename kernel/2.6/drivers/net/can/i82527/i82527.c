@@ -1172,7 +1172,8 @@ static __init int i82527_init_module(void)
 
 	if ((sizeof(canmessage_t) != 15) || (sizeof(canregs_t) != 256)) {
 		printk(KERN_WARNING "%s sizes: canmessage_t %d canregs_t %d\n",
-		       CHIP_NAME, sizeof(canmessage_t), sizeof(canregs_t));
+		       CHIP_NAME, (int)sizeof(canmessage_t),
+		       (int)sizeof(canregs_t));
 		return -EBUSY;
 	}
 

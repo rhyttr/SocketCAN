@@ -247,22 +247,25 @@ enum i82527_iMSGCFG {
 
 #ifdef IOPRINT
 #define CANout(base,adr,v) \
-	printk("CANout: (%lx+%x)=%x\n", base, (int)&((canregs_t *)0)->adr,v)
+	printk("CANout: (%lx+%x)=%x\n", base,\
+					(int)(long)&((canregs_t *)0)->adr,v)
 
 #define CANin(base,adr) \
-	printk("CANin: (%lx+%x)\n", base, (int)&((canregs_t *)0)->adr)
+	printk("CANin: (%lx+%x)\n", base, (int)(long)&((canregs_t *)0)->adr)
 
 #else /* IOPRINT */
 
 #ifdef IODEBUG
 #define CANout(base,adr,v)      \
-	(printk("CANout: (%lx+%x)=%x\n", base, (int)&((canregs_t *)0)->adr,v),\
-			   hw_writereg(base, (int)&((canregs_t *)0)->adr, v))
+	(printk("CANout: (%lx+%x)=%x\n", base,\
+		(int)(long)&((canregs_t *)0)->adr,v),\
+		hw_writereg(base, (int)(long)&((canregs_t *)0)->adr, v))
 #else
-#define CANout(base,adr,v) hw_writereg(base, (int)&((canregs_t *)0)->adr, v)
+#define CANout(base,adr,v) hw_writereg(base,\
+					(int)(long)&((canregs_t *)0)->adr, v)
 #endif
 
-#define CANin(base,adr)	hw_readreg(base, (int)&((canregs_t *)0)->adr)
+#define CANin(base,adr)	hw_readreg(base, (int)(long)&((canregs_t *)0)->adr)
 
 #endif /* IOPRINT */
 
