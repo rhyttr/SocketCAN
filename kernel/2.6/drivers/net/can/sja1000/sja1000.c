@@ -1157,7 +1157,7 @@ static __init int sja1000_init_module(void)
 		hw_attach(i);
 		hw_reset_dev(i);
 
-		if (!sja1000_probe_chip(base[i])) {
+		if (!sja1000_probe_chip(rbase[i])) {
 			printk(KERN_ERR "%s: probably missing controller"
 			       " hardware\n", drv_name);
 			hw_detach(i);
