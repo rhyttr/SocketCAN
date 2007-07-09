@@ -12,9 +12,9 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  drivers/net/Makefile     |    1 
  drivers/net/can/Kconfig  |   25 ++++
  drivers/net/can/Makefile |    5 
- drivers/net/can/vcan.c   |  285 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  286 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 319 insertions(+)
+ 5 files changed, 320 insertions(+)
 
 Index: linux-2.6.22/drivers/net/Makefile
 ===================================================================
@@ -71,8 +71,8 @@ Index: linux-2.6.22/drivers/net/can/Makefile
 Index: linux-2.6.22/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/drivers/net/can/vcan.c	2007-07-09 10:43:00.000000000 +0200
-@@ -0,0 +1,285 @@
++++ linux-2.6.22/drivers/net/can/vcan.c	2007-07-09 13:22:58.000000000 +0200
+@@ -0,0 +1,286 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -266,10 +266,11 @@ Index: linux-2.6.22/drivers/net/can/vcan.c
 +{
 +	DBG("dev %s\n", dev->name);
 +
-+	ether_setup(dev);
-+
 +	dev->type              = ARPHRD_CAN;
 +	dev->mtu               = sizeof(struct can_frame);
++	dev->hard_header_len   = 0;
++	dev->addr_len          = 0;
++	dev->tx_queue_len      = 0;
 +	dev->flags             = IFF_NOARP;
 +
 +	/* set flags according to driver capabilities */
