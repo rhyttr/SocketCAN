@@ -230,10 +230,11 @@ static void vcan_setup(struct net_device *dev)
 {
 	DBG("dev %s\n", dev->name);
 
-	ether_setup(dev);
-
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
+	dev->hard_header_len   = 0;
+	dev->addr_len          = 0;
+	dev->tx_queue_len      = 0;
 	dev->flags             = IFF_NOARP;
 
 	/* set flags according to driver capabilities */
