@@ -286,9 +286,7 @@ static struct rtnl_link_ops vcan_link_ops __read_mostly = {
 
 static __init int vcan_init_module(void)
 {
-	int i, err = 0;
-	struct net_device *dev;
-	struct vcan_priv *priv, *n;
+	int err;
 
 	printk(banner);
 
