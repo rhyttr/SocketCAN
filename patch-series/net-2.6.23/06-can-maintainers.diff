@@ -1,0 +1,67 @@
+DESC
+CAN: Add maintainer entries
+EDESC
+This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
+
+Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+
+---
+ CREDITS     |   16 ++++++++++++++++
+ MAINTAINERS |    9 +++++++++
+ 2 files changed, 25 insertions(+)
+
+Index: net-2.6.23/CREDITS
+===================================================================
+--- net-2.6.23.orig/CREDITS	2007-07-09 10:41:38.000000000 +0200
++++ net-2.6.23/CREDITS	2007-07-09 10:42:04.000000000 +0200
+@@ -1330,6 +1330,14 @@
+ S: 5623 HZ Eindhoven
+ S: The Netherlands
+ 
++N: Oliver Hartkopp
++E: oliver.hartkopp@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Andrew Haylett
+ E: ajh@primag.co.uk
+ D: Selection mechanism
+@@ -3283,6 +3291,14 @@
+ S: F-35042 Rennes Cedex
+ S: France
+ 
++N: Urs Thuermann
++E: urs.thuermann@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Jon Tombs
+ E: jon@gte.esi.us.es
+ W: http://www.esi.us.es/~jon
+Index: net-2.6.23/MAINTAINERS
+===================================================================
+--- net-2.6.23.orig/MAINTAINERS	2007-07-09 10:41:38.000000000 +0200
++++ net-2.6.23/MAINTAINERS	2007-07-09 10:42:04.000000000 +0200
+@@ -951,6 +951,15 @@
+ L:	video4linux-list@redhat.com
+ S:	Maintained
+ 
++CAN NETWORK LAYER
++P:	Urs Thuermann
++M:	urs.thuermann@volkswagen.de
++P:	Oliver Hartkopp
++M:	oliver.hartkopp@volkswagen.de
++L:	socketcan-core@lists.berlios.de
++W:	http://developer.berlios.de/projects/socketcan/
++S:	Maintained
++
+ CALGARY x86-64 IOMMU
+ P:	Muli Ben-Yehuda
+ M:	muli@il.ibm.com

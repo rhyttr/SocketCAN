@@ -1,0 +1,39 @@
+SUBJECT
+CAN: Add new PF_CAN protocol family, try #4
+ESUBJECT
+
+Hello Dave,
+
+this is the fourth post of the patch series that adds the PF_CAN
+protocol family for the Controller Area Network.
+
+Since our last post we have changed the following:
+
+* Revert our change to use skb->iif instead of skb->cb.  After
+  discussion with Patrick and Jamal it turned out, our first
+  implementation was correct.
+ 
+* Change vcan network driver to use the new RTNL API.
+
+* Use skb_tail_pointer() instead of skb->tail directly.
+
+* Minor changes for 64-bit-cleanliness.
+
+* Minor cleanup of #include's
+
+This patch series applies against net-2.6.23 and is derived from Subversion
+revision r422 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+This patch doesn't touch anything in the kernel except for the allocation
+of a couple of numbers for protocol, arp hw type, and a line discipline.
+
+Please consider this patch series for integration into your tree.
+
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
