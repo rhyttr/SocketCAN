@@ -11,10 +11,10 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  Documentation/networking/can.txt  |  635 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 637 insertions(+)
 
-Index: linux-2.6.22-rc5/Documentation/networking/can.txt
+Index: linux-2.6.22/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5/Documentation/networking/can.txt	2007-06-20 14:11:31.000000000 +0200
++++ linux-2.6.22/Documentation/networking/can.txt	2007-07-09 10:43:09.000000000 +0200
 @@ -0,0 +1,635 @@
 +============================================================================
 +
@@ -651,10 +651,10 @@ Index: linux-2.6.22-rc5/Documentation/networking/can.txt
 +  Klaus Hitschler (PEAK driver integration)
 +  Uwe Koppe (CAN netdevices with PF_PACKET approach)
 +  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
-Index: linux-2.6.22-rc5/Documentation/networking/00-INDEX
+Index: linux-2.6.22/Documentation/networking/00-INDEX
 ===================================================================
---- linux-2.6.22-rc5.orig/Documentation/networking/00-INDEX	2007-06-20 14:10:41.000000000 +0200
-+++ linux-2.6.22-rc5/Documentation/networking/00-INDEX	2007-06-20 14:11:31.000000000 +0200
+--- linux-2.6.22.orig/Documentation/networking/00-INDEX	2007-07-09 10:42:42.000000000 +0200
++++ linux-2.6.22/Documentation/networking/00-INDEX	2007-07-09 10:43:09.000000000 +0200
 @@ -26,6 +26,8 @@
  	- info on the driver for Baycom style amateur radio modems
  bridge.txt

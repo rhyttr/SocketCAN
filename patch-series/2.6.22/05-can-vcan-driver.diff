@@ -12,14 +12,14 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  drivers/net/Makefile     |    1 
  drivers/net/can/Kconfig  |   25 ++++
  drivers/net/can/Makefile |    5 
- drivers/net/can/vcan.c   |  287 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  285 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 321 insertions(+)
+ 5 files changed, 319 insertions(+)
 
-Index: linux-2.6.22-rc5/drivers/net/Makefile
+Index: linux-2.6.22/drivers/net/Makefile
 ===================================================================
---- linux-2.6.22-rc5.orig/drivers/net/Makefile	2007-06-20 14:10:41.000000000 +0200
-+++ linux-2.6.22-rc5/drivers/net/Makefile	2007-06-20 14:11:19.000000000 +0200
+--- linux-2.6.22.orig/drivers/net/Makefile	2007-07-09 10:42:42.000000000 +0200
++++ linux-2.6.22/drivers/net/Makefile	2007-07-09 10:43:00.000000000 +0200
 @@ -8,6 +8,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -28,10 +28,10 @@ Index: linux-2.6.22-rc5/drivers/net/Makefile
  obj-$(CONFIG_BONDING) += bonding/
  obj-$(CONFIG_ATL1) += atl1/
  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-Index: linux-2.6.22-rc5/drivers/net/can/Kconfig
+Index: linux-2.6.22/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5/drivers/net/can/Kconfig	2007-06-20 14:11:19.000000000 +0200
++++ linux-2.6.22/drivers/net/can/Kconfig	2007-07-09 10:43:00.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -58,21 +58,21 @@ Index: linux-2.6.22-rc5/drivers/net/can/Kconfig
 +	  on.
 +
 +endmenu
-Index: linux-2.6.22-rc5/drivers/net/can/Makefile
+Index: linux-2.6.22/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5/drivers/net/can/Makefile	2007-06-20 14:11:19.000000000 +0200
++++ linux-2.6.22/drivers/net/can/Makefile	2007-07-09 10:43:00.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
 +#
 +
 +obj-$(CONFIG_CAN_VCAN)		+= vcan.o
-Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
+Index: linux-2.6.22/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5/drivers/net/can/vcan.c	2007-06-20 14:11:19.000000000 +0200
-@@ -0,0 +1,287 @@
++++ linux-2.6.22/drivers/net/can/vcan.c	2007-07-09 10:43:00.000000000 +0200
+@@ -0,0 +1,285 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -145,8 +145,6 @@ Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 +#define DBG(args...)
 +#endif
 +
-+#define STATSIZE sizeof(struct net_device_stats)
-+
 +static int numdev = 4; /* default number of virtual CAN interfaces */
 +module_param(numdev, int, S_IRUGO);
 +MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
@@ -165,6 +163,8 @@ Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 +MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
 +
 +static struct net_device **vcan_devs; /* root pointer to netdevice structs */
++
++#define PRIVSIZE sizeof(struct net_device_stats)
 +
 +static int vcan_open(struct net_device *dev)
 +{
@@ -262,13 +262,11 @@ Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 +	return stats;
 +}
 +
-+static void vcan_init(struct net_device *dev)
++static void vcan_setup(struct net_device *dev)
 +{
 +	DBG("dev %s\n", dev->name);
 +
 +	ether_setup(dev);
-+
-+	memset(dev->priv, 0, STATSIZE);
 +
 +	dev->type              = ARPHRD_CAN;
 +	dev->mtu               = sizeof(struct can_frame);
@@ -307,7 +305,7 @@ Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 +	}
 +
 +	for (i = 0; i < numdev; i++) {
-+		vcan_devs[i] = alloc_netdev(STATSIZE, "vcan%d", vcan_init);
++		vcan_devs[i] = alloc_netdev(PRIVSIZE, "vcan%d", vcan_setup);
 +		if (!vcan_devs[i]) {
 +			printk(KERN_ERR "vcan: error allocating net_device\n");
 +			result = -ENOMEM;
@@ -360,10 +358,10 @@ Index: linux-2.6.22-rc5/drivers/net/can/vcan.c
 +
 +module_init(vcan_init_module);
 +module_exit(vcan_cleanup_module);
-Index: linux-2.6.22-rc5/net/can/Kconfig
+Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc5.orig/net/can/Kconfig	2007-06-20 14:11:13.000000000 +0200
-+++ linux-2.6.22-rc5/net/can/Kconfig	2007-06-20 14:11:19.000000000 +0200
+--- linux-2.6.22.orig/net/can/Kconfig	2007-07-09 10:42:57.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-07-09 10:43:00.000000000 +0200
 @@ -77,3 +77,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a

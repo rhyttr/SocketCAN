@@ -11,20 +11,20 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 ---
  include/linux/can.h       |   98 ++++
  include/linux/can/core.h  |   80 +++
- include/linux/can/error.h |   95 ++++
+ include/linux/can/error.h |   93 ++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/can/Kconfig           |   25 +
  net/can/Makefile          |    6 
- net/can/af_can.c          |  997 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.c          |  995 ++++++++++++++++++++++++++++++++++++++++++++++
  net/can/af_can.h          |  121 +++++
- net/can/proc.c            |  530 ++++++++++++++++++++++++
- 10 files changed, 1954 insertions(+)
+ net/can/proc.c            |  531 ++++++++++++++++++++++++
+ 10 files changed, 1951 insertions(+)
 
-Index: linux-2.6.22-rc5-git5/include/linux/can.h
+Index: linux-2.6.22/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/include/linux/can.h	2007-06-21 14:03:14.000000000 +0200
++++ linux-2.6.22/include/linux/can.h	2007-07-09 10:42:51.000000000 +0200
 @@ -0,0 +1,98 @@
 +/*
 + * linux/can.h
@@ -124,10 +124,10 @@ Index: linux-2.6.22-rc5-git5/include/linux/can.h
 +#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
 +
 +#endif /* CAN_H */
-Index: linux-2.6.22-rc5-git5/include/linux/can/core.h
+Index: linux-2.6.22/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/include/linux/can/core.h	2007-06-21 14:03:14.000000000 +0200
++++ linux-2.6.22/include/linux/can/core.h	2007-07-09 10:42:51.000000000 +0200
 @@ -0,0 +1,80 @@
 +/*
 + * linux/can/core.h
@@ -150,7 +150,7 @@ Index: linux-2.6.22-rc5-git5/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20070619"
++#define CAN_VERSION "20070709"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -209,10 +209,10 @@ Index: linux-2.6.22-rc5-git5/include/linux/can/core.h
 +#endif
 +
 +#endif /* CAN_CORE_H */
-Index: linux-2.6.22-rc5-git5/net/Kconfig
+Index: linux-2.6.22/net/Kconfig
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/Kconfig	2007-06-21 14:02:05.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/Kconfig	2007-06-21 14:03:14.000000000 +0200
+--- linux-2.6.22.orig/net/Kconfig	2007-07-09 10:42:42.000000000 +0200
++++ linux-2.6.22/net/Kconfig	2007-07-09 10:42:51.000000000 +0200
 @@ -210,6 +210,7 @@
  endmenu
  
@@ -221,10 +221,10 @@ Index: linux-2.6.22-rc5-git5/net/Kconfig
  source "net/irda/Kconfig"
  source "net/bluetooth/Kconfig"
  source "net/rxrpc/Kconfig"
-Index: linux-2.6.22-rc5-git5/net/Makefile
+Index: linux-2.6.22/net/Makefile
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/Makefile	2007-06-21 14:02:05.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/Makefile	2007-06-21 14:03:14.000000000 +0200
+--- linux-2.6.22.orig/net/Makefile	2007-07-09 10:42:42.000000000 +0200
++++ linux-2.6.22/net/Makefile	2007-07-09 10:42:51.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -233,10 +233,10 @@ Index: linux-2.6.22-rc5-git5/net/Makefile
  obj-$(CONFIG_IRDA)		+= irda/
  obj-$(CONFIG_BT)		+= bluetooth/
  obj-$(CONFIG_SUNRPC)		+= sunrpc/
-Index: linux-2.6.22-rc5-git5/net/can/Kconfig
+Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 15:34:24.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-07-09 10:42:51.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -263,10 +263,10 @@ Index: linux-2.6.22-rc5-git5/net/can/Kconfig
 +	  Say Y here if you want the CAN core to produce a bunch of debug
 +	  messages to the system log.  Select this if you are having a
 +	  problem with CAN support and want to see more of what is going on.
-Index: linux-2.6.22-rc5-git5/net/can/Makefile
+Index: linux-2.6.22/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 15:34:24.000000000 +0200
++++ linux-2.6.22/net/can/Makefile	2007-07-09 10:42:51.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -274,11 +274,11 @@ Index: linux-2.6.22-rc5-git5/net/can/Makefile
 +
 +obj-$(CONFIG_CAN)	+= can.o
 +can-objs		:= af_can.o proc.o
-Index: linux-2.6.22-rc5-git5/net/can/af_can.c
+Index: linux-2.6.22/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/af_can.c	2007-06-21 15:34:35.000000000 +0200
-@@ -0,0 +1,997 @@
++++ linux-2.6.22/net/can/af_can.c	2007-07-09 10:42:51.000000000 +0200
+@@ -0,0 +1,995 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -325,18 +325,18 @@ Index: linux-2.6.22-rc5-git5/net/can/af_can.c
 + */
 +
 +#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/kmod.h>
 +#include <linux/init.h>
++#include <linux/kmod.h>
++#include <linux/slab.h>
 +#include <linux/list.h>
 +#include <linux/spinlock.h>
 +#include <linux/rcupdate.h>
++#include <linux/net.h>
++#include <linux/netdevice.h>
 +#include <linux/socket.h>
 +#include <linux/if_ether.h>
 +#include <linux/if_arp.h>
 +#include <linux/skbuff.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
 +#include <linux/can.h>
 +#include <linux/can/core.h>
 +#include <net/sock.h>
@@ -529,7 +529,6 @@ Index: linux-2.6.22-rc5-git5/net/can/af_can.c
 +			}
 +
 +			newskb->sk = skb->sk;
-+			newskb->iif = 0;
 +			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 +			newskb->pkt_type = PACKET_BROADCAST;
 +			netif_rx(newskb);
@@ -823,8 +822,7 @@ Index: linux-2.6.22-rc5-git5/net/can/af_can.c
 +
 +	DBG("skbuff %p cloned to %p\n", skb, clone);
 +	if (clone) {
-+		clone->sk  = skb->sk;
-+		clone->iif = skb->iif;
++		clone->sk = skb->sk;
 +		r->func(clone, r->data);
 +		r->matches++;
 +	}
@@ -1276,10 +1274,10 @@ Index: linux-2.6.22-rc5-git5/net/can/af_can.c
 +
 +module_init(can_init);
 +module_exit(can_exit);
-Index: linux-2.6.22-rc5-git5/net/can/af_can.h
+Index: linux-2.6.22/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/af_can.h	2007-06-21 14:03:14.000000000 +0200
++++ linux-2.6.22/net/can/af_can.h	2007-07-09 10:42:51.000000000 +0200
 @@ -0,0 +1,121 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
@@ -1402,11 +1400,11 @@ Index: linux-2.6.22-rc5-git5/net/can/af_can.h
 +extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
 +
 +#endif /* AF_CAN_H */
-Index: linux-2.6.22-rc5-git5/net/can/proc.c
+Index: linux-2.6.22/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/proc.c	2007-06-21 14:03:14.000000000 +0200
-@@ -0,0 +1,530 @@
++++ linux-2.6.22/net/can/proc.c	2007-07-09 10:42:51.000000000 +0200
+@@ -0,0 +1,531 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
 + *
@@ -1614,11 +1612,11 @@ Index: linux-2.6.22-rc5-git5/net/can/proc.c
 +	hlist_for_each_entry_rcu(r, n, rx_list, list) {
 +		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 +			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
-+			"   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
++			"   %-5s     %03X    %08x  %08lx  %08lx  %8ld  %s\n";
 +
 +		len += snprintf(page + len, PAGE_SIZE - len, fmt,
 +				DNAME(dev), r->can_id, r->mask,
-+				(unsigned int)r->func, (unsigned int)r->data,
++				(unsigned long)r->func, (unsigned long)r->data,
 +				r->matches, r->ident);
 +
 +		/* does a typical line fit into the current buffer? */
@@ -1767,7 +1765,8 @@ Index: linux-2.6.22-rc5-git5/net/can/proc.c
 +static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 +				 int count, int *eof, void *data)
 +{
-+	int idx = (int)data;
++	/* double cast to prevent GCC warning */
++	int idx = (int)(long)data;
 +	int len = 0;
 +	struct dev_rcv_lists *d;
 +	struct hlist_node *n;
@@ -1937,17 +1936,15 @@ Index: linux-2.6.22-rc5-git5/net/can/proc.c
 +	if (can_dir)
 +		remove_proc_entry(CAN_PROC_DIR, NULL);
 +}
-Index: linux-2.6.22-rc5-git5/include/linux/can/error.h
+Index: linux-2.6.22/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/include/linux/can/error.h	2007-06-21 14:03:14.000000000 +0200
-@@ -0,0 +1,95 @@
++++ linux-2.6.22/include/linux/can/error.h	2007-07-09 10:42:51.000000000 +0200
+@@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h
 + *
 + * Definitions of the CAN error frame to be filtered and passed to the user.
-+ *
-+ * $Id: error.h 162 2007-03-05 08:25:02Z hartkopp $
 + *
 + * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research

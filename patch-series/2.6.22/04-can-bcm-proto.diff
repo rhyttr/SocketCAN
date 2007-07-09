@@ -10,13 +10,13 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   28 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1750 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1846 insertions(+)
+ net/can/bcm.c           | 1755 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1851 insertions(+)
 
-Index: linux-2.6.22-rc5-git5/include/linux/can/bcm.h
+Index: linux-2.6.22/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/include/linux/can/bcm.h	2007-06-21 14:08:38.000000000 +0200
++++ linux-2.6.22/include/linux/can/bcm.h	2007-07-09 10:42:57.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -83,10 +83,10 @@ Index: linux-2.6.22-rc5-git5/include/linux/can/bcm.h
 +#define RX_RTR_FRAME        0x0400
 +
 +#endif /* CAN_BCM_H */
-Index: linux-2.6.22-rc5-git5/net/can/Kconfig
+Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/can/Kconfig	2007-06-21 14:05:26.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 14:08:38.000000000 +0200
+--- linux-2.6.22.orig/net/can/Kconfig	2007-07-09 10:42:54.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-07-09 10:42:57.000000000 +0200
 @@ -42,6 +42,34 @@
  	  Say Y here if you want non-root users to be able to access CAN_RAW
  	  sockets.
@@ -122,10 +122,10 @@ Index: linux-2.6.22-rc5-git5/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: linux-2.6.22-rc5-git5/net/can/Makefile
+Index: linux-2.6.22/net/can/Makefile
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/can/Makefile	2007-06-21 14:05:26.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 14:08:38.000000000 +0200
+--- linux-2.6.22.orig/net/can/Makefile	2007-07-09 10:42:54.000000000 +0200
++++ linux-2.6.22/net/can/Makefile	2007-07-09 10:42:57.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -133,11 +133,11 @@ Index: linux-2.6.22-rc5-git5/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 +can-bcm-objs		:= bcm.o
-Index: linux-2.6.22-rc5-git5/net/can/bcm.c
+Index: linux-2.6.22/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/bcm.c	2007-06-21 14:08:51.000000000 +0200
-@@ -0,0 +1,1750 @@
++++ linux-2.6.22/net/can/bcm.c	2007-07-09 10:42:57.000000000 +0200
+@@ -0,0 +1,1755 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -184,10 +184,15 @@ Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 +
 +#include <linux/module.h>
 +#include <linux/init.h>
++#include <linux/list.h>
++#include <linux/proc_fs.h>
++#include <linux/uio.h>
++#include <linux/poll.h>
 +#include <linux/net.h>
 +#include <linux/netdevice.h>
-+#include <linux/proc_fs.h>
-+#include <linux/poll.h>
++#include <linux/socket.h>
++#include <linux/if_arp.h>
++#include <linux/skbuff.h>
 +#include <linux/can.h>
 +#include <linux/can/core.h>
 +#include <linux/can/bcm.h>
@@ -466,6 +471,7 @@ Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 +{
 +	struct sk_buff *skb;
 +	struct can_frame *firstframe;
++	struct sockaddr_can *addr;
 +	struct sock *sk = op->sk;
 +	int datalen = head->nframes * CFSIZ;
 +	int err;
@@ -477,19 +483,10 @@ Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 +
 +	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
 +
-+	/* can_frames starting here */
-+	firstframe = (struct can_frame *) skb->tail;
-+
-+
-+	if (has_timestamp) {
-+		/* restore rx timestamp */
-+		skb->tstamp = op->rx_stamp;
-+	}
-+
-+	/* restore originator for recvfrom() */
-+	skb->iif = op->rx_ifindex;
-+
 +	if (head->nframes) {
++		/* can_frames starting here */
++		firstframe = (struct can_frame *) skb_tail_pointer(skb);
++
 +		memcpy(skb_put(skb, datalen), frames, datalen);
 +
 +		/*
@@ -501,6 +498,17 @@ Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 +		if (head->nframes == 1)
 +			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
 +	}
++
++	if (has_timestamp) {
++		/* restore rx timestamp */
++		skb->tstamp = op->rx_stamp;
++	}
++
++	/* restore originator for recvfrom() */
++	addr = (struct sockaddr_can *)skb->cb;
++	memset(addr, 0, sizeof(*addr));
++	addr->can_family  = AF_CAN;
++	addr->can_ifindex = op->rx_ifindex;
 +
 +	err = sock_queue_rcv_skb(sk, skb);
 +	if (err < 0) {
@@ -1804,11 +1812,8 @@ Index: linux-2.6.22-rc5-git5/net/can/bcm.c
 +	sock_recv_timestamp(msg, sk, skb);
 +
 +	if (msg->msg_name) {
-+		struct sockaddr_can *addr = msg->msg_name;
-+		msg->msg_namelen = sizeof(*addr);
-+		memset(addr, 0, sizeof(*addr));
-+		addr->can_family  = AF_CAN;
-+		addr->can_ifindex = skb->iif;
++		msg->msg_namelen = sizeof(struct sockaddr_can);
++		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 +	}
 +
 +	DBG("freeing sock %p, skbuff %p\n", sk, skb);

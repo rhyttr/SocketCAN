@@ -10,13 +10,13 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   26 +
  net/can/Makefile        |    3 
- net/can/raw.c           |  751 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 811 insertions(+)
+ net/can/raw.c           |  757 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 817 insertions(+)
 
-Index: linux-2.6.22-rc5-git5/include/linux/can/raw.h
+Index: linux-2.6.22/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/include/linux/can/raw.h	2007-06-21 14:05:26.000000000 +0200
++++ linux-2.6.22/include/linux/can/raw.h	2007-07-09 10:42:54.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -49,10 +49,10 @@ Index: linux-2.6.22-rc5-git5/include/linux/can/raw.h
 +};
 +
 +#endif
-Index: linux-2.6.22-rc5-git5/net/can/Kconfig
+Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/can/Kconfig	2007-06-21 14:03:50.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/can/Kconfig	2007-06-21 14:05:26.000000000 +0200
+--- linux-2.6.22.orig/net/can/Kconfig	2007-07-09 10:42:51.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-07-09 10:42:54.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -86,10 +86,10 @@ Index: linux-2.6.22-rc5-git5/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: linux-2.6.22-rc5-git5/net/can/Makefile
+Index: linux-2.6.22/net/can/Makefile
 ===================================================================
---- linux-2.6.22-rc5-git5.orig/net/can/Makefile	2007-06-21 14:03:50.000000000 +0200
-+++ linux-2.6.22-rc5-git5/net/can/Makefile	2007-06-21 14:05:26.000000000 +0200
+--- linux-2.6.22.orig/net/can/Makefile	2007-07-09 10:42:51.000000000 +0200
++++ linux-2.6.22/net/can/Makefile	2007-07-09 10:42:54.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -97,11 +97,11 @@ Index: linux-2.6.22-rc5-git5/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 +can-raw-objs		:= raw.o
-Index: linux-2.6.22-rc5-git5/net/can/raw.c
+Index: linux-2.6.22/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22-rc5-git5/net/can/raw.c	2007-06-21 14:05:42.000000000 +0200
-@@ -0,0 +1,751 @@
++++ linux-2.6.22/net/can/raw.c	2007-07-09 10:42:54.000000000 +0200
+@@ -0,0 +1,757 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -148,10 +148,13 @@ Index: linux-2.6.22-rc5-git5/net/can/raw.c
 +
 +#include <linux/module.h>
 +#include <linux/init.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
 +#include <linux/uio.h>
 +#include <linux/poll.h>
++#include <linux/net.h>
++#include <linux/netdevice.h>
++#include <linux/socket.h>
++#include <linux/if_arp.h>
++#include <linux/skbuff.h>
 +#include <linux/can.h>
 +#include <linux/can/core.h>
 +#include <linux/can/raw.h>
@@ -212,6 +215,7 @@ Index: linux-2.6.22-rc5-git5/net/can/raw.c
 +{
 +	struct sock *sk = (struct sock*)data;
 +	struct raw_sock *ro = raw_sk(sk);
++	struct sockaddr_can *addr;
 +	int error;
 +
 +	DBG("received skbuff %p, sk %p\n", skb, sk);
@@ -225,6 +229,11 @@ Index: linux-2.6.22-rc5-git5/net/can/raw.c
 +			return;
 +		}
 +	}
++
++	addr = (struct sockaddr_can *)skb->cb;
++	memset(addr, 0, sizeof(*addr));
++	addr->can_family  = AF_CAN;
++	addr->can_ifindex = skb->dev->ifindex;
 +
 +	error = sock_queue_rcv_skb(sk, skb);
 +	if (error < 0) {
@@ -790,11 +799,8 @@ Index: linux-2.6.22-rc5-git5/net/can/raw.c
 +	sock_recv_timestamp(msg, sk, skb);
 +
 +	if (msg->msg_name) {
-+		struct sockaddr_can *addr = msg->msg_name;
-+		msg->msg_namelen = sizeof(*addr);
-+		memset(addr, 0, sizeof(*addr));
-+		addr->can_family  = AF_CAN;
-+		addr->can_ifindex = skb->iif;
++		msg->msg_namelen = sizeof(struct sockaddr_can);
++		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 +	}
 +
 +	DBG("freeing sock %p, skbuff %p\n", sk, skb);
