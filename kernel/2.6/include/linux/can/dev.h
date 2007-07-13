@@ -17,10 +17,10 @@
 #include <linux/can/error.h>
 #include <linux/can/ioctl.h>
 
-struct can_device {
+struct can_priv {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats net_stats;
-	struct net_device       *net_dev;
-
+#endif
 	struct can_device_stats can_stats;
 
 	/* can-bus oscillator frequency, in Hz,
@@ -47,11 +47,11 @@ struct can_device {
 	can_mode_t  mode;
 	can_ctrlmode_t ctrlmode;
 
-	int (*do_set_bit_time)(struct can_device *dev, struct can_bittime *br);
-	int (*do_get_state)(struct can_device *dev,	can_state_t *state);
-	int (*do_set_mode)(struct can_device *dev, can_mode_t mode);
-	int (*do_set_ctrlmode)(struct can_device *dev, can_ctrlmode_t ctrlmode);
-	int (*do_get_ctrlmode)(struct can_device *dev, can_ctrlmode_t *ctrlmode);
+	int (*do_set_bit_time)(struct net_device *dev, struct can_bittime *br);
+	int (*do_get_state)   (struct net_device *dev, can_state_t *state);
+	int (*do_set_mode)    (struct net_device *dev, can_mode_t mode);
+	int (*do_set_ctrlmode)(struct net_device *dev, can_ctrlmode_t ctrlmode);
+	int (*do_get_ctrlmode)(struct net_device *dev, can_ctrlmode_t *ctrlmode);
 
 	void *priv;
 };
@@ -61,13 +61,11 @@ struct can_device {
 #else
 #define ND2D(_ndev)		(_ndev->dev.parent)
 #endif
-#define CAN2ND(can)		((can)->net_dev)
-#define ND2CAN(ndev)	((struct can_device *)netdev_priv(ndev))
 
-struct can_device *alloc_candev(int sizeof_priv);
-void free_candev(struct can_device *);
+struct net_device *alloc_candev(int sizeof_priv);
+void free_candev(struct net_device *dev);
 
-int can_calc_bit_time(struct can_device *can, u32 baudrate,
+int can_calc_bit_time(struct can_priv *can, u32 baudrate,
 		      struct can_bittime_std *bit_time);
 
 #endif /* CAN_DEVICE_H */
