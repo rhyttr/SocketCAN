@@ -52,8 +52,6 @@ struct can_priv {
 	int (*do_set_mode)    (struct net_device *dev, can_mode_t mode);
 	int (*do_set_ctrlmode)(struct net_device *dev, can_ctrlmode_t ctrlmode);
 	int (*do_get_ctrlmode)(struct net_device *dev, can_ctrlmode_t *ctrlmode);
-
-	void *priv;
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
