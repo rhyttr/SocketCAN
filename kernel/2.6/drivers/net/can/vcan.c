@@ -64,7 +64,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
-static int debug = 0;
+static int debug;
 module_param(debug, int, S_IRUGO);
 #endif
 
@@ -104,7 +104,7 @@ MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
  * This causes the PF_CAN core to perform the loopback as a fallback solution.
  */
 
-static int loopback = 0; /* vcan default: no loopback, just free the skb */
+static int loopback; /* vcan default: no loopback, just free the skb */
 module_param(loopback, int, S_IRUGO);
 MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
 

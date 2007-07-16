@@ -83,7 +83,7 @@ module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug = 0;
+static int debug;
 module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
@@ -594,7 +594,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	struct receiver *r;
 	struct hlist_node *n;
 	int matches = 0;
-	struct can_frame *cf = (struct can_frame*)skb->data;
+	struct can_frame *cf = (struct can_frame *)skb->data;
 	canid_t can_id = cf->can_id;
 
 	if (d->entries == 0)

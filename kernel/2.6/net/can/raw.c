@@ -70,7 +70,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug = 0;
+static int debug;
 module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
@@ -121,7 +121,7 @@ static inline struct raw_sock *raw_sk(const struct sock *sk)
 
 static void raw_rcv(struct sk_buff *skb, void *data)
 {
-	struct sock *sk = (struct sock*)data;
+	struct sock *sk = (struct sock *)data;
 	struct raw_sock *ro = raw_sk(sk);
 	struct sockaddr_can *addr;
 	int error;

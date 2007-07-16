@@ -81,7 +81,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug = 0;
+static int debug;
 module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
@@ -118,7 +118,7 @@ struct bcm_op {
 	struct net_device *rx_reg_dev;
 };
 
-static struct proc_dir_entry *proc_dir = NULL;
+static struct proc_dir_entry *proc_dir;
 
 #ifdef CONFIG_CAN_BCM_USER
 #define BCM_CAP (-1)
@@ -436,7 +436,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
  */
 static void bcm_tx_timeout_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 
 	DBG("Called with bcm_op %p\n", op);
 
@@ -472,7 +472,7 @@ static void bcm_tx_timeout_handler(unsigned long data)
 
 		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
 		    op->timer.function,
-		    (char*) op->timer.data,
+		    (char *) op->timer.data,
 		    (unsigned int) op->timer.expires);
 
 		/* send (next) frame */
@@ -485,7 +485,7 @@ static void bcm_tx_timeout_handler(unsigned long data)
 
 			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
 			    op->timer.function,
-			    (char*) op->timer.data,
+			    (char *) op->timer.data,
 			    (unsigned int) op->timer.expires);
 
 			/* send (next) frame */
@@ -560,7 +560,7 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 
 			DBG("adding thrtimer. func=%p data=%p exp=0x%08X\n",
 			    op->thrtimer.function,
-			    (char*) op->thrtimer.data,
+			    (char *) op->thrtimer.data,
 			    (unsigned int) op->thrtimer.expires);
 		}
 
@@ -631,7 +631,7 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 		DBG("adding rx timeout timer ival1. func=%p data=%p "
 		    "exp=0x%08X\n",
 		    op->timer.function,
-		    (char*) op->timer.data,
+		    (char *) op->timer.data,
 		    (unsigned int) op->timer.expires);
 
 		add_timer(&op->timer);
@@ -643,7 +643,7 @@ static void bcm_rx_starttimer(struct bcm_op *op)
  */
 static void bcm_rx_timeout_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	struct bcm_msg_head msg_head;
 
 	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
@@ -674,7 +674,7 @@ static void bcm_rx_timeout_handler(unsigned long data)
  */
 static void bcm_rx_thr_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	int i = 0;
 
 	/* mark disabled / consumed timer */
@@ -684,7 +684,7 @@ static void bcm_rx_thr_handler(unsigned long data)
 		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
 		    op->can_id, op);
 		/* for MUX filter we start at index 1 */
-		for (i=1; i<op->nframes; i++) {
+		for (i = 1; i < op->nframes; i++) {
 			if ((op->last_frames) &&
 			    (op->last_frames[i].can_dlc & RX_THR)) {
 				op->last_frames[i].can_dlc &= ~RX_THR;
@@ -708,7 +708,7 @@ static void bcm_rx_thr_handler(unsigned long data)
  */
 static void bcm_rx_handler(struct sk_buff *skb, void *data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	struct can_frame rxframe;
 	int i;
 
@@ -782,7 +782,7 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 		 * Remark: The MUX-mask is stored in index 0
 		 */
 
-		for (i=1; i < op->nframes; i++) {
+		for (i = 1; i < op->nframes; i++) {
 			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
 			    (GET_U64(&op->frames[0]) &
 			     GET_U64(&op->frames[i]))) {
@@ -971,7 +971,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		/* update can_frames content */
 		for (i = 0; i < msg_head->nframes; i++) {
-			err = memcpy_fromiovec((u8*)&op->frames[i],
+			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
 			if (err < 0)
 				return err;
@@ -1006,7 +1006,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			op->frames = &op->sframe;
 
 		for (i = 0; i < msg_head->nframes; i++) {
-			err = memcpy_fromiovec((u8*)&op->frames[i],
+			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
 			if (err < 0) {
 				if (op->frames != &op->sframe)
@@ -1094,7 +1094,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			DBG("TX_SETUP: adding timer ival1. func=%p data=%p "
 			    "exp=0x%08X\n",
 			    op->timer.function,
-			    (char*) op->timer.data,
+			    (char *) op->timer.data,
 			    (unsigned int) op->timer.expires);
 
 		} else {
@@ -1102,7 +1102,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			DBG("TX_SETUP: adding timer ival2. func=%p data=%p "
 			    "exp=0x%08X\n",
 			    op->timer.function,
-			    (char*) op->timer.data,
+			    (char *) op->timer.data,
 			    (unsigned int) op->timer.expires);
 		}
 
@@ -1158,7 +1158,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		if (msg_head->nframes) {
 			/* update can_frames content */
-			err = memcpy_fromiovec((u8*)op->frames,
+			err = memcpy_fromiovec((u8 *)op->frames,
 					       msg->msg_iov,
 					       msg_head->nframes * CFSIZ);
 			if (err < 0)
@@ -1210,7 +1210,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		}
 
 		if (msg_head->nframes) {
-			err = memcpy_fromiovec((u8*)op->frames, msg->msg_iov,
+			err = memcpy_fromiovec((u8 *)op->frames, msg->msg_iov,
 					       msg_head->nframes * CFSIZ);
 			if (err < 0) {
 				if (op->frames != &op->sframe)
@@ -1435,7 +1435,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	/* read message head information */
 
-	ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov, MHSIZ);
+	ret = memcpy_fromiovec((u8 *)&msg_head, msg->msg_iov, MHSIZ);
 	if (ret < 0)
 		return ret;
 

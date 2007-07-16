@@ -67,18 +67,18 @@ RCSID("$Id$");
 #define CAN_PROC_RCVLIST_EFF "rcvlist_eff"
 #define CAN_PROC_RCVLIST_ERR "rcvlist_err"
 
-static struct proc_dir_entry *can_dir         = NULL;
-static struct proc_dir_entry *pde_version     = NULL;
-static struct proc_dir_entry *pde_stats       = NULL;
-static struct proc_dir_entry *pde_reset_stats = NULL;
-static struct proc_dir_entry *pde_rcvlist_all = NULL;
-static struct proc_dir_entry *pde_rcvlist_fil = NULL;
-static struct proc_dir_entry *pde_rcvlist_inv = NULL;
-static struct proc_dir_entry *pde_rcvlist_sff = NULL;
-static struct proc_dir_entry *pde_rcvlist_eff = NULL;
-static struct proc_dir_entry *pde_rcvlist_err = NULL;
+static struct proc_dir_entry *can_dir;
+static struct proc_dir_entry *pde_version;
+static struct proc_dir_entry *pde_stats;
+static struct proc_dir_entry *pde_reset_stats;
+static struct proc_dir_entry *pde_rcvlist_all;
+static struct proc_dir_entry *pde_rcvlist_fil;
+static struct proc_dir_entry *pde_rcvlist_inv;
+static struct proc_dir_entry *pde_rcvlist_sff;
+static struct proc_dir_entry *pde_rcvlist_eff;
+static struct proc_dir_entry *pde_rcvlist_err;
 
-static int user_reset = 0;
+static int user_reset;
 
 static const char *rx_list_name[] = {
 	[RX_ERR] = "rx_err",
@@ -444,7 +444,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 
 static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 							mode_t mode,
-							read_proc_t* read_proc,
+							read_proc_t *read_proc,
 							void *data)
 {
 	if (can_dir)
@@ -484,15 +484,15 @@ void can_init_proc(void)
 	pde_reset_stats = can_create_proc_readentry(CAN_PROC_RESET_STATS, 0644,
 					can_proc_read_reset_stats, NULL);
 	pde_rcvlist_err = can_create_proc_readentry(CAN_PROC_RCVLIST_ERR, 0644,
-					can_proc_read_rcvlist, (void*)RX_ERR);
+					can_proc_read_rcvlist, (void *)RX_ERR);
 	pde_rcvlist_all = can_create_proc_readentry(CAN_PROC_RCVLIST_ALL, 0644,
-					can_proc_read_rcvlist, (void*)RX_ALL);
+					can_proc_read_rcvlist, (void *)RX_ALL);
 	pde_rcvlist_fil = can_create_proc_readentry(CAN_PROC_RCVLIST_FIL, 0644,
-					can_proc_read_rcvlist, (void*)RX_FIL);
+					can_proc_read_rcvlist, (void *)RX_FIL);
 	pde_rcvlist_inv = can_create_proc_readentry(CAN_PROC_RCVLIST_INV, 0644,
-					can_proc_read_rcvlist, (void*)RX_INV);
+					can_proc_read_rcvlist, (void *)RX_INV);
 	pde_rcvlist_eff = can_create_proc_readentry(CAN_PROC_RCVLIST_EFF, 0644,
-					can_proc_read_rcvlist, (void*)RX_EFF);
+					can_proc_read_rcvlist, (void *)RX_EFF);
 	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF, 0644,
 					can_proc_read_rcvlist_sff, NULL);
 }
