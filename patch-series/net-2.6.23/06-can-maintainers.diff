@@ -3,8 +3,8 @@ CAN: Add maintainer entries
 EDESC
 This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
 
-Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  CREDITS     |   16 ++++++++++++++++

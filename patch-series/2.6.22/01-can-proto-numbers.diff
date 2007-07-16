@@ -5,8 +5,8 @@ This patch adds a protocol/address family number, ARP hardware type,
 ethernet packet type, and a line discipline number for the SocketCAN
 implementation.
 
-Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/if_arp.h   |    1 +

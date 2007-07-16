@@ -3,8 +3,8 @@ CAN: Add documentation
 EDESC
 This patch adds documentation for the PF_CAN protocol family.
 
-Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  Documentation/networking/00-INDEX |    2 

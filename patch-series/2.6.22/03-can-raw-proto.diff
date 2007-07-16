@@ -3,8 +3,8 @@ CAN: Add raw protocol
 EDESC
 This patch adds the CAN raw protocol.
 
-Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can/raw.h |   31 +
@@ -16,7 +16,7 @@ Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 Index: linux-2.6.22/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/include/linux/can/raw.h	2007-07-09 10:42:54.000000000 +0200
++++ linux-2.6.22/include/linux/can/raw.h	2007-07-16 21:48:14.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -51,8 +51,8 @@ Index: linux-2.6.22/include/linux/can/raw.h
 +#endif
 Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
---- linux-2.6.22.orig/net/can/Kconfig	2007-07-09 10:42:51.000000000 +0200
-+++ linux-2.6.22/net/can/Kconfig	2007-07-09 10:42:54.000000000 +0200
+--- linux-2.6.22.orig/net/can/Kconfig	2007-07-16 21:42:28.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-07-16 21:48:14.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -88,8 +88,8 @@ Index: linux-2.6.22/net/can/Kconfig
  	depends on CAN
 Index: linux-2.6.22/net/can/Makefile
 ===================================================================
---- linux-2.6.22.orig/net/can/Makefile	2007-07-09 10:42:51.000000000 +0200
-+++ linux-2.6.22/net/can/Makefile	2007-07-09 10:42:54.000000000 +0200
+--- linux-2.6.22.orig/net/can/Makefile	2007-07-16 21:42:28.000000000 +0200
++++ linux-2.6.22/net/can/Makefile	2007-07-16 21:48:14.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -100,7 +100,7 @@ Index: linux-2.6.22/net/can/Makefile
 Index: linux-2.6.22/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/raw.c	2007-07-09 10:42:54.000000000 +0200
++++ linux-2.6.22/net/can/raw.c	2007-07-16 21:49:00.000000000 +0200
 @@ -0,0 +1,757 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
@@ -170,7 +170,7 @@ Index: linux-2.6.22/net/can/raw.c
 +MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 +
 +#ifdef CONFIG_CAN_DEBUG_CORE
-+static int debug = 0;
++static int debug;
 +module_param(debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 +#endif
@@ -213,7 +213,7 @@ Index: linux-2.6.22/net/can/raw.c
 +
 +static void raw_rcv(struct sk_buff *skb, void *data)
 +{
-+	struct sock *sk = (struct sock*)data;
++	struct sock *sk = (struct sock *)data;
 +	struct raw_sock *ro = raw_sk(sk);
 +	struct sockaddr_can *addr;
 +	int error;

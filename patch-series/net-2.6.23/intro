@@ -22,7 +22,7 @@ Since our last post we have changed the following:
 * Minor cleanup of #include's
 
 This patch series applies against net-2.6.23 and is derived from Subversion
-revision r426 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r434 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 
