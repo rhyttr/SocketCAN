@@ -89,7 +89,7 @@ MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 /* easy access to can_frame payload */
 static inline u64 GET_U64(const struct can_frame *cp)
 {
-	return *(u64*)cp->data;
+	return *(u64 *)cp->data;
 }
 
 struct bcm_op {
