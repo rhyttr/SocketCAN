@@ -51,6 +51,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/rcupdate.h>
+#include <linux/uaccess.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
@@ -60,7 +61,6 @@
 #include <linux/can.h>
 #include <linux/can/core.h>
 #include <net/sock.h>
-#include <asm/uaccess.h>
 
 #include "af_can.h"
 
