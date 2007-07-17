@@ -33,7 +33,22 @@
 #define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
 #define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
 
+/*
+ * Controller Area Network Identifier structure
+ *
+ * bit 0-28	: CAN identifier (11/29 bit)
+ * bit 29	: error frame flag (0 = data frame, 1 = error frame)
+ * bit 30	: remote transmission request flag (1 = rtr frame)
+ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
+ */
 typedef __u32 canid_t;
+
+/*
+ * Controller Area Network Error Frame Mask structure
+ *
+ * bit 0-28	: error class mask (see include/linux/can/error.h)
+ * bit 29-31	: set to zero
+ */
 typedef __u32 can_err_mask_t;
 
 /**
