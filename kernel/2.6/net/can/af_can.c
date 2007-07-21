@@ -976,8 +976,13 @@ static __init int can_init(void)
 {
 	printk(banner);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
+				      0, 0, NULL);
+#else
 	rcv_cache = kmem_cache_create("can_receiver", sizeof(struct receiver),
 				      0, 0, NULL, NULL);
+#endif
 	if (!rcv_cache)
 		return -ENOMEM;
 
