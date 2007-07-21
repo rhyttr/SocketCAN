@@ -40,25 +40,19 @@
 #
 #  Send feedback to <socketcan-users@lists.berlios.de>
 
+
 ifeq ($(KERNELRELEASE),)
 
-KERNELDIR = /usr/src/linux
-PWD       = $(shell pwd)
+KERNELDIR := /lib/modules/$(shell uname -r)/build
+PWD       := $(shell pwd)
+TOPDIR    := $(PWD)/../../../..
 
-default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-
-clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+modules modules_install clean:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
 
 else
 
-ifneq ($(KBUILD_EXTMOD),)
-EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
-		-I$(KBUILD_EXTMOD)/hal \
-		-DETH_P_CAN=0x000C \
-		-DARPHRD_CAN=280
-endif
+include $(TOPDIR)/Makefile.common
 
 obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o sja1000-c200.o
 

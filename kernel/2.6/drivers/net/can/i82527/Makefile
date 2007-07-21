@@ -42,23 +42,16 @@
 
 ifeq ($(KERNELRELEASE),)
 
-KERNELDIR = /usr/src/linux
-PWD       = $(shell pwd)
+KERNELDIR := /lib/modules/$(shell uname -r)/build
+PWD       := $(shell pwd)
+TOPDIR    := $(PWD)/../../../..
 
-default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-
-clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+modules modules_install clean:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
 
 else
 
-ifneq ($(KBUILD_EXTMOD),)
-EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../../include \
-		-I$(KBUILD_EXTMOD)/hal \
-		-DETH_P_CAN=0x000C \
-		-DARPHRD_CAN=280
-endif
+include $(TOPDIR)/Makefile.common
 
 obj-m := i82527-pc7io.o i82527-iomem.o i82527-esdio.o
 

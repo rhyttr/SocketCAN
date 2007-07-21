@@ -1,48 +1,23 @@
-TOPDIR		= $(shell pwd)
-KERNELVER	= $(shell uname -r)
-KERNELDIR	= /lib/modules/$(KERNELVER)/build
-MOD_DIR		= /lib/modules/$(KERNELVER)/kernel
+ifeq ($(KERNELRELEASE),)
 
-SUBDIRS 	= \
-	$(TOPDIR)/net/can \
-	$(TOPDIR)/drivers/net/can
+KERNELDIR := /lib/modules/$(shell uname -r)/build
+PWD       := $(shell pwd)
+TOPDIR    := $(PWD)
 
-#
-# targetinfo
-#
-# Print out the targetinfo line on the terminal
-#
-# $1: name of the target to be printed out
-#
-targetinfo = \
-	echo; \
-	TG=`echo "$(1)" | sed -e "s,$(TOPDIR)/,,g"`; \
-	LINE=`echo target: $$TG |sed -e "s/./-/g"`; \
-	echo $$LINE; \
-	echo target: $$TG; \
-	echo $$LINE; \
-	echo
+export CONFIG_CAN_VCAN=m
+export CONFIG_CAN_SJA1000=m
+export CONFIG_CAN_I82527=m
 
-.PHONY: net drivers
+export CONFIG_CAN=m
+export CONFIG_CAN_RAW=m
+export CONFIG_CAN_BCM=m
 
-all: net drivers
+modules modules_install clean:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
 
-net:
-	@$(call targetinfo, "running make in net/can")
-	cd net/can && make KERNELDIR=$(KERNELDIR)
+else
 
-drivers:
-	@$(call targetinfo, "running make in drivers/net/can")
-	cd drivers/net/can && make KERNELDIR=$(KERNELDIR)
+obj-m += drivers/net/can/
+obj-m += net/can/
 
-install: net drivers
-	find -name \*.ko -exec install -v -D {} $(MOD_DIR)/{} \;
-	depmod $(KERNELVER)
-
-clean:
-	@for dir in $(SUBDIRS); do \
-		$(call targetinfo, "cleaning in $$dir"); \
-		cd $$dir; \
-		make clean KERNELDIR=$(KERNELDIR); \
-	done
-
+endif

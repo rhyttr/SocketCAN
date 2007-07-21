@@ -40,41 +40,22 @@
 #
 #  Send feedback to <socketcan-users@lists.berlios.de>
 
-
-
 ifeq ($(KERNELRELEASE),)
 
-KERNELDIR = /usr/src/linux
-PWD       = $(shell pwd)
+KERNELDIR := /lib/modules/$(shell uname -r)/build
+PWD       := $(shell pwd)
+TOPDIR    := $(PWD)/../..
 
-all: can raw bcm
+modules modules_install clean:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
 
-can:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m modules
-
-raw: can
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_CAN_RAW=m modules
-
-bcm: can
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CAN=m CONFIG_CAN_BCM=m modules
-
-clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
-	rm -f Module.symvers
-
-.PHONY: clean all can raw bcm
+export CONFIG_CAN=m
+export CONFIG_CAN_RAW=m
+export CONFIG_CAN_BCM=m
 
 else
 
-ifneq ($(KBUILD_EXTMOD),)
-EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/../../include \
-		-DETH_P_CAN=0x000C \
-		-DPF_CAN=29 \
-		-DAF_CAN=PF_CAN \
-		-DCONFIG_CAN_RAW_USER \
-		-DCONFIG_CAN_BCM_USER \
-		-DARPHRD_CAN=280
-endif
+include $(TOPDIR)/Makefile.common
 
 obj-$(CONFIG_CAN)	+= can.o
 can-objs		:= af_can.o proc.o
