@@ -437,11 +437,7 @@ static int ccan_open(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
 	if (request_irq(dev->irq, &ccan_isr, 0, dev->name, dev)) {
-#else
-	if (request_irq(dev->irq, &ccan_isr, 0, dev->name, dev)) {
-#endif
 		dev_err(ND2D(dev), "failed to attach interrupt\n");
 		return -EAGAIN;
 	}
@@ -542,7 +538,7 @@ void free_ccandev(struct net_device *dev)
 }
 EXPORT_SYMBOL(free_ccandev);
 
-int ccan_register(struct net_device *dev)
+int register_ccandev(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	
@@ -553,9 +549,9 @@ int ccan_register(struct net_device *dev)
 	
 	return register_netdev(dev);	
 }
-EXPORT_SYMBOL(ccan_register);
+EXPORT_SYMBOL(register_ccandev);
 
-void ccan_unregister(struct net_device *dev)
+void unregister_ccandev(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	
@@ -566,7 +562,7 @@ void ccan_unregister(struct net_device *dev)
 
 	unregister_netdev(dev);
 }
-EXPORT_SYMBOL(ccan_unregister);
+EXPORT_SYMBOL(unregister_ccandev);
 
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");

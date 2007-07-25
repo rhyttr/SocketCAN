@@ -123,7 +123,7 @@ static int h7202can_drv_probe(struct platform_device *pdev)
 	/* enable can */	
 	h7202can_write_reg(dev, CAN_ENABLE, 1);
 
-	ret = ccan_register(dev);
+	ret = register_ccandev(dev);
 	if (ret >= 0) {
 		dev_info(&pdev->dev, "probe for a port 0x%lX done\n",
 			 dev->base_addr);
@@ -145,7 +145,7 @@ static int h7202can_drv_remove(struct platform_device *pdev)
 	struct resource *mem;
 
 	platform_set_drvdata(pdev, NULL);
-	ccan_unregister(dev);
+	unregister_ccandev(dev);
 
 	iounmap((volatile void __iomem *)(dev->base_addr));
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);

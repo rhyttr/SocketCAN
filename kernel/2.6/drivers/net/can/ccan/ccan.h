@@ -134,7 +134,7 @@ struct ccan_priv {
 
 extern struct net_device *alloc_ccandev(int sizeof_priv);
 extern void free_ccandev(struct net_device *dev);
-extern int ccan_register(struct net_device *dev);
-extern void ccan_unregister(struct net_device *dev);
+extern int register_ccandev(struct net_device *dev);
+extern void unregister_ccandev(struct net_device *dev);
 
 #endif /* __CCAN_H__ */
