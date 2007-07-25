@@ -49,6 +49,8 @@ RCSID("$Id$");
 #define MSCAN_SLEEP_MODE	MSCAN_SLPRQ
 #define MSCAN_INIT_MODE		(MSCAN_INITRQ | MSCAN_SLPRQ)
 #define MSCAN_POWEROFF_MODE	(MSCAN_CSWAI | MSCAN_SLPRQ)
+#define MSCAN_SET_MODE_RETRIES	255
+
 
 #define BTR0_BRP_MASK		0x3f
 #define BTR0_SJW_SHIFT		6
@@ -109,12 +111,12 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 		if ((mode & MSCAN_SLPRQ) && (canctl1 & MSCAN_SLPAK) == 0) {
 			out_8(&regs->canctl0,
 			      in_8(&regs->canctl0) | MSCAN_SLPRQ);
-			for (i = 0; i < 255; i++) {
+			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
 				if (in_8(&regs->canctl1) & MSCAN_SLPAK)
 					break;
 				udelay(100);
 			}
-			if (i > 255)
+			if (i >= MSCAN_SET_MODE_RETRIES)
 				ret = -ENODEV;
 		}
 
@@ -122,11 +124,11 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 		    && (canctl1 & MSCAN_INITAK) == 0) {
 			out_8(&regs->canctl0,
 			      in_8(&regs->canctl0) | MSCAN_INITRQ);
-			for (i = 0; i < 255; i++) {
+			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
 				if (in_8(&regs->canctl1) & MSCAN_INITAK)
 					break;
 			}
-			if (i > 255)
+			if (i >= MSCAN_SET_MODE_RETRIES)
 				ret = -ENODEV;
 		}
 
@@ -139,12 +141,12 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 		if (canctl1 & (MSCAN_SLPAK | MSCAN_INITAK)) {
 			out_8(&regs->canctl0, in_8(&regs->canctl0) &
 			      ~(MSCAN_SLPRQ | MSCAN_INITRQ));
-			for (i = 0; i < 255; i++) {
+			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
 				canctl1 = in_8(&regs->canctl1);
 				if (!(canctl1 & (MSCAN_INITAK | MSCAN_SLPAK)))
 					break;
 			}
-			if (i > 255)
+			if (i >= MSCAN_SET_MODE_RETRIES)
 				ret = -ENODEV;
 		}
 	}
