@@ -55,7 +55,7 @@ export CONFIG_CAN_BCM=m
 
 else
 
-include $(TOPDIR)/Makefile.common
+-include $(TOPDIR)/Makefile.common
 
 obj-$(CONFIG_CAN)	+= can.o
 can-objs		:= af_can.o proc.o

@@ -51,7 +51,8 @@ modules modules_install clean:
 
 else
 
-include $(TOPDIR)/Makefile.common
+-include $(TOPDIR)/Makefile.common
+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/hal
 
 obj-m := i82527-pc7io.o i82527-iomem.o i82527-esdio.o
 

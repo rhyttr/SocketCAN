@@ -52,7 +52,8 @@ modules modules_install clean:
 
 else
 
-include $(TOPDIR)/Makefile.common
+-include $(TOPDIR)/Makefile.common
+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/hal
 
 obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o sja1000-c200.o
 

@@ -18,7 +18,7 @@ modules modules_install clean:
 
 else
 
-include $(TOPDIR)/Makefile.common
+-include $(TOPDIR)/Makefile.common
 
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o
 obj-$(CONFIG_CAN_SLCAN)		+= slcan.o

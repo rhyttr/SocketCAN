@@ -33,5 +33,7 @@ kernel/2.6/drivers/net/can/hal/pc7io.c
 kernel/2.6/drivers/net/can/hal/iomux.c
 kernel/2.6/drivers/net/can/hal/gw2.c
 kernel/2.6/drivers/net/can/hal/iomem.c
+kernel/2.6/drivers/net/can/hal/esdio.c
+kernel/2.6/drivers/net/can/hal/c200.c
 kernel/2.6/drivers/net/can/hal/hal.h
 kernel/2.6/drivers/net/can/hal/io.c
