@@ -689,15 +689,6 @@ struct net_device *alloc_mscandev(void)
 	dev->hard_start_xmit = mscan_hard_start_xmit;
 	dev->tx_timeout = mscan_tx_timeout;
 
-	dev->type = ARPHRD_CAN;
-	dev->hard_header_len = 0;
-	dev->mtu = sizeof(struct can_frame);
-	dev->addr_len = 0;
-	dev->tx_queue_len = 10;
-
-	dev->flags = IFF_NOARP;
-	dev->features = NETIF_F_NO_CSUM;
-
 	dev->poll = mscan_rx_poll;
 	dev->weight = 8;
 
