@@ -51,7 +51,7 @@ modules modules_install clean:
 
 else
 
-include $(TOPDIR)/Makefile.common
+-include $(TOPDIR)/Makefile.common
 
 obj-$(CONFIG_CAN_CCAN)		+= ccan.o
 obj-$(CONFIG_CAN_H7202)		+= h7202_can.o
