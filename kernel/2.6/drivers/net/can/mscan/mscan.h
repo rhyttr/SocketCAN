@@ -238,12 +238,12 @@ struct mscan_platform_data {
 	u32 clock_frq;		/* can ref. clock, in Hz */
 };
 
-struct can_device *alloc_mscandev(void);
+struct net_device *alloc_mscandev(void);
 /* @clock_src:
 	1 = The MSCAN clock source is the onchip Bus Clock.
 	0 = The MSCAN clock source is the chip Oscillator Clock.
 */
-extern int mscan_register(struct can_device *can, int clock_src);
-extern void mscan_unregister(struct can_device *can);
+extern int register_mscandev(struct net_device *dev, int clock_src);
+extern void unregister_mscandev(struct net_device *dev);
 
 #endif				/* __MSCAN_H__ */

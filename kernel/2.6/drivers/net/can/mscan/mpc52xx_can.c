@@ -50,25 +50,24 @@ struct platform_device *pdev[PDEV_MAX];
 
 static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 {
-	struct can_device *can;
 	struct resource *mem;
-	struct net_device *ndev;
+	struct net_device *dev;
 	struct mscan_platform_data *pdata = pdev->dev.platform_data;
+	struct can_priv *can;
 	u32 mem_size;
 	int ret = -ENODEV;
 
 	if (!pdata)
 		return ret;
 
-	can = alloc_mscandev();
-	if (!can)
+	dev = alloc_mscandev();
+	if (!dev)
 		return -ENOMEM;
-
-	ndev = CAN2ND(can);
+	can = netdev_priv(dev);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	ndev->irq = platform_get_irq(pdev, 0);
-	if (!mem || !ndev->irq)
+	dev->irq = platform_get_irq(pdev, 0);
+	if (!mem || !dev->irq)
 		goto req_error;
 
 	mem_size = mem->end - mem->start + 1;
@@ -77,12 +76,12 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 		goto req_error;
 	}
 
-	SET_NETDEV_DEV(ndev, &pdev->dev);
+	SET_NETDEV_DEV(dev, &pdev->dev);
 	SET_MODULE_OWNER(THIS_MODULE);
 
-	ndev->base_addr = (unsigned long)ioremap_nocache(mem->start, mem_size);
+	dev->base_addr = (unsigned long)ioremap_nocache(mem->start, mem_size);
 
-	if (!ndev->base_addr) {
+	if (!dev->base_addr) {
 		dev_err(&pdev->dev, "failed to map can port\n");
 		ret = -ENOMEM;
 		goto fail_map;
@@ -90,36 +89,36 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 
 	can->can_sys_clock = pdata->clock_frq;
 
-	platform_set_drvdata(pdev, can);
+	platform_set_drvdata(pdev, dev);
 
-	ret = mscan_register(can, pdata->clock_src);
+	ret = register_mscandev(dev, pdata->clock_src);
 	if (ret >= 0) {
 		dev_info(&pdev->dev, "probe for a port 0x%lX done\n",
-			 ndev->base_addr);
+			 dev->base_addr);
 		return ret;
 	}
 
-	iounmap((unsigned long *)ndev->base_addr);
+	iounmap((unsigned long *)dev->base_addr);
       fail_map:
 	release_mem_region(mem->start, mem_size);
       req_error:
-	free_candev(can);
+	free_candev(dev);
 	dev_err(&pdev->dev, "probe failed\n");
 	return ret;
 }
 
 static int __devexit mpc52xx_can_remove(struct platform_device *pdev)
 {
-	struct can_device *can = platform_get_drvdata(pdev);
+	struct net_device *dev = platform_get_drvdata(pdev);
 	struct resource *mem;
 
 	platform_set_drvdata(pdev, NULL);
-	mscan_unregister(can);
+	unregister_mscandev(dev);
 
-	iounmap((volatile void __iomem *)(CAN2ND(can)->base_addr));
+	iounmap((volatile void __iomem *)dev->base_addr);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, mem->end - mem->start + 1);
-	free_candev(can);
+	free_candev(dev);
 	return 0;
 }
 
@@ -127,8 +126,8 @@ static int __devexit mpc52xx_can_remove(struct platform_device *pdev)
 static struct mscan_regs saved_regs;
 static int mpc52xx_can_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct can_device *can = platform_get_drvdata(pdev);
-	struct mscan_regs *regs = (struct mscan_regs *)(CAN2ND(can)->base_addr);
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 
 	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
 
@@ -137,8 +136,8 @@ static int mpc52xx_can_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int mpc52xx_can_resume(struct platform_device *pdev)
 {
-	struct can_device *can = platform_get_drvdata(pdev);
-	struct mscan_regs *regs = (struct mscan_regs *)(CAN2ND(can)->base_addr);
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 
 	regs->canctl0 |= MSCAN_INITRQ;
 	while ((regs->canctl1 & MSCAN_INITAK) == 0)
