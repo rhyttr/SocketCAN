@@ -17,6 +17,10 @@ kernel/2.6/drivers/net/can/Kconfig
 kernel/2.6/drivers/net/can/Makefile
 kernel/2.6/drivers/net/can/vcan.c
 kernel/2.6/drivers/net/can/slcan.c
+kernel/2.6/drivers/net/can/ccan/ccan.c
+kernel/2.6/drivers/net/can/ccan/ccan.h
+kernel/2.6/drivers/net/can/ccan/h7202_can.c
+kernel/2.6/drivers/net/can/ccan/Makefile
 kernel/2.6/drivers/net/can/i82527/proc.c
 kernel/2.6/drivers/net/can/i82527/i82527.c
 kernel/2.6/drivers/net/can/i82527/i82527.h
