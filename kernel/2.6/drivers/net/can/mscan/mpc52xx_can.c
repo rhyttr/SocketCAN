@@ -40,10 +40,12 @@
 
 #include "mscan.h"
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
+
 RCSID("$Id$");
 
 #define PDEV_MAX 2
+
 struct platform_device *pdev[PDEV_MAX];
 
 static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
@@ -55,7 +57,7 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 	u32 mem_size;
 	int ret = -ENODEV;
 
-	if(!pdata)
+	if (!pdata)
 		return ret;
 
 	can = alloc_mscandev();
@@ -92,14 +94,15 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 
 	ret = mscan_register(can, pdata->clock_src);
 	if (ret >= 0) {
-		dev_info(&pdev->dev, "probe for a port 0x%lX done\n", ndev->base_addr);
+		dev_info(&pdev->dev, "probe for a port 0x%lX done\n",
+			 ndev->base_addr);
 		return ret;
 	}
 
 	iounmap((unsigned long *)ndev->base_addr);
-fail_map:
+      fail_map:
 	release_mem_region(mem->start, mem_size);
-req_error:
+      req_error:
 	free_candev(can);
 	dev_err(&pdev->dev, "probe failed\n");
 	return ret;
@@ -147,8 +150,8 @@ static int mpc52xx_can_resume(struct platform_device *pdev)
 	regs->canidac = saved_regs.canidac;
 
 	/* restore masks, buffers etc. */
-	_memcpy_toio(&regs->canidar1_0, (void*)&saved_regs.canidar1_0,
-			sizeof(*regs) - offsetof(struct mscan_regs, canidar1_0));
+	_memcpy_toio(&regs->canidar1_0, (void *)&saved_regs.canidar1_0,
+		     sizeof(*regs) - offsetof(struct mscan_regs, canidar1_0));
 
 	regs->canctl0 &= ~MSCAN_INITRQ;
 	regs->cantbsel = saved_regs.cantbsel;
@@ -161,14 +164,14 @@ static int mpc52xx_can_resume(struct platform_device *pdev)
 #endif
 
 static struct platform_driver mpc52xx_can_driver = {
-	.driver		= {
-	.name		= "mpc52xx-mscan",
-	},
-	.probe		= mpc52xx_can_probe,
-	.remove		= __devexit_p(mpc52xx_can_remove),
+	.driver = {
+		   .name = "mpc52xx-mscan",
+		   },
+	.probe = mpc52xx_can_probe,
+	.remove = __devexit_p(mpc52xx_can_remove),
 #ifdef CONFIG_PM
-	.suspend	= mpc52xx_can_suspend,
-	.resume		= mpc52xx_can_resume,
+	.suspend = mpc52xx_can_suspend,
+	.resume = mpc52xx_can_resume,
 #endif
 };
 
@@ -179,8 +182,10 @@ static int __init mpc52xx_of_to_pdev(void)
 	unsigned int i;
 	int ret;
 
-	for (i=0; (np = of_find_compatible_node(np, "mscan", "mpc5200-mscan")) != NULL; i++) {
-		struct resource r[2] = {};
+	for (i = 0;
+	     (np = of_find_compatible_node(np, "mscan", "mpc5200-mscan"));
+	     i++) {
+		struct resource r[2] = { };
 		struct mscan_platform_data pdata;
 
 		if (i >= PDEV_MAX) {
@@ -195,7 +200,8 @@ static int __init mpc52xx_of_to_pdev(void)
 
 		of_irq_to_resource(np, 0, &r[1]);
 
-		pdev[i] = platform_device_register_simple("mpc52xx-mscan", i, r, 2);
+		pdev[i] =
+		    platform_device_register_simple("mpc52xx-mscan", i, r, 2);
 		if (IS_ERR(pdev[i])) {
 			ret = PTR_ERR(pdev[i]);
 			goto err;
@@ -208,7 +214,7 @@ static int __init mpc52xx_of_to_pdev(void)
 			goto err;
 	}
 	return 0;
- err:
+      err:
 	return ret;
 }
 #else
@@ -226,11 +232,10 @@ void __exit mpc52xx_can_exit(void)
 {
 	int i;
 	platform_driver_unregister(&mpc52xx_can_driver);
-	for (i=0; i<PDEV_MAX; i++)
+	for (i = 0; i < PDEV_MAX; i++)
 		platform_device_unregister(pdev[i]);
 	printk(KERN_INFO "%s unloaded\n", mpc52xx_can_driver.driver.name);
 }
-
 
 module_init(mpc52xx_can_init);
 module_exit(mpc52xx_can_exit);
