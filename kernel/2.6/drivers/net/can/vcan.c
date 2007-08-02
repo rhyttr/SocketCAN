@@ -96,17 +96,14 @@ MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
 #endif
 
 /*
- * CAN network devices *should* support a local loopback functionality
- * (see Documentation/networking/can.txt). To test the handling of CAN
- * interfaces that do not support the loopback both driver types are
- * implemented inside this vcan driver. In the case that the driver does
- * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
- * This causes the PF_CAN core to perform the loopback as a fallback solution.
+ * CAN test feature:
+ * Enable the loopback on driver level for testing the CAN core loopback modes.
+ * See Documentation/networking/can.txt for details.
  */
 
-static int loopback; /* vcan default: no loopback, just free the skb */
+static int loopback; /* loopback testing. Default: 0 (Off) */
 module_param(loopback, int, S_IRUGO);
-MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
+MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 struct vcan_priv {
