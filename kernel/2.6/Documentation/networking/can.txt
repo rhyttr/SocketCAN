@@ -373,7 +373,7 @@ solution for a couple of reasons:
   provided by the multi user SocketCAN approach, some reasonable
   defaults are set at RAW socket bindung time:
 
-  - The filters are set to excatly one filter receiving everything
+  - The filters are set to exactly one filter receiving everything
   - The socket only receives valid data frames (=> no error frames)
   - The loopback of sent CAN frames is enabled (see chapter 3.2)
   - The socket does not receive it's own sent frames (in loopback mode)
