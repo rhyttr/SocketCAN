@@ -65,6 +65,9 @@
 #define DEFAULT_SPEED	500 /* kBit/s */
 #define DEFAULT_FORCE_DMC 0 /* for critical register access, e.g. ser1274 */
 
+#define IRQ_MODE_SHARED 1 /* enable shared interrupts */
+#define IRQ_MODE_DISABLE_LOCAL_IRQS 2 /* when processing the irq handler */
+#define DEFAULT_IRQ_MODE IRQ_MODE_SHARED
 
 /* The message object 15 has a shadow register for reliable data receiption  */
 /* under heavy bus load. Therefore it makes sense to use this message object */

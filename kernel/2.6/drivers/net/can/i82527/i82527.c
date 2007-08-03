@@ -84,8 +84,8 @@ MODULE_DESCRIPTION("LLCF/socketcan '" CHIP_NAME "' network device driver");
 char drv_name[DRV_NAME_LEN] = "undefined";
 
 /* driver and version information */
-static const char *drv_version	= "0.0.3";
-static const char *drv_reldate	= "2007-04-11";
+static const char *drv_version	= "0.0.4";
+static const char *drv_reldate	= "2007-08-03";
 
 static const canid_t rxobjflags[] = {0, CAN_EFF_FLAG,
 				     CAN_RTR_FLAG, CAN_RTR_FLAG | CAN_EFF_FLAG,
@@ -109,6 +109,7 @@ unsigned int mo15[MAXDEV]	= { MO15_DEFLT, MO15_DEFLT }; /* msg obj 15 */
 static int rx_probe[MAXDEV]	= { 0 };
 static int clk			= DEFAULT_HW_CLK;
 static int force_dmc		= DEFAULT_FORCE_DMC;
+static int irq_mode		= DEFAULT_IRQ_MODE;
 static int debug		= 0;
 static int restart_ms		= 100;
 
@@ -121,8 +122,9 @@ static int cdv_n;
 static int mo15_n;
 static int rx_probe_n;
 
-static u8 dsc = 0; /* devide system clock */
-static u8 dmc = 0; /* devide memory clock */
+static u8 dsc; /* devide system clock */
+static u8 dmc; /* devide memory clock */
+static unsigned long irqflags; /* for shared / disabled local interrupts */
 
 module_param_array(base, int, &base_n, 0);
 module_param_array(irq, int, &irq_n, 0);
@@ -135,6 +137,7 @@ module_param_array(rx_probe, int, &rx_probe_n, 0);
 
 module_param(clk, int, 0);
 module_param(force_dmc, int, 0);
+module_param(irq_mode, int, 0);
 module_param(debug, int, 0);
 module_param(restart_ms, int, 0);
 
@@ -149,6 +152,7 @@ MODULE_PARM_DESC(rx_probe, "switch to trx mode after correct msg receiption. (de
 
 MODULE_PARM_DESC(clk, "CAN controller chip clock (default: 16MHz)");
 MODULE_PARM_DESC(force_dmc, "set i82527 DMC bit (default: calculate from clk)"); 
+MODULE_PARM_DESC(irq_mode, "specify irq setup bits (1:shared 2:disable local irqs while processing) (default: 1)"); 
 MODULE_PARM_DESC(debug, "set debug mask (default: 0)");
 MODULE_PARM_DESC(restart_ms, "restart chip on heavy bus errors / bus off after x ms (default 100ms)");
 
@@ -1005,15 +1009,9 @@ static int can_open(struct net_device *dev)
 	priv->state = STATE_UNINITIALIZED;
 
 	/* register interrupt handler */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-	if (request_irq(dev->irq, &can_interrupt, SA_SHIRQ,
-			dev->name, (void*)dev)) {
-#else
-	if (request_irq(dev->irq, &can_interrupt, IRQF_SHARED,
-			dev->name, (void*)dev)) {
-#endif
+	if (request_irq(dev->irq, &can_interrupt, irqflags,
+			dev->name, (void*)dev))
 		return -EAGAIN;
-	}
 
 	/* clear statistics */
 	memset(&priv->stats, 0, sizeof(priv->stats));
@@ -1194,6 +1192,8 @@ static __init int i82527_init_module(void)
 	printk(KERN_INFO "%s - options [clk %d.%06d MHz] [restart_ms %dms]"
 	       " [debug %d]\n",
 	       drv_name, clk/1000000, clk%1000000, restart_ms, debug);
+	printk(KERN_INFO "%s - options [force_dmc %d] [irq_mode %d]\n",
+	       drv_name, force_dmc, irq_mode);
 
 	if (!base[0]) {
 		printk(KERN_INFO "%s: loading defaults.\n", drv_name);
@@ -1210,6 +1210,18 @@ static __init int i82527_init_module(void)
 	/* devide memory clock even if it's not needed (regarding the spec) */
 	if (force_dmc)
 		dmc = iCPU_DMC;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
+	if (irq_mode & IRQ_MODE_SHARED)
+		irqflags |= SA_SHIRQ;
+	if (irq_mode & IRQ_MODE_DISABLE_LOCAL_IRQS)
+		irqflags |= SA_INTERRUPT;
+#else
+	if (irq_mode & IRQ_MODE_SHARED)
+		irqflags |= IRQF_SHARED;
+	if (irq_mode & IRQ_MODE_DISABLE_LOCAL_IRQS)
+		irqflags |= IRQF_DISABLED;
+#endif
 
 	for (i = 0; base[i]; i++) {
 		int clkout;
