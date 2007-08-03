@@ -13,10 +13,10 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  net/can/raw.c           |  757 ++++++++++++++++++++++++++++++++++++++++++++++++
  4 files changed, 817 insertions(+)
 
-Index: net-2.6.23/include/linux/can/raw.h
+Index: net-2.6/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.23/include/linux/can/raw.h	2007-07-16 21:48:09.000000000 +0200
++++ net-2.6/include/linux/can/raw.h	2007-08-03 11:21:48.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -49,10 +49,10 @@ Index: net-2.6.23/include/linux/can/raw.h
 +};
 +
 +#endif
-Index: net-2.6.23/net/can/Kconfig
+Index: net-2.6/net/can/Kconfig
 ===================================================================
---- net-2.6.23.orig/net/can/Kconfig	2007-07-16 21:42:33.000000000 +0200
-+++ net-2.6.23/net/can/Kconfig	2007-07-16 21:48:09.000000000 +0200
+--- net-2.6.orig/net/can/Kconfig	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6/net/can/Kconfig	2007-08-03 11:21:48.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -86,10 +86,10 @@ Index: net-2.6.23/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: net-2.6.23/net/can/Makefile
+Index: net-2.6/net/can/Makefile
 ===================================================================
---- net-2.6.23.orig/net/can/Makefile	2007-07-16 21:42:33.000000000 +0200
-+++ net-2.6.23/net/can/Makefile	2007-07-16 21:48:09.000000000 +0200
+--- net-2.6.orig/net/can/Makefile	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6/net/can/Makefile	2007-08-03 11:21:48.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -97,10 +97,10 @@ Index: net-2.6.23/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 +can-raw-objs		:= raw.o
-Index: net-2.6.23/net/can/raw.c
+Index: net-2.6/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.23/net/can/raw.c	2007-07-16 21:49:35.000000000 +0200
++++ net-2.6/net/can/raw.c	2007-08-03 11:21:48.000000000 +0200
 @@ -0,0 +1,757 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN

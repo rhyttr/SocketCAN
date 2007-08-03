@@ -13,10 +13,10 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  net/can/bcm.c           | 1755 ++++++++++++++++++++++++++++++++++++++++++++++++
  4 files changed, 1851 insertions(+)
 
-Index: net-2.6.23/include/linux/can/bcm.h
+Index: net-2.6/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.23/include/linux/can/bcm.h	2007-07-16 21:50:22.000000000 +0200
++++ net-2.6/include/linux/can/bcm.h	2007-08-03 11:21:51.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -83,10 +83,10 @@ Index: net-2.6.23/include/linux/can/bcm.h
 +#define RX_RTR_FRAME        0x0400
 +
 +#endif /* CAN_BCM_H */
-Index: net-2.6.23/net/can/Kconfig
+Index: net-2.6/net/can/Kconfig
 ===================================================================
---- net-2.6.23.orig/net/can/Kconfig	2007-07-16 21:48:09.000000000 +0200
-+++ net-2.6.23/net/can/Kconfig	2007-07-16 21:50:22.000000000 +0200
+--- net-2.6.orig/net/can/Kconfig	2007-08-03 11:21:48.000000000 +0200
++++ net-2.6/net/can/Kconfig	2007-08-03 11:21:51.000000000 +0200
 @@ -42,6 +42,34 @@
  	  Say Y here if you want non-root users to be able to access CAN_RAW
  	  sockets.
@@ -122,10 +122,10 @@ Index: net-2.6.23/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: net-2.6.23/net/can/Makefile
+Index: net-2.6/net/can/Makefile
 ===================================================================
---- net-2.6.23.orig/net/can/Makefile	2007-07-16 21:48:09.000000000 +0200
-+++ net-2.6.23/net/can/Makefile	2007-07-16 21:50:22.000000000 +0200
+--- net-2.6.orig/net/can/Makefile	2007-08-03 11:21:48.000000000 +0200
++++ net-2.6/net/can/Makefile	2007-08-03 11:21:51.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -133,10 +133,10 @@ Index: net-2.6.23/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 +can-bcm-objs		:= bcm.o
-Index: net-2.6.23/net/can/bcm.c
+Index: net-2.6/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.23/net/can/bcm.c	2007-07-16 21:51:28.000000000 +0200
++++ net-2.6/net/can/bcm.c	2007-08-03 11:21:51.000000000 +0200
 @@ -0,0 +1,1755 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content

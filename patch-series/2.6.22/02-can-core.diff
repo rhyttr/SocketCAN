@@ -9,7 +9,7 @@ Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- include/linux/can.h       |   98 ++++
+ include/linux/can.h       |  113 +++++
  include/linux/can/core.h  |   80 +++
  include/linux/can/error.h |   93 ++++
  net/Kconfig               |    1 
@@ -19,13 +19,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  net/can/af_can.c          |  995 ++++++++++++++++++++++++++++++++++++++++++++++
  net/can/af_can.h          |  121 +++++
  net/can/proc.c            |  531 ++++++++++++++++++++++++
- 10 files changed, 1951 insertions(+)
+ 10 files changed, 1966 insertions(+)
 
 Index: linux-2.6.22/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/include/linux/can.h	2007-07-09 13:23:54.000000000 +0200
-@@ -0,0 +1,98 @@
++++ linux-2.6.22/include/linux/can.h	2007-08-03 11:08:46.000000000 +0200
+@@ -0,0 +1,113 @@
 +/*
 + * linux/can.h
 + *
@@ -58,7 +58,22 @@ Index: linux-2.6.22/include/linux/can.h
 +#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
 +#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
 +
++/*
++ * Controller Area Network Identifier structure
++ *
++ * bit 0-28	: CAN identifier (11/29 bit)
++ * bit 29	: error frame flag (0 = data frame, 1 = error frame)
++ * bit 30	: remote transmission request flag (1 = rtr frame)
++ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
++ */
 +typedef __u32 canid_t;
++
++/*
++ * Controller Area Network Error Frame Mask structure
++ *
++ * bit 0-28	: error class mask (see include/linux/can/error.h)
++ * bit 29-31	: set to zero
++ */
 +typedef __u32 can_err_mask_t;
 +
 +/**
@@ -127,7 +142,7 @@ Index: linux-2.6.22/include/linux/can.h
 Index: linux-2.6.22/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/include/linux/can/core.h	2007-07-09 13:23:54.000000000 +0200
++++ linux-2.6.22/include/linux/can/core.h	2007-08-03 11:08:46.000000000 +0200
 @@ -0,0 +1,80 @@
 +/*
 + * linux/can/core.h
@@ -150,7 +165,7 @@ Index: linux-2.6.22/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20070709"
++#define CAN_VERSION "20070802"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -211,8 +226,8 @@ Index: linux-2.6.22/include/linux/can/core.h
 +#endif /* CAN_CORE_H */
 Index: linux-2.6.22/net/Kconfig
 ===================================================================
---- linux-2.6.22.orig/net/Kconfig	2007-07-09 13:23:50.000000000 +0200
-+++ linux-2.6.22/net/Kconfig	2007-07-09 13:23:54.000000000 +0200
+--- linux-2.6.22.orig/net/Kconfig	2007-07-16 21:54:39.000000000 +0200
++++ linux-2.6.22/net/Kconfig	2007-07-16 21:54:41.000000000 +0200
 @@ -210,6 +210,7 @@
  endmenu
  
@@ -223,8 +238,8 @@ Index: linux-2.6.22/net/Kconfig
  source "net/rxrpc/Kconfig"
 Index: linux-2.6.22/net/Makefile
 ===================================================================
---- linux-2.6.22.orig/net/Makefile	2007-07-09 13:23:50.000000000 +0200
-+++ linux-2.6.22/net/Makefile	2007-07-09 13:23:54.000000000 +0200
+--- linux-2.6.22.orig/net/Makefile	2007-07-16 21:54:39.000000000 +0200
++++ linux-2.6.22/net/Makefile	2007-07-16 21:54:41.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -236,7 +251,7 @@ Index: linux-2.6.22/net/Makefile
 Index: linux-2.6.22/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/Kconfig	2007-07-16 21:42:28.000000000 +0200
++++ linux-2.6.22/net/can/Kconfig	2007-08-03 11:08:02.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -266,7 +281,7 @@ Index: linux-2.6.22/net/can/Kconfig
 Index: linux-2.6.22/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/Makefile	2007-07-16 21:42:28.000000000 +0200
++++ linux-2.6.22/net/can/Makefile	2007-08-03 11:08:02.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -277,7 +292,7 @@ Index: linux-2.6.22/net/can/Makefile
 Index: linux-2.6.22/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/af_can.c	2007-07-16 21:46:13.000000000 +0200
++++ linux-2.6.22/net/can/af_can.c	2007-07-16 21:54:41.000000000 +0200
 @@ -0,0 +1,995 @@
 +/*
 + * af_can.c - Protocol family CAN core module
@@ -1277,7 +1292,7 @@ Index: linux-2.6.22/net/can/af_can.c
 Index: linux-2.6.22/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/af_can.h	2007-07-09 13:23:54.000000000 +0200
++++ linux-2.6.22/net/can/af_can.h	2007-07-16 21:54:41.000000000 +0200
 @@ -0,0 +1,121 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
@@ -1403,7 +1418,7 @@ Index: linux-2.6.22/net/can/af_can.h
 Index: linux-2.6.22/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/net/can/proc.c	2007-07-16 21:46:13.000000000 +0200
++++ linux-2.6.22/net/can/proc.c	2007-07-16 21:54:41.000000000 +0200
 @@ -0,0 +1,531 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
@@ -1939,7 +1954,7 @@ Index: linux-2.6.22/net/can/proc.c
 Index: linux-2.6.22/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/include/linux/can/error.h	2007-07-09 13:23:54.000000000 +0200
++++ linux-2.6.22/include/linux/can/error.h	2007-07-16 21:54:41.000000000 +0200
 @@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h
