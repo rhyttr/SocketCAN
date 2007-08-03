@@ -51,7 +51,11 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/rcupdate.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
 #include <linux/uaccess.h>
+#else
+#include <asm/uaccess.h>
+#endif
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
