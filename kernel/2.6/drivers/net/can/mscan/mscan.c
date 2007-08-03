@@ -584,13 +584,17 @@ static int mscan_do_set_bit_time(struct net_device *dev,
 
 static int mscan_open(struct net_device *dev)
 {
-	int ret = 0;
+	int ret;
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 
-	if ((ret =
-	     request_irq(dev->irq, mscan_isr, IRQF_SHARED, dev->name,
-			 dev)) < 0) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
+	ret = request_irq(dev->irq, mscan_isr, SA_SHIRQ, dev->name, dev);
+#else
+	ret = request_irq(dev->irq, mscan_isr, IRQF_SHARED, dev->name, dev);
+#endif
+
+	if (ret  < 0) {
 		printk(KERN_ERR "%s - failed to attach interrupt\n",
 		       dev->name);
 		return ret;

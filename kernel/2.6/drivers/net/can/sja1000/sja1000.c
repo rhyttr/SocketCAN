@@ -933,7 +933,7 @@ static int can_open(struct net_device *dev)
 	priv->state = STATE_UNINITIALIZED;
 
 	/* register interrupt handler */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 	if (request_irq(dev->irq, &can_interrupt, SA_SHIRQ,
 			dev->name, (void*)dev)) {
 #else
