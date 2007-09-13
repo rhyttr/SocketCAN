@@ -58,6 +58,9 @@
 #include <linux/can/core.h>
 #include <linux/can/bcm.h>
 #include <net/sock.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#include <net/net_namespace.h>
+#endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -224,7 +227,11 @@ static char *bcm_proc_getifname(int ifindex)
 	if (!ifindex)
 		return "any";
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	dev = __dev_get_by_index(&init_net, ifindex); /* no usage counting */
+#else
 	dev = __dev_get_by_index(ifindex); /* no usage counting */
+#endif
 	if (dev)
 		return dev->name;
 
@@ -333,8 +340,11 @@ static void bcm_can_tx(struct bcm_op *op)
 	if (!op->ifindex)
 		return;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	dev = dev_get_by_index(&init_net, op->ifindex);
+#else
 	dev = dev_get_by_index(op->ifindex);
-
+#endif
 	if (!dev) {
 		/* RFC: should this bcm_op remove itself here? */
 		return;
@@ -866,7 +876,12 @@ static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
 				if (op->rx_reg_dev) {
 					struct net_device *dev;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+					dev = dev_get_by_index(&init_net,
+							       op->ifindex);
+#else
 					dev = dev_get_by_index(op->ifindex);
+#endif
 					if (dev) {
 						bcm_rx_unreg(dev, op);
 						dev_put(dev);
@@ -1326,8 +1341,13 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		    "rx_op is %p\n", op->can_id, op);
 
 		if (ifindex) {
-			struct net_device *dev = dev_get_by_index(ifindex);
+			struct net_device *dev;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ifindex);
+#else
+			dev = dev_get_by_index(ifindex);
+#endif
 			if (dev) {
 				can_rx_register(dev, op->can_id,
 						REGMASK(op->can_id),
@@ -1372,7 +1392,11 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 	DBG_FRAME("BCM: TX_SEND: sending frame",
 		  (struct can_frame *)skb->data);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	dev = dev_get_by_index(&init_net, ifindex);
+#else
 	dev = dev_get_by_index(ifindex);
+#endif
 	if (!dev) {
 		kfree_skb(skb);
 		return -ENODEV;
@@ -1416,8 +1440,13 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		ifindex = addr->can_ifindex; /* ifindex from sendto() */
 
 		if (ifindex) {
-			struct net_device *dev = dev_get_by_index(ifindex);
+			struct net_device *dev;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ifindex);
+#else
+			dev = dev_get_by_index(ifindex);
+#endif
 			if (!dev) {
 				DBG("device %d not found\n", ifindex);
 				return -ENODEV;
@@ -1516,6 +1545,11 @@ static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
 
 	DBG("msg %ld for dev %p (%s idx %d) sk %p bo->ifindex %d\n",
 	    msg, dev, dev->name, dev->ifindex, sk, bo->ifindex);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if (dev->nd_net != &init_net)
+		return NOTIFY_DONE;
+#endif
 
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
@@ -1621,7 +1655,11 @@ static int bcm_release(struct socket *sock)
 			if (op->rx_reg_dev) {
 				struct net_device *dev;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+				dev = dev_get_by_index(&init_net, op->ifindex);
+#else
 				dev = dev_get_by_index(op->ifindex);
+#endif
 				if (dev) {
 					bcm_rx_unreg(dev, op);
 					dev_put(dev);
@@ -1663,8 +1701,13 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 
 	/* bind a device to this socket */
 	if (addr->can_ifindex) {
-		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
+		struct net_device *dev;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		dev = dev_get_by_index(&init_net, addr->can_ifindex);
+#else
+		dev = dev_get_by_index(addr->can_ifindex);
+#endif
 		if (!dev) {
 			DBG("could not find device index %d\n",
 			    addr->can_ifindex);

@@ -64,6 +64,9 @@
 #include <linux/skbuff.h>
 #include <linux/can.h>
 #include <linux/can/core.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#include <net/net_namespace.h>
+#endif
 #include <net/sock.h>
 
 #include "af_can.h"
@@ -150,7 +153,11 @@ static void can_sock_destruct(struct sock *sk)
 		kfree(sk->sk_protinfo);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+static int can_create(struct net *net, struct socket *sock, int protocol)
+#else
 static int can_create(struct socket *sock, int protocol)
+#endif
 {
 	struct sock *sk;
 	struct can_proto *cp;
@@ -189,13 +196,22 @@ static int can_create(struct socket *sock, int protocol)
 	if (!cp || cp->type != sock->type)
 		return -EPROTONOSUPPORT;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if (net != &init_net)
+		return -EAFNOSUPPORT;
+#endif
+
 	if (cp->capability >= 0 && !capable(cp->capability))
 		return -EPERM;
 
 	sock->ops = cp->ops;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot, 1);
+#else
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, cp->prot, 1);
+#endif
 	if (!sk)
 		return -ENOMEM;
 #else
@@ -679,7 +695,11 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	DBG_FRAME("af_can: can_rcv: received CAN frame",
 		  (struct can_frame *)skb->data);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if ((dev->type != ARPHRD_CAN) || (dev->nd_net != &init_net)) {
+#else
 	if (dev->type != ARPHRD_CAN) {
+#endif
 		kfree_skb(skb);
 		return 0;
 	}
@@ -794,6 +814,11 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 
 	DBG("msg %ld for dev %p (%s idx %d)\n",
 	    msg, dev, dev->name, dev->ifindex);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if (dev->nd_net != &init_net)
+		return NOTIFY_DONE;
+#endif
 
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;

@@ -56,6 +56,9 @@
 #include <linux/can/core.h>
 #include <linux/can/raw.h>
 #include <net/sock.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#include <net/net_namespace.h>
+#endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -215,6 +218,11 @@ static int raw_notifier(struct notifier_block *nb,
 	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
 	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if (dev->nd_net != &init_net)
+		return NOTIFY_DONE;
+#endif
+
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
 
@@ -297,7 +305,13 @@ static int raw_release(struct socket *sock)
 	/* remove current filters & unregister */
 	if (ro->bound) {
 		if (ro->ifindex) {
-			struct net_device *dev = dev_get_by_index(ro->ifindex);
+			struct net_device *dev;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ro->ifindex);
+#else
+			dev = dev_get_by_index(ro->ifindex);
+#endif
 			if (dev) {
 				raw_disable_filters(dev, sk);
 				raw_disable_errfilter(dev, sk);
@@ -340,7 +354,13 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	if (ro->bound) {
 		/* unregister current filters for this device */
 		if (ro->ifindex) {
-			struct net_device *dev = dev_get_by_index(ro->ifindex);
+			struct net_device *dev;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ro->ifindex);
+#else
+			dev = dev_get_by_index(ro->ifindex);
+#endif
 			if (dev) {
 				raw_disable_filters(dev, sk);
 				raw_disable_errfilter(dev, sk);
@@ -357,7 +377,13 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	}
 
 	if (addr->can_ifindex) {
-		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
+		struct net_device *dev;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		dev = dev_get_by_index(&init_net, addr->can_ifindex);
+#else
+		dev = dev_get_by_index(addr->can_ifindex);
+#endif
 		if (!dev) {
 			DBG("could not find device %d\n", addr->can_ifindex);
 			err = -ENODEV;
@@ -475,7 +501,11 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		lock_sock(sk);
 
 		if (ro->bound && ro->ifindex)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ro->ifindex);
+#else
 			dev = dev_get_by_index(ro->ifindex);
+#endif
 
 		/* remove current filters & unregister */
 		if (ro->bound)
@@ -516,7 +546,11 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		lock_sock(sk);
 
 		if (ro->bound && ro->ifindex)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+			dev = dev_get_by_index(&init_net, ro->ifindex);
+#else
 			dev = dev_get_by_index(ro->ifindex);
+#endif
 
 		/* remove current error mask */
 		if (ro->bound)
@@ -646,7 +680,11 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 	} else
 		ifindex = ro->ifindex;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	dev = dev_get_by_index(&init_net, ifindex);
+#else
 	dev = dev_get_by_index(ifindex);
+#endif
 	if (!dev) {
 		DBG("device %d not found\n", ifindex);
 		return -ENXIO;
