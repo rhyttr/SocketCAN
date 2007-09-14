@@ -30,8 +30,6 @@
 
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
-#define CAN_PROC_DIR "net/can" /* /proc/... */
-
 /**
  * struct can_proto - CAN protocol structure
  * @type:       type argument in socket() syscall, e.g. SOCK_DGRAM.

@@ -466,11 +466,11 @@ static void can_remove_proc_readentry(const char *name)
 void can_init_proc(void)
 {
 	/* create /proc/net/can directory */
-	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
+	can_dir = proc_mkdir("can", proc_net);
 
 	if (!can_dir) {
-		printk(KERN_INFO "can: failed to create /proc/%s . "
-		       "CONFIG_PROC_FS missing?\n", CAN_PROC_DIR);
+		printk(KERN_INFO "can: failed to create /proc/net/can . "
+		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
 
@@ -530,5 +530,5 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
-		remove_proc_entry(CAN_PROC_DIR, NULL);
+		remove_proc_entry("can", proc_net);
 }

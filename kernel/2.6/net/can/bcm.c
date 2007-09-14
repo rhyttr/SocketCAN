@@ -1850,8 +1850,8 @@ static int __init bcm_module_init(void)
 
 	can_proto_register(&bcm_can_proto);
 
-	/* create /proc/net/can/bcm directory */
-	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
+	/* create /proc/net/can-bcm directory */
+	proc_dir = proc_mkdir("can-"IDENT, proc_net);
 
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
@@ -1864,7 +1864,7 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
-		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
+		remove_proc_entry("can-"IDENT, proc_net);
 }
 
 module_init(bcm_module_init);
