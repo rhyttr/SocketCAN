@@ -1851,7 +1851,11 @@ static int __init bcm_module_init(void)
 	can_proto_register(&bcm_can_proto);
 
 	/* create /proc/net/can-bcm directory */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
+#else
 	proc_dir = proc_mkdir("can-"IDENT, proc_net);
+#endif
 
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
@@ -1864,7 +1868,11 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		proc_net_remove(&init_net, "can-"IDENT);
+#else
 		proc_net_remove("can-"IDENT);
+#endif
 }
 
 module_init(bcm_module_init);

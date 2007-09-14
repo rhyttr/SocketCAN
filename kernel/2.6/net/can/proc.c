@@ -466,7 +466,11 @@ static void can_remove_proc_readentry(const char *name)
 void can_init_proc(void)
 {
 	/* create /proc/net/can directory */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	can_dir = proc_mkdir("can", init_net.proc_net);
+#else
 	can_dir = proc_mkdir("can", proc_net);
+#endif
 
 	if (!can_dir) {
 		printk(KERN_INFO "can: failed to create /proc/net/can . "
@@ -530,5 +534,9 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		proc_net_remove(&init_net, "can");
+#else
 		proc_net_remove("can");
+#endif
 }
