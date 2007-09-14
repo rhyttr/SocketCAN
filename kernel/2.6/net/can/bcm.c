@@ -1864,7 +1864,7 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
-		remove_proc_entry("can-"IDENT, proc_net);
+		proc_net_remove("can-"IDENT);
 }
 
 module_init(bcm_module_init);

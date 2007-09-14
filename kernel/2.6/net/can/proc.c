@@ -530,5 +530,5 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
-		remove_proc_entry("can", proc_net);
+		proc_net_remove("can");
 }
