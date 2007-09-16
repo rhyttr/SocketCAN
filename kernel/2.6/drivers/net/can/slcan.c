@@ -484,7 +484,9 @@ static void slc_setup(struct net_device *dev)
 	dev->addr_len		= 0;
 	dev->tx_queue_len	= 10;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	SET_MODULE_OWNER(dev);
+#endif
 
 	dev->mtu		= sizeof(struct can_frame);
 	dev->type		= ARPHRD_CAN;
