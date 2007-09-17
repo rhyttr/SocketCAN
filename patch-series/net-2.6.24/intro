@@ -1,13 +1,18 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #5
+CAN: Add new PF_CAN protocol family, try #6
 ESUBJECT
 
 Hello Dave,
 
-this is the fifth post of the patch series that adds the PF_CAN
+this is the sixth post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
+
+* Update code to work with namespaces in net-2.6.24.
+* Remove SET_MODULE_OWNER() from vcan.
+
+The changes in try #5 were:
 
 * Remove slab destructor from calls to kmem_cache_alloc().
 * Add comments about types defined in can.h.
@@ -61,8 +66,8 @@ The changes in try #2 were:
   be used by CAN network drivers.
 
 
-This patch series applies against net-2.6 and is derived from Subversion
-revision r455 of http://svn.berlios.de/svnroot/repos/socketcan.
+This patch series applies against net-2.6.24 and is derived from Subversion
+revision r466 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 

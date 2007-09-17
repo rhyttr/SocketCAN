@@ -12,15 +12,15 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  drivers/net/Makefile     |    1 
  drivers/net/can/Kconfig  |   25 ++++
  drivers/net/can/Makefile |    5 
- drivers/net/can/vcan.c   |  261 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  260 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 295 insertions(+)
+ 5 files changed, 294 insertions(+)
 
-Index: net-2.6/drivers/net/Makefile
+Index: net-2.6.24/drivers/net/Makefile
 ===================================================================
---- net-2.6.orig/drivers/net/Makefile	2007-08-03 11:21:31.000000000 +0200
-+++ net-2.6/drivers/net/Makefile	2007-08-03 11:21:54.000000000 +0200
-@@ -8,6 +8,7 @@
+--- net-2.6.24.orig/drivers/net/Makefile	2007-09-17 10:30:35.000000000 +0200
++++ net-2.6.24/drivers/net/Makefile	2007-09-17 11:13:45.000000000 +0200
+@@ -10,6 +10,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
  obj-$(CONFIG_EHEA) += ehea/
@@ -28,10 +28,10 @@ Index: net-2.6/drivers/net/Makefile
  obj-$(CONFIG_BONDING) += bonding/
  obj-$(CONFIG_ATL1) += atl1/
  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-Index: net-2.6/drivers/net/can/Kconfig
+Index: net-2.6.24/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/drivers/net/can/Kconfig	2007-08-03 11:21:54.000000000 +0200
++++ net-2.6.24/drivers/net/can/Kconfig	2007-09-17 11:13:45.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -58,21 +58,21 @@ Index: net-2.6/drivers/net/can/Kconfig
 +	  on.
 +
 +endmenu
-Index: net-2.6/drivers/net/can/Makefile
+Index: net-2.6.24/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/drivers/net/can/Makefile	2007-08-03 11:21:54.000000000 +0200
++++ net-2.6.24/drivers/net/can/Makefile	2007-09-17 11:13:45.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
 +#
 +
 +obj-$(CONFIG_CAN_VCAN)		+= vcan.o
-Index: net-2.6/drivers/net/can/vcan.c
+Index: net-2.6.24/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/drivers/net/can/vcan.c	2007-08-03 11:21:54.000000000 +0200
-@@ -0,0 +1,261 @@
++++ net-2.6.24/drivers/net/can/vcan.c	2007-09-17 11:17:45.000000000 +0200
+@@ -0,0 +1,260 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -272,7 +272,6 @@ Index: net-2.6/drivers/net/can/vcan.c
 +	dev->hard_start_xmit   = vcan_tx;
 +	dev->destructor        = free_netdev;
 +
-+	SET_MODULE_OWNER(dev);
 +}
 +
 +static int vcan_newlink(struct net_device *dev,
@@ -334,10 +333,10 @@ Index: net-2.6/drivers/net/can/vcan.c
 +
 +module_init(vcan_init_module);
 +module_exit(vcan_cleanup_module);
-Index: net-2.6/net/can/Kconfig
+Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.orig/net/can/Kconfig	2007-08-03 11:21:51.000000000 +0200
-+++ net-2.6/net/can/Kconfig	2007-08-03 11:21:54.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-17 11:12:30.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-17 11:13:45.000000000 +0200
 @@ -77,3 +77,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a

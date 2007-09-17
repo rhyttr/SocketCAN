@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   28 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1755 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1851 insertions(+)
+ net/can/bcm.c           | 1762 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1858 insertions(+)
 
-Index: net-2.6/include/linux/can/bcm.h
+Index: net-2.6.24/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/include/linux/can/bcm.h	2007-08-03 11:21:51.000000000 +0200
++++ net-2.6.24/include/linux/can/bcm.h	2007-09-17 11:12:30.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -83,10 +83,10 @@ Index: net-2.6/include/linux/can/bcm.h
 +#define RX_RTR_FRAME        0x0400
 +
 +#endif /* CAN_BCM_H */
-Index: net-2.6/net/can/Kconfig
+Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.orig/net/can/Kconfig	2007-08-03 11:21:48.000000000 +0200
-+++ net-2.6/net/can/Kconfig	2007-08-03 11:21:51.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-17 11:10:10.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-17 11:12:30.000000000 +0200
 @@ -42,6 +42,34 @@
  	  Say Y here if you want non-root users to be able to access CAN_RAW
  	  sockets.
@@ -122,10 +122,10 @@ Index: net-2.6/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: net-2.6/net/can/Makefile
+Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.orig/net/can/Makefile	2007-08-03 11:21:48.000000000 +0200
-+++ net-2.6/net/can/Makefile	2007-08-03 11:21:51.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-17 11:10:10.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-17 11:12:30.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -133,11 +133,11 @@ Index: net-2.6/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 +can-bcm-objs		:= bcm.o
-Index: net-2.6/net/can/bcm.c
+Index: net-2.6.24/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/bcm.c	2007-08-03 11:21:51.000000000 +0200
-@@ -0,0 +1,1755 @@
++++ net-2.6.24/net/can/bcm.c	2007-09-17 11:12:32.000000000 +0200
+@@ -0,0 +1,1762 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -197,6 +197,7 @@ Index: net-2.6/net/can/bcm.c
 +#include <linux/can/core.h>
 +#include <linux/can/bcm.h>
 +#include <net/sock.h>
++#include <net/net_namespace.h>
 +
 +/* use of last_frames[index].can_dlc */
 +#define RX_RECV    0x40 /* received data for this element */
@@ -322,7 +323,7 @@ Index: net-2.6/net/can/bcm.c
 +	if (!ifindex)
 +		return "any";
 +
-+	dev = __dev_get_by_index(ifindex); /* no usage counting */
++	dev = __dev_get_by_index(&init_net, ifindex); /* no usage counting */
 +	if (dev)
 +		return dev->name;
 +
@@ -431,8 +432,7 @@ Index: net-2.6/net/can/bcm.c
 +	if (!op->ifindex)
 +		return;
 +
-+	dev = dev_get_by_index(op->ifindex);
-+
++	dev = dev_get_by_index(&init_net, op->ifindex);
 +	if (!dev) {
 +		/* RFC: should this bcm_op remove itself here? */
 +		return;
@@ -952,7 +952,8 @@ Index: net-2.6/net/can/bcm.c
 +				if (op->rx_reg_dev) {
 +					struct net_device *dev;
 +
-+					dev = dev_get_by_index(op->ifindex);
++					dev = dev_get_by_index(&init_net,
++							       op->ifindex);
 +					if (dev) {
 +						bcm_rx_unreg(dev, op);
 +						dev_put(dev);
@@ -1412,8 +1413,9 @@ Index: net-2.6/net/can/bcm.c
 +		    "rx_op is %p\n", op->can_id, op);
 +
 +		if (ifindex) {
-+			struct net_device *dev = dev_get_by_index(ifindex);
++			struct net_device *dev;
 +
++			dev = dev_get_by_index(&init_net, ifindex);
 +			if (dev) {
 +				can_rx_register(dev, op->can_id,
 +						REGMASK(op->can_id),
@@ -1458,7 +1460,7 @@ Index: net-2.6/net/can/bcm.c
 +	DBG_FRAME("BCM: TX_SEND: sending frame",
 +		  (struct can_frame *)skb->data);
 +
-+	dev = dev_get_by_index(ifindex);
++	dev = dev_get_by_index(&init_net, ifindex);
 +	if (!dev) {
 +		kfree_skb(skb);
 +		return -ENODEV;
@@ -1502,8 +1504,9 @@ Index: net-2.6/net/can/bcm.c
 +		ifindex = addr->can_ifindex; /* ifindex from sendto() */
 +
 +		if (ifindex) {
-+			struct net_device *dev = dev_get_by_index(ifindex);
++			struct net_device *dev;
 +
++			dev = dev_get_by_index(&init_net, ifindex);
 +			if (!dev) {
 +				DBG("device %d not found\n", ifindex);
 +				return -ENODEV;
@@ -1598,6 +1601,9 @@ Index: net-2.6/net/can/bcm.c
 +
 +	DBG("msg %ld for dev %p (%s idx %d) sk %p bo->ifindex %d\n",
 +	    msg, dev, dev->name, dev->ifindex, sk, bo->ifindex);
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
 +	if (dev->type != ARPHRD_CAN)
 +		return NOTIFY_DONE;
@@ -1700,7 +1706,7 @@ Index: net-2.6/net/can/bcm.c
 +			if (op->rx_reg_dev) {
 +				struct net_device *dev;
 +
-+				dev = dev_get_by_index(op->ifindex);
++				dev = dev_get_by_index(&init_net, op->ifindex);
 +				if (dev) {
 +					bcm_rx_unreg(dev, op);
 +					dev_put(dev);
@@ -1742,8 +1748,9 @@ Index: net-2.6/net/can/bcm.c
 +
 +	/* bind a device to this socket */
 +	if (addr->can_ifindex) {
-+		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
++		struct net_device *dev;
 +
++		dev = dev_get_by_index(&init_net, addr->can_ifindex);
 +		if (!dev) {
 +			DBG("could not find device index %d\n",
 +			    addr->can_ifindex);
@@ -1874,8 +1881,8 @@ Index: net-2.6/net/can/bcm.c
 +
 +	can_proto_register(&bcm_can_proto);
 +
-+	/* create /proc/net/can/bcm directory */
-+	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
++	/* create /proc/net/can-bcm directory */
++	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
 +
 +	if (proc_dir)
 +		proc_dir->owner = THIS_MODULE;
@@ -1888,7 +1895,7 @@ Index: net-2.6/net/can/bcm.c
 +	can_proto_unregister(&bcm_can_proto);
 +
 +	if (proc_dir)
-+		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
++		proc_net_remove(&init_net, "can-"IDENT);
 +}
 +
 +module_init(bcm_module_init);

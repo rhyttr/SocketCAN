@@ -16,10 +16,10 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  net/core/sock.c          |    4 ++--
  5 files changed, 8 insertions(+), 3 deletions(-)
 
-Index: net-2.6/include/linux/if_arp.h
+Index: net-2.6.24/include/linux/if_arp.h
 ===================================================================
---- net-2.6.orig/include/linux/if_arp.h	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/include/linux/if_arp.h	2007-08-03 11:21:42.000000000 +0200
+--- net-2.6.24.orig/include/linux/if_arp.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/if_arp.h	2007-09-17 10:27:06.000000000 +0200
 @@ -52,6 +52,7 @@
  #define ARPHRD_ROSE	270
  #define ARPHRD_X25	271		/* CCITT X.25			*/
@@ -28,10 +28,10 @@ Index: net-2.6/include/linux/if_arp.h
  #define ARPHRD_PPP	512
  #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
  #define ARPHRD_HDLC	ARPHRD_CISCO
-Index: net-2.6/include/linux/if_ether.h
+Index: net-2.6.24/include/linux/if_ether.h
 ===================================================================
---- net-2.6.orig/include/linux/if_ether.h	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/include/linux/if_ether.h	2007-08-03 11:21:42.000000000 +0200
+--- net-2.6.24.orig/include/linux/if_ether.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/if_ether.h	2007-09-17 10:27:06.000000000 +0200
 @@ -90,6 +90,7 @@
  #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
  #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
@@ -40,10 +40,10 @@ Index: net-2.6/include/linux/if_ether.h
  #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
  #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
  #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
-Index: net-2.6/include/linux/socket.h
+Index: net-2.6.24/include/linux/socket.h
 ===================================================================
---- net-2.6.orig/include/linux/socket.h	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/include/linux/socket.h	2007-08-03 11:21:42.000000000 +0200
+--- net-2.6.24.orig/include/linux/socket.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/socket.h	2007-09-17 10:27:06.000000000 +0200
 @@ -185,6 +185,7 @@
  #define AF_PPPOX	24	/* PPPoX sockets		*/
  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
@@ -60,10 +60,10 @@ Index: net-2.6/include/linux/socket.h
  #define PF_TIPC		AF_TIPC
  #define PF_BLUETOOTH	AF_BLUETOOTH
  #define PF_IUCV		AF_IUCV
-Index: net-2.6/include/linux/tty.h
+Index: net-2.6.24/include/linux/tty.h
 ===================================================================
---- net-2.6.orig/include/linux/tty.h	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/include/linux/tty.h	2007-08-03 11:21:42.000000000 +0200
+--- net-2.6.24.orig/include/linux/tty.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/tty.h	2007-09-17 10:27:06.000000000 +0200
 @@ -24,7 +24,7 @@
  #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
  #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
@@ -81,11 +81,11 @@ Index: net-2.6/include/linux/tty.h
  
  /*
   * This character is the same as _POSIX_VDISABLE: it cannot be used as
-Index: net-2.6/net/core/sock.c
+Index: net-2.6.24/net/core/sock.c
 ===================================================================
---- net-2.6.orig/net/core/sock.c	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/net/core/sock.c	2007-08-03 11:21:42.000000000 +0200
-@@ -153,7 +153,7 @@
+--- net-2.6.24.orig/net/core/sock.c	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/net/core/sock.c	2007-09-17 10:27:06.000000000 +0200
+@@ -154,7 +154,7 @@
    "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
    "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
    "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
@@ -94,7 +94,7 @@ Index: net-2.6/net/core/sock.c
    "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
    "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
  };
-@@ -167,7 +167,7 @@
+@@ -168,7 +168,7 @@
    "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
    "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
    "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,

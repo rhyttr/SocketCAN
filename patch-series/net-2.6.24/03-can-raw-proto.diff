@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   26 +
  net/can/Makefile        |    3 
- net/can/raw.c           |  757 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 817 insertions(+)
+ net/can/raw.c           |  767 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 827 insertions(+)
 
-Index: net-2.6/include/linux/can/raw.h
+Index: net-2.6.24/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/include/linux/can/raw.h	2007-08-03 11:21:48.000000000 +0200
++++ net-2.6.24/include/linux/can/raw.h	2007-09-17 11:10:10.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -49,10 +49,10 @@ Index: net-2.6/include/linux/can/raw.h
 +};
 +
 +#endif
-Index: net-2.6/net/can/Kconfig
+Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.orig/net/can/Kconfig	2007-08-03 11:21:46.000000000 +0200
-+++ net-2.6/net/can/Kconfig	2007-08-03 11:21:48.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-17 10:30:35.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-17 11:10:10.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -86,10 +86,10 @@ Index: net-2.6/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: net-2.6/net/can/Makefile
+Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.orig/net/can/Makefile	2007-08-03 11:21:46.000000000 +0200
-+++ net-2.6/net/can/Makefile	2007-08-03 11:21:48.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-17 10:30:35.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-17 11:10:10.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -97,11 +97,11 @@ Index: net-2.6/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 +can-raw-objs		:= raw.o
-Index: net-2.6/net/can/raw.c
+Index: net-2.6.24/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/raw.c	2007-08-03 11:21:48.000000000 +0200
-@@ -0,0 +1,757 @@
++++ net-2.6.24/net/can/raw.c	2007-09-17 11:11:10.000000000 +0200
+@@ -0,0 +1,767 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -159,6 +159,7 @@ Index: net-2.6/net/can/raw.c
 +#include <linux/can/core.h>
 +#include <linux/can/raw.h>
 +#include <net/sock.h>
++#include <net/net_namespace.h>
 +
 +#define IDENT "raw"
 +#define CAN_RAW_VERSION CAN_VERSION
@@ -303,6 +304,9 @@ Index: net-2.6/net/can/raw.c
 +	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
 +	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
 +
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
 +	if (dev->type != ARPHRD_CAN)
 +		return NOTIFY_DONE;
 +
@@ -382,7 +386,9 @@ Index: net-2.6/net/can/raw.c
 +	/* remove current filters & unregister */
 +	if (ro->bound) {
 +		if (ro->ifindex) {
-+			struct net_device *dev = dev_get_by_index(ro->ifindex);
++			struct net_device *dev;
++
++			dev = dev_get_by_index(&init_net, ro->ifindex);
 +			if (dev) {
 +				raw_disable_filters(dev, sk);
 +				raw_disable_errfilter(dev, sk);
@@ -425,7 +431,9 @@ Index: net-2.6/net/can/raw.c
 +	if (ro->bound) {
 +		/* unregister current filters for this device */
 +		if (ro->ifindex) {
-+			struct net_device *dev = dev_get_by_index(ro->ifindex);
++			struct net_device *dev;
++
++			dev = dev_get_by_index(&init_net, ro->ifindex);
 +			if (dev) {
 +				raw_disable_filters(dev, sk);
 +				raw_disable_errfilter(dev, sk);
@@ -442,7 +450,9 @@ Index: net-2.6/net/can/raw.c
 +	}
 +
 +	if (addr->can_ifindex) {
-+		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
++		struct net_device *dev;
++
++		dev = dev_get_by_index(&init_net, addr->can_ifindex);
 +		if (!dev) {
 +			DBG("could not find device %d\n", addr->can_ifindex);
 +			err = -ENODEV;
@@ -560,7 +570,7 @@ Index: net-2.6/net/can/raw.c
 +		lock_sock(sk);
 +
 +		if (ro->bound && ro->ifindex)
-+			dev = dev_get_by_index(ro->ifindex);
++			dev = dev_get_by_index(&init_net, ro->ifindex);
 +
 +		/* remove current filters & unregister */
 +		if (ro->bound)
@@ -601,7 +611,7 @@ Index: net-2.6/net/can/raw.c
 +		lock_sock(sk);
 +
 +		if (ro->bound && ro->ifindex)
-+			dev = dev_get_by_index(ro->ifindex);
++			dev = dev_get_by_index(&init_net, ro->ifindex);
 +
 +		/* remove current error mask */
 +		if (ro->bound)
@@ -731,7 +741,7 @@ Index: net-2.6/net/can/raw.c
 +	} else
 +		ifindex = ro->ifindex;
 +
-+	dev = dev_get_by_index(ifindex);
++	dev = dev_get_by_index(&init_net, ifindex);
 +	if (!dev) {
 +		DBG("device %d not found\n", ifindex);
 +		return -ENXIO;

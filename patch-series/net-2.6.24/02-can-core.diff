@@ -10,21 +10,21 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can.h       |  113 +++++
- include/linux/can/core.h  |   80 +++
+ include/linux/can/core.h  |   78 +++
  include/linux/can/error.h |   93 ++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/can/Kconfig           |   25 +
  net/can/Makefile          |    6 
- net/can/af_can.c          |  995 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.c          | 1002 ++++++++++++++++++++++++++++++++++++++++++++++
  net/can/af_can.h          |  121 +++++
  net/can/proc.c            |  531 ++++++++++++++++++++++++
- 10 files changed, 1966 insertions(+)
+ 10 files changed, 1971 insertions(+)
 
-Index: net-2.6/include/linux/can.h
+Index: net-2.6.24/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/include/linux/can.h	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/include/linux/can.h	2007-09-17 10:27:09.000000000 +0200
 @@ -0,0 +1,113 @@
 +/*
 + * linux/can.h
@@ -139,11 +139,11 @@ Index: net-2.6/include/linux/can.h
 +#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
 +
 +#endif /* CAN_H */
-Index: net-2.6/include/linux/can/core.h
+Index: net-2.6.24/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/include/linux/can/core.h	2007-08-03 11:21:46.000000000 +0200
-@@ -0,0 +1,80 @@
++++ net-2.6.24/include/linux/can/core.h	2007-09-17 11:08:39.000000000 +0200
+@@ -0,0 +1,78 @@
 +/*
 + * linux/can/core.h
 + *
@@ -165,7 +165,7 @@ Index: net-2.6/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20070802"
++#define CAN_VERSION "20070916"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -173,8 +173,6 @@ Index: net-2.6/include/linux/can/core.h
 +#define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
 +
 +#define DNAME(dev) ((dev) ? (dev)->name : "any")
-+
-+#define CAN_PROC_DIR "net/can" /* /proc/... */
 +
 +/**
 + * struct can_proto - CAN protocol structure
@@ -224,10 +222,10 @@ Index: net-2.6/include/linux/can/core.h
 +#endif
 +
 +#endif /* CAN_CORE_H */
-Index: net-2.6/net/Kconfig
+Index: net-2.6.24/net/Kconfig
 ===================================================================
---- net-2.6.orig/net/Kconfig	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/net/Kconfig	2007-08-03 11:21:46.000000000 +0200
+--- net-2.6.24.orig/net/Kconfig	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/net/Kconfig	2007-09-17 10:27:09.000000000 +0200
 @@ -210,6 +210,7 @@
  endmenu
  
@@ -236,10 +234,10 @@ Index: net-2.6/net/Kconfig
  source "net/irda/Kconfig"
  source "net/bluetooth/Kconfig"
  source "net/rxrpc/Kconfig"
-Index: net-2.6/net/Makefile
+Index: net-2.6.24/net/Makefile
 ===================================================================
---- net-2.6.orig/net/Makefile	2007-08-03 11:21:32.000000000 +0200
-+++ net-2.6/net/Makefile	2007-08-03 11:21:46.000000000 +0200
+--- net-2.6.24.orig/net/Makefile	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/net/Makefile	2007-09-17 10:27:09.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -248,10 +246,10 @@ Index: net-2.6/net/Makefile
  obj-$(CONFIG_IRDA)		+= irda/
  obj-$(CONFIG_BT)		+= bluetooth/
  obj-$(CONFIG_SUNRPC)		+= sunrpc/
-Index: net-2.6/net/can/Kconfig
+Index: net-2.6.24/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/Kconfig	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-17 10:30:35.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -278,10 +276,10 @@ Index: net-2.6/net/can/Kconfig
 +	  Say Y here if you want the CAN core to produce a bunch of debug
 +	  messages to the system log.  Select this if you are having a
 +	  problem with CAN support and want to see more of what is going on.
-Index: net-2.6/net/can/Makefile
+Index: net-2.6.24/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/Makefile	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-17 10:30:35.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -289,11 +287,11 @@ Index: net-2.6/net/can/Makefile
 +
 +obj-$(CONFIG_CAN)	+= can.o
 +can-objs		:= af_can.o proc.o
-Index: net-2.6/net/can/af_can.c
+Index: net-2.6.24/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/af_can.c	2007-08-03 11:21:46.000000000 +0200
-@@ -0,0 +1,995 @@
++++ net-2.6.24/net/can/af_can.c	2007-09-17 11:06:52.000000000 +0200
+@@ -0,0 +1,1002 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -355,6 +353,7 @@ Index: net-2.6/net/can/af_can.c
 +#include <linux/skbuff.h>
 +#include <linux/can.h>
 +#include <linux/can/core.h>
++#include <net/net_namespace.h>
 +#include <net/sock.h>
 +
 +#include "af_can.h"
@@ -420,7 +419,7 @@ Index: net-2.6/net/can/af_can.c
 +		kfree(sk->sk_protinfo);
 +}
 +
-+static int can_create(struct socket *sock, int protocol)
++static int can_create(struct net *net, struct socket *sock, int protocol)
 +{
 +	struct sock *sk;
 +	struct can_proto *cp;
@@ -459,12 +458,15 @@ Index: net-2.6/net/can/af_can.c
 +	if (!cp || cp->type != sock->type)
 +		return -EPROTONOSUPPORT;
 +
++	if (net != &init_net)
++		return -EAFNOSUPPORT;
++
 +	if (cp->capability >= 0 && !capable(cp->capability))
 +		return -EPERM;
 +
 +	sock->ops = cp->ops;
 +
-+	sk = sk_alloc(PF_CAN, GFP_KERNEL, cp->prot, 1);
++	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot, 1);
 +	if (!sk)
 +		return -ENOMEM;
 +
@@ -924,7 +926,7 @@ Index: net-2.6/net/can/af_can.c
 +	DBG_FRAME("af_can: can_rcv: received CAN frame",
 +		  (struct can_frame *)skb->data);
 +
-+	if (dev->type != ARPHRD_CAN) {
++	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
 +		kfree_skb(skb);
 +		return 0;
 +	}
@@ -1035,6 +1037,9 @@ Index: net-2.6/net/can/af_can.c
 +
 +	DBG("msg %ld for dev %p (%s idx %d)\n",
 +	    msg, dev, dev->name, dev->ifindex);
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
 +	if (dev->type != ARPHRD_CAN)
 +		return NOTIFY_DONE;
@@ -1289,10 +1294,10 @@ Index: net-2.6/net/can/af_can.c
 +
 +module_init(can_init);
 +module_exit(can_exit);
-Index: net-2.6/net/can/af_can.h
+Index: net-2.6.24/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/af_can.h	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/net/can/af_can.h	2007-09-17 10:27:09.000000000 +0200
 @@ -0,0 +1,121 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
@@ -1415,10 +1420,10 @@ Index: net-2.6/net/can/af_can.h
 +extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
 +
 +#endif /* AF_CAN_H */
-Index: net-2.6/net/can/proc.c
+Index: net-2.6.24/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/net/can/proc.c	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/net/can/proc.c	2007-09-17 11:07:19.000000000 +0200
 @@ -0,0 +1,531 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
@@ -1885,11 +1890,11 @@ Index: net-2.6/net/can/proc.c
 +void can_init_proc(void)
 +{
 +	/* create /proc/net/can directory */
-+	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
++	can_dir = proc_mkdir("can", init_net.proc_net);
 +
 +	if (!can_dir) {
-+		printk(KERN_INFO "can: failed to create /proc/%s . "
-+		       "CONFIG_PROC_FS missing?\n", CAN_PROC_DIR);
++		printk(KERN_INFO "can: failed to create /proc/net/can . "
++		       "CONFIG_PROC_FS missing?\n");
 +		return;
 +	}
 +
@@ -1949,12 +1954,12 @@ Index: net-2.6/net/can/proc.c
 +		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 +
 +	if (can_dir)
-+		remove_proc_entry(CAN_PROC_DIR, NULL);
++		proc_net_remove(&init_net, "can");
 +}
-Index: net-2.6/include/linux/can/error.h
+Index: net-2.6.24/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6/include/linux/can/error.h	2007-08-03 11:21:46.000000000 +0200
++++ net-2.6.24/include/linux/can/error.h	2007-09-17 10:27:09.000000000 +0200
 @@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h

@@ -11,10 +11,10 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  MAINTAINERS |    9 +++++++++
  2 files changed, 25 insertions(+)
 
-Index: net-2.6/CREDITS
+Index: net-2.6.24/CREDITS
 ===================================================================
---- net-2.6.orig/CREDITS	2007-08-03 11:21:31.000000000 +0200
-+++ net-2.6/CREDITS	2007-08-03 11:21:56.000000000 +0200
+--- net-2.6.24.orig/CREDITS	2007-09-17 10:26:57.000000000 +0200
++++ net-2.6.24/CREDITS	2007-09-17 10:27:21.000000000 +0200
 @@ -1331,6 +1331,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
@@ -45,11 +45,11 @@ Index: net-2.6/CREDITS
  N: Jon Tombs
  E: jon@gte.esi.us.es
  W: http://www.esi.us.es/~jon
-Index: net-2.6/MAINTAINERS
+Index: net-2.6.24/MAINTAINERS
 ===================================================================
---- net-2.6.orig/MAINTAINERS	2007-08-03 11:21:31.000000000 +0200
-+++ net-2.6/MAINTAINERS	2007-08-03 11:21:56.000000000 +0200
-@@ -951,6 +951,15 @@
+--- net-2.6.24.orig/MAINTAINERS	2007-09-17 10:26:57.000000000 +0200
++++ net-2.6.24/MAINTAINERS	2007-09-17 10:27:21.000000000 +0200
+@@ -975,6 +975,15 @@
  L:	video4linux-list@redhat.com
  S:	Maintained
  
