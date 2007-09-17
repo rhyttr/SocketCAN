@@ -47,7 +47,7 @@ This file contains
 
 The socketcan package is an implementation of CAN protocols
 (Controller Area Network) for Linux.  CAN is a networking technology
-which has wide-spread use in automation, embedded devices, and
+which has widespread use in automation, embedded devices, and
 automotive fields.  While there have been other CAN implementations
 for Linux based on character devices, Socket CAN uses the Berkeley
 socket API, the Linux network stack and implements the CAN device
@@ -77,15 +77,15 @@ new driver's API.
 Socket CAN was designed to overcome all of these limitations.  A new
 protocol family has been implemented which provides a socket interface
 to user space applications and which builds upon the Linux network
-layer, so to use all of the provided queueing functionality.  Device
-drivers for CAN controller hardware register itself with the Linux
+layer, so to use all of the provided queueing functionality.  A device
+driver for CAN controller hardware registers itself with the Linux
 network layer as a network device, so that CAN frames from the
 controller can be passed up to the network layer and on to the CAN
 protocol family module and also vice-versa.  Also, the protocol family
 module provides an API for transport protocol modules to register, so
 that any number of transport protocols can be loaded or unloaded
 dynamically.  In fact, the can core module alone does not provide any
-protocol and can not be used without loading at least one additional
+protocol and cannot be used without loading at least one additional
 protocol module.  Multiple sockets can be opened at the same time,
 on different or the same protocol module and they can listen/send
 frames on different or the same CAN IDs.  Several sockets listening on
@@ -111,7 +111,7 @@ solution for a couple of reasons:
 * Abstraction.  In most existing character-device implementations, the
   hardware-specific device driver for a CAN controller directly
   provides the character device for the application to work with.
-  This is at least very unusual in Unix systems, for both, char and
+  This is at least very unusual in Unix systems, for both char and
   block devices.  For example you don't have a character device for a
   certain UART of a serial interface, a certain sound chip in your
   computer, a SCSI or IDE controller providing access to your hard
@@ -126,9 +126,9 @@ solution for a couple of reasons:
   without such a (complete) abstraction layer, as is done by most
   existing drivers.  The right way, however, would be to add such a
   layer with all the functionality like registering for certain CAN
-  IDs, supporting several open file descriptors and (de)multplexing
+  IDs, supporting several open file descriptors and (de)multiplexing
   CAN frames between them, (sophisticated) queueing of CAN frames, and
-  providing an API for device driver to register with.  However, then
+  providing an API for device drivers to register with.  However, then
   it would be no more difficult, or may be even easier, to use the
   networking framework provided by the Linux kernel, and this is what
   Socket CAN does.
@@ -141,18 +141,18 @@ solution for a couple of reasons:
 
   As described in chapter 2 it is the main goal of Socket CAN to
   provide a socket interface to user space applications which builds
-  upon the Linux networklayer. In opposite to the commonly known
-  TCP/IP and ethernet networking the CAN bus is a broadcast-only(!)
-  medium that has no MAC-layer adressing like ethernet. The CAN-identifier
+  upon the Linux networklayer. In contrast to the commonly known
+  TCP/IP and ethernet networking, the CAN bus is a broadcast-only(!)
+  medium that has no MAC-layer addressing like ethernet. The CAN-identifier
   (can_id) is used for arbitration on the CAN-bus. Therefore the CAN-IDs
-  have to be choosen unique on the bus. When designing a CAN-ECU
+  have to be chosen uniquely on the bus. When designing a CAN-ECU
   network the CAN-IDs are mapped to be sent by a specific ECU.
-  For this reason a CAN-ID can be treatened best as a kind of source address.
+  For this reason a CAN-ID can be treated best as a kind of source address.
 
   3.1 receive lists
 
   The network transparent access of multiple applications leads to the
-  problem that different applications may be interrested in the same
+  problem that different applications may be interested in the same
   CAN-IDs from the same CAN network interface. The Socket CAN core
   module - which implements the protocol family CAN - provides several
   high efficient receive lists for this reason. If e.g. a user space
@@ -170,7 +170,7 @@ solution for a couple of reasons:
 
   As known from other networking concepts the data exchanging
   applications may run on the same or different nodes without any
-  change (except if the according addressing information):
+  change (except for the according addressing information):
 
          ___   ___   ___                   _______   ___
         | _ | | _ | | _ |                 | _   _ | | _ |
@@ -180,23 +180,23 @@ solution for a couple of reasons:
         -----------------(1)- CAN bus -(2)---------------
 
   To ensure that application A receives the same information in the
-  expample (2) as it would receive in example (1) there is need for
+  example (2) as it would receive in example (1) there is need for
   some kind of local loopback on the appropriate node.
 
   The Linux network devices (by default) just can handle the
-  transmission and receiption of media dependend frames. Due to the
+  transmission and reception of media dependent frames. Due to the
   arbritration on the CAN bus the transmission of a low prio CAN-ID
-  may be delayed from the receipition of a high prio CAN frame. To
+  may be delayed by the recepition of a high prio CAN frame. To
   reflect the correct* traffic on the node the loopback of the sent
   data has to be performed right after a successful transmission. If
-  the CAN network interface is not capable to perform the loopback for
+  the CAN network interface is not capable of performing the loopback for
   some reason the SocketCAN core can do this task as a fallback solution.
   See chapter 6.2 for details (recommended).
 
   The loopback functionality is enabled by default to reflect standard
   networking behaviour for CAN applications. Due to some requests from
   the RT-SocketCAN group the loopback optionally may be disabled for each
-  seperate socket. See sockopts from the CAN RAW sockets in chapter 4.1 .
+  separate socket. See sockopts from the CAN RAW sockets in chapter 4.1.
 
   * = you really like to have this when you're running analyser tools
       like 'candump' or 'cansniffer' on the (same) node.
@@ -222,16 +222,16 @@ solution for a couple of reasons:
   layer problems is a vital requirement for CAN users to identify
   hardware issues on the physical transceiver layer as well as
   arbitration problems and error frames caused by the different
-  ECUs. The occurance of detected errors are important for diagnosis
+  ECUs. The occurrence of detected errors are important for diagnosis
   and have to be logged together with the exact timestamp. For this
   reason the CAN interface driver can generate so called Error Frames
-  that can optionally be passed to the user application on the same
-  way like other CAN frames. Whenever an error on the physical layer
+  that can optionally be passed to the user application in the same
+  way as other CAN frames. Whenever an error on the physical layer
   or the MAC layer is detected (e.g. by the CAN controller) the driver
   creates an appropriate error frame. Error frames can be requested by
   the user application using the common CAN filter mechanisms. Inside
-  this filter definition the (interrested) type of errors may be
-  selected. The receiption of error frames is disabled by default.
+  this filter definition the (interested) type of errors may be
+  selected. The reception of error frames is disabled by default.
 
 4. How to use Socket CAN
 ------------------------
@@ -251,7 +251,7 @@ solution for a couple of reasons:
 
   respectively.  After the successful creation of the socket, you would
   normally use the bind(2) system call to bind the socket to a CAN
-  interface (which is different to TCP/IP due to different addressing
+  interface (which is different from TCP/IP due to different addressing
   - see chapter 3). After binding (CAN_RAW) or connecting (CAN_BCM)
   the socket, you can read(2) and write(2) from/to the socket or use
   send(2), sendto(2), sendmsg(2) and the recv* counterpart operations
@@ -288,7 +288,7 @@ solution for a couple of reasons:
             } can_addr;
     };
 
-  To determine the interface index the an appropriate ioctl() has to
+  To determine the interface index an appropriate ioctl() has to
   be used (example for CAN_RAW sockets without error checking):
 
     int s;
@@ -307,7 +307,7 @@ solution for a couple of reasons:
 
     (..)
 
-  To bind a socket to all(!) CAN interfaces the interface index might
+  To bind a socket to all(!) CAN interfaces the interface index must
   be 0 (zero). In this case the socket receives CAN frames from every
   enabled CAN interface. To determine the originating CAN interface
   the system call recvfrom(2) may be used instead of read(2). To send
@@ -334,7 +334,7 @@ solution for a couple of reasons:
 
     /* do something with the received CAN frame */
 
-  Writing CAN frames can be done analogue with the write(2) system call:
+  Writing CAN frames can be done similarly, with the write(2) system call:
 
     nbytes = write(s, &frame, sizeof(struct can_frame));
 
@@ -371,20 +371,20 @@ solution for a couple of reasons:
   Using CAN_RAW sockets is extensively comparable to the commonly
   known access to CAN character devices. To meet the new possibilities
   provided by the multi user SocketCAN approach, some reasonable
-  defaults are set at RAW socket bindung time:
+  defaults are set at RAW socket binding time:
 
   - The filters are set to exactly one filter receiving everything
   - The socket only receives valid data frames (=> no error frames)
   - The loopback of sent CAN frames is enabled (see chapter 3.2)
-  - The socket does not receive it's own sent frames (in loopback mode)
+  - The socket does not receive its own sent frames (in loopback mode)
 
   These default settings may be changed before or after binding the socket.
   To use the referenced definitions of the socket options for CAN_RAW
-  sockets include linux/can/raw.h .
+  sockets, include <linux/can/raw.h>.
 
   4.1.1 RAW socket option CAN_RAW_FILTER
 
-  The receiption of CAN frames using CAN_RAW sockets can be controlled
+  The reception of CAN frames using CAN_RAW sockets can be controlled
   by defining 0 .. n filters with the CAN_RAW_FILTER socket option.
 
   The CAN filter structure is defined in include/linux/can.h:
@@ -398,10 +398,10 @@ solution for a couple of reasons:
 
     <received_can_id> & mask == can_id & mask
 
-  which is analogue to known CAN controllers hardware filter semantics.
+  which is analogous to known CAN controllers hardware filter semantics.
   The filter can be inverted in this semantic, when the CAN_INV_FILTER
   bit is set in can_id element of the can_filter structure. In
-  opposite to CAN controller hardware filters the user may set 0 .. n
+  contrast to CAN controller hardware filters the user may set 0 .. n
   receive filters for each open socket separately:
 
     struct can_filter rfilter[2];
@@ -413,11 +413,11 @@ solution for a couple of reasons:
 
     setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
 
-  To disable the receiption of CAN frames on the selected CAN_RAW socket:
+  To disable the reception of CAN frames on the selected CAN_RAW socket:
 
     setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
 
-  To set the filters to zero filters is quite obsolete as not readed
+  To set the filters to zero filters is quite obsolete as not read
   data causes the raw socket to discard the received CAN frames. But
   having this 'send only' use-case we may remove the receive list in the
   Kernel to save a little (really a very little!) CPU usage.
@@ -426,8 +426,8 @@ solution for a couple of reasons:
 
   As described in chapter 3.4 the CAN interface driver can generate so
   called Error Frames that can optionally be passed to the user
-  application on the same way like other CAN frames. The possible
-  errors are devided into different error classes that may be filtered
+  application in the same way as other CAN frames. The possible
+  errors are divided into different error classes that may be filtered
   using the appropriate error mask. To register for every possible
   error condition CAN_ERR_MASK can be used as value for the error mask.
   The values for the error mask are defined in linux/can/error.h .
@@ -453,12 +453,12 @@ solution for a couple of reasons:
   When the local loopback is enabled, all the sent CAN frames are
   looped back to the open CAN sockets that registered for the CAN
   frames' CAN-ID on this given interface to meet the multi user
-  needs. The receiption of the CAN frames on the same socket that was
+  needs. The reception of the CAN frames on the same socket that was
   sending the CAN frame is assumed to be unwanted and therefore
   disabled by default. This default behaviour may be changed on
   demand:
 
-    int set_recv_own_msgs = 1; /* 0 = disabled (default), 1 = enabled */
+    int recv_own_msgs = 1; /* 0 = disabled (default), 1 = enabled */
 
     setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
                &recv_own_msgs, sizeof(recv_own_msgs));
@@ -481,7 +481,7 @@ solution for a couple of reasons:
   - stats_timer: To calculate the Socket CAN core statistics
     (e.g. current/maximum frames per second) this 1 second timer is
     invoked at can.ko module start time by default. This timer can be
-    disabled giving stattimer=0 on the module comandline.
+    disabled by using stattimer=0 on the module comandline.
 
   - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
     compile time, the debug output code is compiled into the module.
@@ -489,7 +489,7 @@ solution for a couple of reasons:
     debug = 0x02 => print content of processed CAN frames
     debug = 0x04 => print content of processed socket buffers
 
-    It is possible or have ORed values e.g. 3 or 7 for an output off
+    It is possible to use ORed values e.g. 3 or 7 for an output of
     all available debug information. Using 0x02 and 0x04 may flood
     your kernel log - so be careful.
 
@@ -532,7 +532,7 @@ solution for a couple of reasons:
   protocol has to be defined in include/linux/can.h .
   The prototypes and definitions to use the Socket CAN core can be
   accessed by including include/linux/can/core.h .
-  Additionally to functions that register the CAN protocol and the
+  In addition to functions that register the CAN protocol and the
   CAN device notifier chain there are functions to subscribe CAN
   frames received by CAN interfaces and to send CAN frames:
 
@@ -547,7 +547,7 @@ solution for a couple of reasons:
 ----------------------
 
   Writing a CAN network device driver is much easier than writing a
-  CAN character device driver. Analogue to other know network device
+  CAN character device driver. Similar to other known network device
   drivers you mainly have to deal with:
 
   - TX: Put the CAN frame from the socket buffer to the CAN controller.
@@ -569,8 +569,8 @@ solution for a couple of reasons:
   6.2 loopback
 
   As described in chapter 3.2 the CAN network device driver should
-  support a local loopback functionality. If so the driver flag
-  IFF_LOOPBACK has to be set to omit the PF_CAN core to perform the
+  support a local loopback functionality. In this case the driver flag
+  IFF_LOOPBACK has to be set to cause the PF_CAN core to not perform the
   loopback as fallback solution:
 
     dev->flags = (IFF_NOARP | IFF_LOOPBACK);
@@ -604,7 +604,7 @@ solution for a couple of reasons:
              serial line ASCII protocol (for serial / USB adaptors)
 
   Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
-  from PEAK Systemtechnik support the CAN netdevice driver modell
+  from PEAK Systemtechnik support the CAN netdevice driver model
   since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
 
   Please check the Mailing Lists on the berlios OSS project website.
