@@ -16,7 +16,8 @@ Since our last post we have changed the following:
 
 The changes in try #4 were:
 
-* Change vcan network driver to use the new RTNL API.
+* Change vcan network driver to use the new RTNL API, as suggested by
+  Patrick.
 * Revert our change to use skb->iif instead of skb->cb.  After
   discussion with Patrick and Jamal it turned out, our first
   implementation was correct.
