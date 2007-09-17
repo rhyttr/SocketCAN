@@ -206,19 +206,17 @@ static int can_create(struct socket *sock, int protocol)
 
 	sock->ops = cp->ops;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot, 1);
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, cp->prot, 1);
+#else
+	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1, 0);
 #endif
 	if (!sk)
 		return -ENOMEM;
-#else
-	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1, 0);
-	if (!sk)
-		return -ENOMEM;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,12)
 	if (cp->obj_size) {
 		sk->sk_protinfo = kmalloc(cp->obj_size, GFP_KERNEL);
 		if (!sk->sk_protinfo) {
@@ -696,7 +694,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 		  (struct can_frame *)skb->data);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	if ((dev->type != ARPHRD_CAN) || (dev->nd_net != &init_net)) {
+	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
 #else
 	if (dev->type != ARPHRD_CAN) {
 #endif
