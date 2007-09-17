@@ -4,10 +4,14 @@ ESUBJECT
 
 Hello Dave,
 
-this is the sixth post of the patch series that adds the PF_CAN
+this is the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
+
+* Typos in documentation as pointd out by Randy Dunlap.
+
+The changes in try #6 were:
 
 * Update code to work with namespaces in net-2.6.24.
 * Remove SET_MODULE_OWNER() from vcan.
@@ -67,7 +71,7 @@ The changes in try #2 were:
 
 
 This patch series applies against net-2.6.24 and is derived from Subversion
-revision r466 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r469 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 
