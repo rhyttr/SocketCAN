@@ -498,6 +498,7 @@ static void chipset_init_trx(struct net_device *dev)
 static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct can_priv  *priv	= netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 	struct can_frame *cf	= (struct can_frame*)skb->data;
 	unsigned long base	= dev->base_addr;
 	uint8_t	fi;
@@ -536,7 +537,7 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	hw_writereg(base, REG_CMR, CMD_TR);
 
-	priv->stats.tx_bytes += dlc;
+	stats->tx_bytes += dlc;
 
 	dev->trans_start = jiffies;
 
@@ -589,8 +590,9 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void can_tx_timeout(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 
-	priv->stats.tx_errors++;
+	stats->tx_errors++;
 
 	/* do not conflict with e.g. bus error handling */
 	if (!(priv->timer.expires)){ /* no restart on the run */
@@ -668,8 +670,8 @@ static void can_restart_now(struct net_device *dev)
 
 static void can_rx(struct net_device *dev)
 {
-	struct can_priv *priv	= netdev_priv(dev);
-	unsigned long base	= dev->base_addr;
+	struct net_device_stats *stats = dev->get_stats(dev);
+	unsigned long base = dev->base_addr;
 	struct can_frame *cf;
 	struct sk_buff	*skb;
 	uint8_t	fi;
@@ -722,10 +724,11 @@ static void can_rx(struct net_device *dev)
 	netif_rx(skb);
 
 	dev->last_rx = jiffies;
-	priv->stats.rx_packets++;
-	priv->stats.rx_bytes += dlc;
+	stats->rx_packets++;
+	stats->rx_bytes += dlc;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static struct net_device_stats *can_get_stats(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -733,6 +736,7 @@ static struct net_device_stats *can_get_stats(struct net_device *dev)
 	/* TODO: read statistics from chip */
 	return &priv->stats;
 }
+#endif
 
 static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
@@ -761,6 +765,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev	= (struct net_device*)dev_id;
 	struct can_priv *priv	= netdev_priv(dev);
+	struct net_device_stats *stats = dev->get_stats(dev);
 	unsigned long base	= dev->base_addr;
 	uint8_t isrc, status, ecc, alc;
 	int n = 0;
@@ -795,7 +800,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 		}
 		if (isrc & IRQ_TI) {
 			/* transmission complete interrupt */
-			priv->stats.tx_packets++;
+			stats->tx_packets++;
 
 			if (loopback && priv->loop_skb) {
 				netif_rx(priv->loop_skb);
@@ -943,8 +948,10 @@ static int can_open(struct net_device *dev)
 		return -EAGAIN;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	/* clear statistics */
 	memset(&priv->stats, 0, sizeof(priv->stats));
+#endif
 
 	/* init chip */
 	chipset_init(dev, 0);
@@ -1031,7 +1038,9 @@ void can_netdev_setup(struct net_device *dev)
 	dev->open			= can_open;
 	dev->stop			= can_close;
 	dev->hard_start_xmit		= can_start_xmit;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats			= can_get_stats;
+#endif
 	dev->do_ioctl           	= can_ioctl;
 
 	dev->tx_timeout			= can_tx_timeout;

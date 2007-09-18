@@ -162,7 +162,9 @@
 /* CAN private data structure */
 
 struct can_priv {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats	stats;
+#endif
 	struct can_device_stats	can_stats;
 	long			open_time;
 	int			clock;
