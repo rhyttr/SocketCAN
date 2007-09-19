@@ -70,8 +70,7 @@ struct can_frame {
 #define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
 #define CAN_MCNET	5 /* Bosch MCNet */
 #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
-#define CAN_BAP		7 /* VAG Bedien- und Anzeigeprotokoll */
-#define CAN_NPROTO	8
+#define CAN_NPROTO	7
 
 #define SOL_CAN_BASE 100
 
@@ -89,7 +88,6 @@ struct sockaddr_can {
 		struct { canid_t rx_id, tx_id; } tp20;
 		struct { canid_t rx_id, tx_id; } mcnet;
 		struct { canid_t rx_id, tx_id; } isotp;
-		struct { int     lcu,   type;  } bap;
 	} can_addr;
 };
 
