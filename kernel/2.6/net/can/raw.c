@@ -825,17 +825,14 @@ static __init int raw_module_init(void)
 
 	err = can_proto_register(&raw_can_proto);
 	if (err < 0)
-		printk("can: registration of raw protocol failed\n");
+		printk(KERN_ERR "can: registration of raw protocol failed\n");
 
 	return err;
 }
 
 static __exit void raw_module_exit(void)
 {
-	int err;
-
-	err = can_proto_unregister(&raw_can_proto);
-	WARN_ON(err < 0);
+	can_proto_unregister(&raw_can_proto);
 }
 
 module_init(raw_module_init);

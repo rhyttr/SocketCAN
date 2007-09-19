@@ -509,20 +509,14 @@ static void can_rx_delete_receiver(struct rcu_head *rp)
  *
  * Description:
  *  Removes subscription entry depending on given (subscription) values.
- *
- * Return:
- *  0 on success
- *  -EINVAL on missing subscription entry
- *  -ENODEV unknown device
  */
-int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
-		      void (*func)(struct sk_buff *, void *), void *data)
+void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+		       void (*func)(struct sk_buff *, void *), void *data)
 {
 	struct receiver *r = NULL;
 	struct hlist_head *rl;
 	struct hlist_node *next;
 	struct dev_rcv_lists *d;
-	int ret = 0;
 
 	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p\n",
 	    dev, DNAME(dev), can_id, mask, func, data);
@@ -531,9 +525,9 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
-		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    DNAME(dev), can_id, mask);
-		ret = -ENODEV;
+		printk(KERN_ERR "BUG: receive list not found for "
+		       "dev %s, id %03X, mask %03X\n",
+		       DNAME(dev), can_id, mask);
 		goto out;
 	}
 
@@ -558,9 +552,9 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	 */
 
 	if (!next) {
-		DBG("receive list entry not found for "
-		    "dev %s, id %03X, mask %03X\n", DNAME(dev), can_id, mask);
-		ret = -EINVAL;
+		printk(KERN_ERR "BUG: receive list entry not found for "
+		       "dev %s, id %03X, mask %03X\n",
+		       DNAME(dev), can_id, mask);
 		r = NULL;
 		d = NULL;
 		goto out;
@@ -590,8 +584,6 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	/* schedule the device structure for deletion */
 	if (d)
 		call_rcu(&d->rcu, can_rx_delete_device);
-
-	return ret;
 }
 EXPORT_SYMBOL(can_rx_unregister);
 
@@ -779,25 +771,20 @@ EXPORT_SYMBOL(can_proto_register);
 /**
  * can_proto_unregister - unregister CAN transport protocol
  * @cp: pointer to CAN protocol structure
- *
- * Return:
- *  0 on success
- *  -ESRCH protocol number was not registered
  */
-int can_proto_unregister(struct can_proto *cp)
+void can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
 
 	if (!proto_tab[proto]) {
-		printk(KERN_ERR "can: protocol %d is not registered\n", proto);
-		return -ESRCH;
+		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
+		       proto);
+		return;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	proto_unregister(cp->prot);
 #endif
 	proto_tab[proto] = NULL;
-
-	return 0;
 }
 EXPORT_SYMBOL(can_proto_unregister);
 

@@ -1859,7 +1859,7 @@ static int __init bcm_module_init(void)
 
 	err = can_proto_register(&bcm_can_proto);
 	if (err < 0) {
-		printk("can: registration of bcm protocol failed\n");
+		printk(KERN_ERR "can: registration of bcm protocol failed\n");
 		return err;
 	}
 
@@ -1878,10 +1878,7 @@ static int __init bcm_module_init(void)
 
 static void __exit bcm_module_exit(void)
 {
-	int err;
-
-	err = can_proto_unregister(&bcm_can_proto);
-	WARN_ON(err < 0);
+	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
