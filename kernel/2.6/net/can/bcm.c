@@ -1146,7 +1146,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 	int do_rx_register;
-	int err;
+	int err = 0;
 
 	if ((msg_head->flags & RX_FILTER_ID) || (!(msg_head->nframes))) {
 		/* be robust against wrong usage ... */
@@ -1356,16 +1356,22 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			dev = dev_get_by_index(ifindex);
 #endif
 			if (dev) {
-				can_rx_register(dev, op->can_id,
-						REGMASK(op->can_id),
-						bcm_rx_handler, op, IDENT);
-				op->rx_reg_dev = dev;
+				err = can_rx_register(dev, op->can_id,
+						      REGMASK(op->can_id),
+						      bcm_rx_handler, op,
+						      IDENT);
+				if (!err)
+					op->rx_reg_dev = dev;
+
 				dev_put(dev);
 			}
 
 		} else
-			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
-					bcm_rx_handler, op, IDENT);
+			err = can_rx_register(NULL, op->can_id,
+					      REGMASK(op->can_id),
+					      bcm_rx_handler, op, IDENT);
+		if (err)
+			return err;
 	}
 
 	return msg_head->nframes * CFSIZ + MHSIZ;
