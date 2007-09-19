@@ -220,7 +220,7 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case SIOCGCANFILTER:
 		break;
 	case SIOCGCANSTATE:
-		if(can->do_get_state)
+		if (can->do_get_state)
 			return can->do_get_state(dev, (can_state_t *)(&ifr->ifr_ifru));
 		break;
 	case SIOCGCANSTATS:

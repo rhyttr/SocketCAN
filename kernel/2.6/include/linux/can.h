@@ -1,7 +1,7 @@
 /*
  * linux/can.h
  *
- * Definitions for CAN networklayer (socket addr / CAN frame / CAN filter)
+ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
  *
  * $Id$
  *
