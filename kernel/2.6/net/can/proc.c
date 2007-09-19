@@ -118,7 +118,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 	if (oldjif == newjif)
 		return 0;
 
-	/* see can_rcv() - this should NEVER happen! */
+	/* see can_stat_update() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
 		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
 		       count);
@@ -186,7 +186,7 @@ void can_stat_update(unsigned long data)
 	stats.matches_delta   = 0;
 
 	/* restart timer (one second) */
-	stattimer.expires = jiffies + HZ;
+	stattimer.expires = round_jiffies(jiffies + HZ);
 	add_timer(&stattimer);
 }
 

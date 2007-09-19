@@ -189,9 +189,9 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
  * @tv: pointer to timeval
  *
  * Description:
- * In opposite to timeval_to_jiffies() provided in include/linux/jiffies.h this
- * function is intentionally more relaxed on precise timer ticks to get exact
- * one jiffy for requested 1000us on a 1000HZ machine.
+ * Unlike timeval_to_jiffies() provided in include/linux/jiffies.h, this
+ * function is intentionally more relaxed on precise timer ticks to get
+ * exact one jiffy for requested 1000us on a 1000HZ machine.
  * This code is to be removed when upgrading to kernel hrtimer.
  *
  * Return:
@@ -424,7 +424,14 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 #endif
 	}
 
-	/* restore originator for recvfrom() */
+	/*
+	 *  Put the datagram to the queue so that bcm_recvmsg() can
+	 *  get it from there.  We need to pass the interface index to
+	 *  bcm_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
+	 *  containing the interface index.
+	 */
+
+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));
 	addr->can_family  = AF_CAN;
@@ -1797,7 +1804,7 @@ static unsigned int bcm_poll(struct file *file, struct socket *sock,
 	return mask;
 }
 
-static struct proto_ops bcm_ops = {
+static struct proto_ops bcm_ops __read_mostly = {
 	.family        = PF_CAN,
 	.release       = bcm_release,
 	.bind          = sock_no_bind,
@@ -1818,14 +1825,14 @@ static struct proto_ops bcm_ops = {
 };
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-static struct proto bcm_proto = {
+static struct proto bcm_proto __read_mostly = {
 	.name       = "CAN_BCM",
 	.owner      = THIS_MODULE,
 	.obj_size   = sizeof(struct bcm_sock),
 	.init       = bcm_init,
 };
 
-static struct can_proto bcm_can_proto = {
+static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
 	.capability = BCM_CAP,
@@ -1833,7 +1840,7 @@ static struct can_proto bcm_can_proto = {
 	.prot       = &bcm_proto,
 };
 #else
-static struct can_proto bcm_can_proto = {
+static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
 	.capability = BCM_CAP,
@@ -1846,9 +1853,15 @@ static struct can_proto bcm_can_proto = {
 
 static int __init bcm_module_init(void)
 {
+	int err;
+
 	printk(banner);
 
-	can_proto_register(&bcm_can_proto);
+	err = can_proto_register(&bcm_can_proto);
+	if (err < 0) {
+		printk("can: registration of bcm protocol failed\n");
+		return err;
+	}
 
 	/* create /proc/net/can-bcm directory */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
@@ -1865,7 +1878,10 @@ static int __init bcm_module_init(void)
 
 static void __exit bcm_module_exit(void)
 {
-	can_proto_unregister(&bcm_can_proto);
+	int err;
+
+	err = can_proto_unregister(&bcm_can_proto);
+	WARN_ON(err < 0);
 
 	if (proc_dir)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)

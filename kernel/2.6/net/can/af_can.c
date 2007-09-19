@@ -85,12 +85,12 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 
 MODULE_ALIAS_NETPROTO(PF_CAN);
 
-int stats_timer = 1; /* default: on */
+static int stats_timer __read_mostly = 1;
 module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug;
+static int debug __read_mostly;
 module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
@@ -106,7 +106,7 @@ static kmem_cache_t *rcv_cache;
 #endif
 
 /* table of registered CAN protocols */
-static struct can_proto *proto_tab[CAN_NPROTO];
+static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
 
 struct timer_list stattimer; /* timer for statistics update */
 struct s_stats  stats;       /* packet statistics */
@@ -171,6 +171,11 @@ static int can_create(struct socket *sock, int protocol)
 	if (protocol < 0 || protocol >= CAN_NPROTO)
 		return -EINVAL;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	if (net != &init_net)
+		return -EAFNOSUPPORT;
+#endif
+
 	DBG("looking up proto %d in proto_tab[]\n", protocol);
 
 	/* try to load protocol module, when CONFIG_KMOD is defined */
@@ -195,11 +200,6 @@ static int can_create(struct socket *sock, int protocol)
 	cp = proto_tab[protocol];
 	if (!cp || cp->type != sock->type)
 		return -EPROTONOSUPPORT;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	if (net != &init_net)
-		return -EAFNOSUPPORT;
-#endif
 
 	if (cp->capability >= 0 && !capable(cp->capability))
 		return -EPERM;
@@ -836,8 +836,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 
 		DBG("creating new dev_rcv_lists for %s\n", dev->name);
 
-		d = kzalloc(sizeof(*d),
-			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		BUG_ON(in_interrupt());
+		d = kzalloc(sizeof(*d), GFP_KERNEL);
 		if (!d) {
 			printk(KERN_ERR
 			       "can: allocation of receive list failed\n");
@@ -982,20 +982,20 @@ EXPORT_SYMBOL(can_debug_skb);
  * af_can module init/exit functions
  */
 
-static struct packet_type can_packet = {
+static struct packet_type can_packet __read_mostly = {
 	.type = __constant_htons(ETH_P_CAN),
 	.dev  = NULL,
 	.func = can_rcv,
 };
 
-static struct net_proto_family can_family_ops = {
+static struct net_proto_family can_family_ops __read_mostly = {
 	.family = PF_CAN,
 	.create = can_create,
 	.owner  = THIS_MODULE,
 };
 
 /* notifier block for netdevice event */
-static struct notifier_block can_netdev_notifier = {
+static struct notifier_block can_netdev_notifier __read_mostly = {
 	.notifier_call = can_notifier,
 };
 
@@ -1029,7 +1029,7 @@ static __init int can_init(void)
 		stattimer.function = can_stat_update;
 		stattimer.data = 0;
 		/* update every second */
-		stattimer.expires = jiffies + HZ;
+		stattimer.expires = round_jiffies(jiffies + HZ);
 		/* start statistics timer */
 		add_timer(&stattimer);
 	} else

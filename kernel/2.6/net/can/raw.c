@@ -141,6 +141,14 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 		}
 	}
 
+	/*
+	 *  Put the datagram to the queue so that raw_recvmsg() can
+	 *  get it from there.  We need to pass the interface index to
+	 *  raw_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
+	 *  containing the interface index.
+	 */
+
+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));
 	addr->can_family  = AF_CAN;
@@ -762,7 +770,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
 	return size;
 }
 
-static struct proto_ops raw_ops = {
+static struct proto_ops raw_ops __read_mostly = {
 	.family        = PF_CAN,
 	.release       = raw_release,
 	.bind          = raw_bind,
@@ -783,14 +791,14 @@ static struct proto_ops raw_ops = {
 };
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-static struct proto raw_proto = {
+static struct proto raw_proto __read_mostly = {
 	.name       = "CAN_RAW",
 	.owner      = THIS_MODULE,
 	.obj_size   = sizeof(struct raw_sock),
 	.init       = raw_init,
 };
 
-static struct can_proto raw_can_proto = {
+static struct can_proto raw_can_proto __read_mostly = {
 	.type       = SOCK_RAW,
 	.protocol   = CAN_RAW,
 	.capability = RAW_CAP,
@@ -798,7 +806,7 @@ static struct can_proto raw_can_proto = {
 	.prot       = &raw_proto,
 };
 #else
-static struct can_proto raw_can_proto = {
+static struct can_proto raw_can_proto __read_mostly = {
 	.type       = SOCK_RAW,
 	.protocol   = CAN_RAW,
 	.capability = RAW_CAP,
@@ -811,15 +819,23 @@ static struct can_proto raw_can_proto = {
 
 static __init int raw_module_init(void)
 {
+	int err;
+
 	printk(banner);
 
-	can_proto_register(&raw_can_proto);
-	return 0;
+	err = can_proto_register(&raw_can_proto);
+	if (err < 0)
+		printk("can: registration of raw protocol failed\n");
+
+	return err;
 }
 
 static __exit void raw_module_exit(void)
 {
-	can_proto_unregister(&raw_can_proto);
+	int err;
+
+	err = can_proto_unregister(&raw_can_proto);
+	WARN_ON(err < 0);
 }
 
 module_init(raw_module_init);
