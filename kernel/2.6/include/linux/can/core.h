@@ -54,18 +54,18 @@ struct can_proto {
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
-extern int can_proto_register(struct can_proto *cp);
-extern int can_proto_unregister(struct can_proto *cp);
+extern int  can_proto_register(struct can_proto *cp);
+extern void can_proto_unregister(struct can_proto *cp);
 
-extern int can_rx_register(struct net_device *dev, canid_t can_id,
-			   canid_t mask,
-			   void (*func)(struct sk_buff *, void *),
-			   void *data, char *ident);
+extern int  can_rx_register(struct net_device *dev, canid_t can_id,
+			    canid_t mask,
+			    void (*func)(struct sk_buff *, void *),
+			    void *data, char *ident);
 
-extern int can_rx_unregister(struct net_device *dev, canid_t can_id,
-			     canid_t mask,
-			     void (*func)(struct sk_buff *, void *),
-			     void *data);
+extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
+			      canid_t mask,
+			      void (*func)(struct sk_buff *, void *),
+			      void *data);
 
 extern int can_send(struct sk_buff *skb, int loop);
 
