@@ -263,6 +263,7 @@ static int can_create(struct socket *sock, int protocol)
  *  -ENETDOWN when the selected interface is down
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
  *  -ENOMEM when local loopback failed at calling skb_clone()
+ *  -EPERM when trying to send on a non-CAN interface
  */
 int can_send(struct sk_buff *skb, int loop)
 {
