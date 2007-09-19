@@ -89,7 +89,7 @@ static void *kzalloc(size_t size, unsigned int __nocast flags)
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 static int numdev = 4; /* default number of virtual CAN interfaces */
 module_param(numdev, int, S_IRUGO);
 MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
@@ -105,16 +105,14 @@ static int loopback; /* loopback testing. Default: 0 (Off) */
 module_param(loopback, int, S_IRUGO);
 MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-struct vcan_priv {
-	struct net_device *dev;
-	struct list_head list;
-};
-static LIST_HEAD(vcan_devs);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 #define PRIVSIZE sizeof(struct net_device_stats)
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#define PRIVSIZE 0
 #endif
 
 static int vcan_open(struct net_device *dev)
@@ -191,18 +189,9 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	if (loop) {
 		struct sock *srcsk = skb->sk;
 
-		if (atomic_read(&skb->users) != 1) {
-			struct sk_buff *old_skb = skb;
-
-			skb = skb_clone(old_skb, GFP_ATOMIC);
-			DBG(KERN_INFO "%s: %s: freeing old skbuff %p, "
-			    "using new skbuff %p\n",
-			    dev->name, __FUNCTION__, old_skb, skb);
-			kfree_skb(old_skb);
-			if (!skb)
-				return 0;
-		} else
-			skb_orphan(skb);
+		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (!skb)
+			return 0;
 
 		/* receive with packet counting */
 		skb->sk = srcsk;
@@ -241,73 +230,36 @@ static void vcan_setup(struct net_device *dev)
 	dev->open              = vcan_open;
 	dev->stop              = vcan_stop;
 	dev->hard_start_xmit   = vcan_tx;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	dev->destructor        = free_netdev;
-#else
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats         = vcan_get_stats;
 #endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	SET_MODULE_OWNER(dev);
 #endif
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-static int vcan_newlink(struct net_device *dev,
-			struct nlattr *tb[], struct nlattr *data[])
-{
-	struct vcan_priv *priv = netdev_priv(dev);
-	int err;
-
-	err = register_netdevice(dev);
-	if (err < 0)
-		return err;
-
-	priv->dev = dev;
-	list_add_tail(&priv->list, &vcan_devs);
-	return 0;
-}
-
-static void vcan_dellink(struct net_device *dev)
-{
-	struct vcan_priv *priv = netdev_priv(dev);
-
-	list_del(&priv->list);
-	unregister_netdevice(dev);
-}
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 static struct rtnl_link_ops vcan_link_ops __read_mostly = {
        .kind           = "vcan",
-       .priv_size      = sizeof(struct vcan_priv),
        .setup          = vcan_setup,
-       .newlink        = vcan_newlink,
-       .dellink        = vcan_dellink,
 };
 
 static __init int vcan_init_module(void)
 {
-	int err;
-
 	printk(banner);
 
 	if (loopback)
 		printk(KERN_INFO "vcan: enabled loopback on driver level.\n");
 
-	rtnl_lock();
-	err = __rtnl_link_register(&vcan_link_ops);
-	rtnl_unlock();
-	return err;
+	return rtnl_link_register(&vcan_link_ops);
 }
 
 static __exit void vcan_cleanup_module(void)
 {
-	struct vcan_priv *priv, *n;
-
-	rtnl_lock();
-	list_for_each_entry_safe(priv, n, &vcan_devs, list)
-		vcan_dellink(priv->dev);
-	__rtnl_link_unregister(&vcan_link_ops);
-	rtnl_unlock();
+	rtnl_link_unregister(&vcan_link_ops);
 }
 #else
 static __init int vcan_init_module(void)
