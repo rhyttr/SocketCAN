@@ -13,8 +13,8 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 Index: net-2.6.24/CREDITS
 ===================================================================
---- net-2.6.24.orig/CREDITS	2007-09-17 10:26:57.000000000 +0200
-+++ net-2.6.24/CREDITS	2007-09-17 10:27:21.000000000 +0200
+--- net-2.6.24.orig/CREDITS	2007-09-20 18:48:21.000000000 +0200
++++ net-2.6.24/CREDITS	2007-09-20 18:49:00.000000000 +0200
 @@ -1331,6 +1331,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
@@ -47,8 +47,8 @@ Index: net-2.6.24/CREDITS
  W: http://www.esi.us.es/~jon
 Index: net-2.6.24/MAINTAINERS
 ===================================================================
---- net-2.6.24.orig/MAINTAINERS	2007-09-17 10:26:57.000000000 +0200
-+++ net-2.6.24/MAINTAINERS	2007-09-17 10:27:21.000000000 +0200
+--- net-2.6.24.orig/MAINTAINERS	2007-09-20 18:48:21.000000000 +0200
++++ net-2.6.24/MAINTAINERS	2007-09-20 18:49:00.000000000 +0200
 @@ -975,6 +975,15 @@
  L:	video4linux-list@redhat.com
  S:	Maintained

@@ -14,7 +14,7 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 Index: net-2.6.24/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/Documentation/networking/can.txt	2007-09-17 21:57:29.000000000 +0200
++++ net-2.6.24/Documentation/networking/can.txt	2007-09-20 18:49:01.000000000 +0200
 @@ -0,0 +1,635 @@
 +============================================================================
 +
@@ -115,7 +115,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +CAN-IDs, frames, etc.
 +
 +Similar functionality visible from user-space could be provided by a
-+character decive, too, but this would lead to a technically inelegant
++character device, too, but this would lead to a technically inelegant
 +solution for a couple of reasons:
 +
 +* Intricate usage.  Instead of passing a protocol argument to
@@ -129,7 +129,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +* Abstraction.  In most existing character-device implementations, the
 +  hardware-specific device driver for a CAN controller directly
 +  provides the character device for the application to work with.
-+  This is at least very unusual in Unix systems, for both char and
++  This is at least very unusual in Unix systems for both, char and
 +  block devices.  For example you don't have a character device for a
 +  certain UART of a serial interface, a certain sound chip in your
 +  computer, a SCSI or IDE controller providing access to your hard
@@ -141,7 +141,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  and IDE subsystems for the devices mentioned above.
 +
 +  The easiest way to implement a CAN device driver is as a character
-+  without such a (complete) abstraction layer, as is done by most
++  device without such a (complete) abstraction layer, as is done by most
 +  existing drivers.  The right way, however, would be to add such a
 +  layer with all the functionality like registering for certain CAN
 +  IDs, supporting several open file descriptors and (de)multiplexing
@@ -159,7 +159,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +
 +  As described in chapter 2 it is the main goal of Socket CAN to
 +  provide a socket interface to user space applications which builds
-+  upon the Linux networklayer. In contrast to the commonly known
++  upon the Linux network layer. In contrast to the commonly known
 +  TCP/IP and ethernet networking, the CAN bus is a broadcast-only(!)
 +  medium that has no MAC-layer addressing like ethernet. The CAN-identifier
 +  (can_id) is used for arbitration on the CAN-bus. Therefore the CAN-IDs
@@ -204,7 +204,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  The Linux network devices (by default) just can handle the
 +  transmission and reception of media dependent frames. Due to the
 +  arbritration on the CAN bus the transmission of a low prio CAN-ID
-+  may be delayed by the recepition of a high prio CAN frame. To
++  may be delayed by the reception of a high prio CAN frame. To
 +  reflect the correct* traffic on the node the loopback of the sent
 +  data has to be performed right after a successful transmission. If
 +  the CAN network interface is not capable of performing the loopback for
@@ -291,7 +291,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  default. A read(2) system call on a CAN_RAW socket transfers a
 +  struct can_frame to the user space.
 +
-+  The sockaddr_can structure has an interface index analogue to the
++  The sockaddr_can structure has an interface index like the
 +  PF_PACKET socket, that also binds to a specific interface:
 +
 +    struct sockaddr_can {
@@ -653,8 +653,8 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
 Index: net-2.6.24/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-17 10:30:35.000000000 +0200
-+++ net-2.6.24/Documentation/networking/00-INDEX	2007-09-17 11:21:01.000000000 +0200
+--- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-20 18:48:21.000000000 +0200
++++ net-2.6.24/Documentation/networking/00-INDEX	2007-09-20 18:49:01.000000000 +0200
 @@ -26,6 +26,8 @@
  	- info on the driver for Baycom style amateur radio modems
  bridge.txt

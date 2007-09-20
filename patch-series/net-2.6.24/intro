@@ -1,15 +1,30 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #6
+CAN: Add new PF_CAN protocol family, try #7
 ESUBJECT
 
-Hello Dave,
+Hello Dave, hello Patrick,
 
-this is the patch series that adds the PF_CAN
+this is the seventh post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
 
-* Typos in documentation as pointd out by Randy Dunlap.
+* Changes suggested by Patrick:
+  - protect proto_tab[] by a lock.
+  - add _rcu to some hlist traversals.
+  - use printk_ratelimit() for module autoload failures.
+  - make can_proto_unregister() and can_rx_unregister() return void.
+  - use return value of can_proto_register() and can_rx_register()
+    (this also removed a flaw in behavior of raw_bind() and raw_setsockopt()
+     in case of failure to can_rx_register() their filters).
+  - call kzalloc() with GFP_KERNEL in case NETDEV_REGISTER.
+  - use round_jiffies() to calculate expiration times.
+  - make some variables static and/or __read_mostly.
+  - in can_create() check for net namespace before auto loading modules.
+  - add build time check for struct sizes.
+  - use skb_share_chack() in vcan.
+  - fixed some comments.
+* Typos in documentation as pointed out by Randy Dunlap and Bill Fink.
 
 The changes in try #6 were:
 
@@ -71,14 +86,9 @@ The changes in try #2 were:
 
 
 This patch series applies against net-2.6.24 and is derived from Subversion
-revision r469 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r484 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
-
-This patch doesn't touch anything in the kernel except for the allocation
-of a couple of numbers for protocol, arp hw type, and a line discipline.
-
-Please review this patch series for integration into your tree.
 
 Thanks very much for your work!
 
@@ -86,3 +96,7 @@ Best regards,
 
 Urs Thuermann
 Oliver Hartkopp
+
+
+P.S. Greetings from some BSD and Linux users here at the LUG meeting in
+     Braunschweig :-)

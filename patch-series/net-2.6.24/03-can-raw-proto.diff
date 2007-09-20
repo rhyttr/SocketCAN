@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   26 +
  net/can/Makefile        |    3 
- net/can/raw.c           |  767 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 827 insertions(+)
+ net/can/raw.c           |  828 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 888 insertions(+)
 
 Index: net-2.6.24/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/raw.h	2007-09-17 11:10:10.000000000 +0200
++++ net-2.6.24/include/linux/can/raw.h	2007-09-20 18:48:59.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -51,8 +51,8 @@ Index: net-2.6.24/include/linux/can/raw.h
 +#endif
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-17 10:30:35.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-17 11:10:10.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-20 18:48:58.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
 @@ -16,6 +16,32 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -88,8 +88,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-17 10:30:35.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-17 11:10:10.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-20 18:48:58.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -100,8 +100,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/raw.c	2007-09-17 11:11:10.000000000 +0200
-@@ -0,0 +1,767 @@
++++ net-2.6.24/net/can/raw.c	2007-09-20 18:48:59.000000000 +0200
+@@ -0,0 +1,828 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -231,6 +231,14 @@ Index: net-2.6.24/net/can/raw.c
 +		}
 +	}
 +
++	/*
++	 *  Put the datagram to the queue so that raw_recvmsg() can
++	 *  get it from there.  We need to pass the interface index to
++	 *  raw_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
++	 *  containing the interface index.
++	 */
++
++	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 +	addr = (struct sockaddr_can *)skb->cb;
 +	memset(addr, 0, sizeof(*addr));
 +	addr->can_family  = AF_CAN;
@@ -244,38 +252,54 @@ Index: net-2.6.24/net/can/raw.c
 +	}
 +}
 +
-+static void raw_enable_filters(struct net_device *dev, struct sock *sk)
++static int raw_enable_filters(struct net_device *dev, struct sock *sk,
++			      struct can_filter *filter,
++			      int count)
 +{
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct can_filter *filter = ro->filter;
++	int err = 0;
 +	int i;
 +
-+	for (i = 0; i < ro->count; i++) {
++	for (i = 0; i < count; i++) {
 +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 +		    filter[i].can_id, filter[i].can_mask,
 +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 +
-+		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
-+				raw_rcv, sk, IDENT);
++		err = can_rx_register(dev, filter[i].can_id,
++				      filter[i].can_mask,
++				      raw_rcv, sk, IDENT);
++
++		if (err) {
++			/* clean up successfully registered filters */
++			while (--i >= 0)
++				can_rx_unregister(dev, filter[i].can_id,
++						  filter[i].can_mask,
++						  raw_rcv, sk);
++			break;
++		}
 +	}
++
++	return err;
 +}
 +
-+static void raw_enable_errfilter(struct net_device *dev, struct sock *sk)
++static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
++				can_err_mask_t err_mask)
 +{
-+	struct raw_sock *ro = raw_sk(sk);
++	int err = 0;
 +
-+	if (ro->err_mask)
-+		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+				raw_rcv, sk, IDENT);
++	if (err_mask)
++		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
++				      raw_rcv, sk, IDENT);
++
++	return err;
 +}
 +
-+static void raw_disable_filters(struct net_device *dev, struct sock *sk)
++static void raw_disable_filters(struct net_device *dev, struct sock *sk,
++			      struct can_filter *filter,
++			      int count)
 +{
-+	struct raw_sock *ro = raw_sk(sk);
-+	struct can_filter *filter = ro->filter;
 +	int i;
 +
-+	for (i = 0; i < ro->count; i++) {
++	for (i = 0; i < count; i++) {
 +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
 +		    filter[i].can_id, filter[i].can_mask,
 +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
@@ -285,13 +309,38 @@ Index: net-2.6.24/net/can/raw.c
 +	}
 +}
 +
-+static void raw_disable_errfilter(struct net_device *dev, struct sock *sk)
++static inline void raw_disable_errfilter(struct net_device *dev,
++					 struct sock *sk,
++					 can_err_mask_t err_mask)
++
++{
++	if (err_mask)
++		can_rx_unregister(dev, 0, err_mask | CAN_ERR_FLAG,
++				  raw_rcv, sk);
++}
++
++static inline void raw_disable_allfilters(struct net_device *dev,
++					  struct sock *sk)
 +{
 +	struct raw_sock *ro = raw_sk(sk);
 +
-+	if (ro->err_mask)
-+		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-+				  raw_rcv, sk);
++	raw_disable_filters(dev, sk, ro->filter, ro->count);
++	raw_disable_errfilter(dev, sk, ro->err_mask);
++}
++
++static int raw_enable_allfilters(struct net_device *dev, struct sock *sk)
++{
++	struct raw_sock *ro = raw_sk(sk);
++	int err;
++
++	err = raw_enable_filters(dev, sk, ro->filter, ro->count);
++	if (!err) {
++		err = raw_enable_errfilter(dev, sk, ro->err_mask);
++		if (err)
++			raw_disable_filters(dev, sk, ro->filter, ro->count);
++	}
++
++	return err;
 +}
 +
 +static int raw_notifier(struct notifier_block *nb,
@@ -318,10 +367,8 @@ Index: net-2.6.24/net/can/raw.c
 +	case NETDEV_UNREGISTER:
 +		lock_sock(sk);
 +		/* remove current filters & unregister */
-+		if (ro->bound) {
-+			raw_disable_filters(dev, sk);
-+			raw_disable_errfilter(dev, sk);
-+		}
++		if (ro->bound)
++			raw_disable_allfilters(dev, sk);
 +
 +		if (ro->count > 1)
 +			kfree(ro->filter);
@@ -390,14 +437,11 @@ Index: net-2.6.24/net/can/raw.c
 +
 +			dev = dev_get_by_index(&init_net, ro->ifindex);
 +			if (dev) {
-+				raw_disable_filters(dev, sk);
-+				raw_disable_errfilter(dev, sk);
++				raw_disable_allfilters(dev, sk);
 +				dev_put(dev);
 +			}
-+		} else {
-+			raw_disable_filters(NULL, sk);
-+			raw_disable_errfilter(NULL, sk);
-+		}
++		} else
++			raw_disable_allfilters(NULL, sk);
 +	}
 +
 +	if (ro->count > 1)
@@ -418,6 +462,7 @@ Index: net-2.6.24/net/can/raw.c
 +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 +	struct sock *sk = sock->sk;
 +	struct raw_sock *ro = raw_sk(sk);
++	int ifindex;
 +	int err = 0;
 +	int notify_enetdown = 0;
 +
@@ -428,26 +473,8 @@ Index: net-2.6.24/net/can/raw.c
 +
 +	lock_sock(sk);
 +
-+	if (ro->bound) {
-+		/* unregister current filters for this device */
-+		if (ro->ifindex) {
-+			struct net_device *dev;
-+
-+			dev = dev_get_by_index(&init_net, ro->ifindex);
-+			if (dev) {
-+				raw_disable_filters(dev, sk);
-+				raw_disable_errfilter(dev, sk);
-+				dev_put(dev);
-+			}
-+			ro->ifindex = 0;
-+
-+		} else {
-+			raw_disable_filters(NULL, sk);
-+			raw_disable_errfilter(NULL, sk);
-+		}
-+
-+		ro->bound = 0;
-+	}
++	if (ro->bound && addr->can_ifindex == ro->ifindex)
++		goto out;
 +
 +	if (addr->can_ifindex) {
 +		struct net_device *dev;
@@ -467,22 +494,36 @@ Index: net-2.6.24/net/can/raw.c
 +		if (!(dev->flags & IFF_UP))
 +			notify_enetdown = 1;
 +
-+		ro->ifindex = dev->ifindex;
++		ifindex = dev->ifindex;
 +
 +		/* filters set by default/setsockopt */
-+		raw_enable_filters(dev, sk);
-+		raw_enable_errfilter(dev, sk);
++		err = raw_enable_allfilters(dev, sk);
 +		dev_put(dev);
 +
 +	} else {
-+		ro->ifindex = 0;
++		ifindex = 0;
 +
 +		/* filters set by default/setsockopt */
-+		raw_enable_filters(NULL, sk);
-+		raw_enable_errfilter(NULL, sk);
++		err = raw_enable_allfilters(NULL, sk);
 +	}
 +
-+	ro->bound = 1;
++	if (!err) {
++		if (ro->bound) {
++			/* unregister old filters */
++			if (ro->ifindex) {
++				struct net_device *dev;
++
++				dev = dev_get_by_index(&init_net, ro->ifindex);
++				if (dev) {
++					raw_disable_allfilters(dev, sk);
++					dev_put(dev);
++				}
++			} else
++				raw_disable_allfilters(NULL, sk);
++		}
++		ro->ifindex = ifindex;
++		ro->bound = 1;
++	}
 +
 + out:
 +	release_sock(sk);
@@ -535,7 +576,7 @@ Index: net-2.6.24/net/can/raw.c
 +	struct net_device *dev = NULL;
 +	can_err_mask_t err_mask = 0;
 +	int count = 0;
-+	int err;
++	int err = 0;
 +
 +	if (level != SOL_CAN_RAW)
 +		return -EINVAL;
@@ -572,25 +613,38 @@ Index: net-2.6.24/net/can/raw.c
 +		if (ro->bound && ro->ifindex)
 +			dev = dev_get_by_index(&init_net, ro->ifindex);
 +
-+		/* remove current filters & unregister */
-+		if (ro->bound)
-+			raw_disable_filters(dev, sk);
++		if (ro->bound) {
++			/* (try to) register the new filters */
++			if (count == 1)
++				err = raw_enable_filters(dev, sk, &sfilter, 1);
++			else
++				err = raw_enable_filters(dev, sk, filter,
++							 count);
++			if (err) {
++				if (count > 1)
++					kfree(filter);
 +
++				goto out_fil;
++			}
++
++			/* remove old filter registrations */
++			raw_disable_filters(dev, sk, ro->filter, ro->count);
++		}
++
++		/* remove old filter space */
 +		if (ro->count > 1)
 +			kfree(ro->filter);
 +
++		/* link new filters to the socket */
 +		if (count == 1) {
 +			/* copy filter data for single filter */
 +			ro->dfilter = sfilter;
 +			filter = &ro->dfilter;
 +		}
-+
-+		/* add new filters & register */
 +		ro->filter = filter;
 +		ro->count  = count;
-+		if (ro->bound)
-+			raw_enable_filters(dev, sk);
 +
++ out_fil:
 +		if (dev)
 +			dev_put(dev);
 +
@@ -614,15 +668,21 @@ Index: net-2.6.24/net/can/raw.c
 +			dev = dev_get_by_index(&init_net, ro->ifindex);
 +
 +		/* remove current error mask */
-+		if (ro->bound)
-+			raw_disable_errfilter(dev, sk);
++		if (ro->bound) {
++			/* (try to) register the new err_mask */
++			err = raw_enable_errfilter(dev, sk, err_mask);
 +
++			if (err)
++				goto out_err;
++
++			/* remove old err_mask registration */
++			raw_disable_errfilter(dev, sk, ro->err_mask);
++		}
++
++		/* link new err_mask to the socket */
 +		ro->err_mask = err_mask;
 +
-+		/* add new error mask */
-+		if (ro->bound)
-+			raw_enable_errfilter(dev, sk);
-+
++ out_err:
 +		if (dev)
 +			dev_put(dev);
 +
@@ -635,8 +695,6 @@ Index: net-2.6.24/net/can/raw.c
 +			return -EINVAL;
 +
 +		err = copy_from_user(&ro->loopback, optval, optlen);
-+		if (err)
-+			return err;
 +
 +		break;
 +
@@ -645,15 +703,13 @@ Index: net-2.6.24/net/can/raw.c
 +			return -EINVAL;
 +
 +		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
-+		if (err)
-+			return err;
 +
 +		break;
 +
 +	default:
 +		return -ENOPROTOOPT;
 +	}
-+	return 0;
++	return err;
 +}
 +
 +static int raw_getsockopt(struct socket *sock, int level, int optname,
@@ -819,7 +875,7 @@ Index: net-2.6.24/net/can/raw.c
 +	return size;
 +}
 +
-+static struct proto_ops raw_ops = {
++static struct proto_ops raw_ops __read_mostly = {
 +	.family        = PF_CAN,
 +	.release       = raw_release,
 +	.bind          = raw_bind,
@@ -839,14 +895,14 @@ Index: net-2.6.24/net/can/raw.c
 +	.sendpage      = sock_no_sendpage,
 +};
 +
-+static struct proto raw_proto = {
++static struct proto raw_proto __read_mostly = {
 +	.name       = "CAN_RAW",
 +	.owner      = THIS_MODULE,
 +	.obj_size   = sizeof(struct raw_sock),
 +	.init       = raw_init,
 +};
 +
-+static struct can_proto raw_can_proto = {
++static struct can_proto raw_can_proto __read_mostly = {
 +	.type       = SOCK_RAW,
 +	.protocol   = CAN_RAW,
 +	.capability = RAW_CAP,
@@ -856,10 +912,15 @@ Index: net-2.6.24/net/can/raw.c
 +
 +static __init int raw_module_init(void)
 +{
++	int err;
++
 +	printk(banner);
 +
-+	can_proto_register(&raw_can_proto);
-+	return 0;
++	err = can_proto_register(&raw_can_proto);
++	if (err < 0)
++		printk(KERN_ERR "can: registration of raw protocol failed\n");
++
++	return err;
 +}
 +
 +static __exit void raw_module_exit(void)

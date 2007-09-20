@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   28 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1762 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1858 insertions(+)
+ net/can/bcm.c           | 1784 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1880 insertions(+)
 
 Index: net-2.6.24/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/bcm.h	2007-09-17 11:12:30.000000000 +0200
++++ net-2.6.24/include/linux/can/bcm.h	2007-09-20 18:48:59.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -85,8 +85,8 @@ Index: net-2.6.24/include/linux/can/bcm.h
 +#endif /* CAN_BCM_H */
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-17 11:10:10.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-17 11:12:30.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
 @@ -42,6 +42,34 @@
  	  Say Y here if you want non-root users to be able to access CAN_RAW
  	  sockets.
@@ -124,8 +124,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-17 11:10:10.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-17 11:12:30.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -136,8 +136,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/bcm.c	2007-09-17 11:12:32.000000000 +0200
-@@ -0,0 +1,1762 @@
++++ net-2.6.24/net/can/bcm.c	2007-09-20 18:48:59.000000000 +0200
+@@ -0,0 +1,1784 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -285,9 +285,9 @@ Index: net-2.6.24/net/can/bcm.c
 + * @tv: pointer to timeval
 + *
 + * Description:
-+ * In opposite to timeval_to_jiffies() provided in include/linux/jiffies.h this
-+ * function is intentionally more relaxed on precise timer ticks to get exact
-+ * one jiffy for requested 1000us on a 1000HZ machine.
++ * Unlike timeval_to_jiffies() provided in include/linux/jiffies.h, this
++ * function is intentionally more relaxed on precise timer ticks to get
++ * exact one jiffy for requested 1000us on a 1000HZ machine.
 + * This code is to be removed when upgrading to kernel hrtimer.
 + *
 + * Return:
@@ -504,7 +504,14 @@ Index: net-2.6.24/net/can/bcm.c
 +		skb->tstamp = op->rx_stamp;
 +	}
 +
-+	/* restore originator for recvfrom() */
++	/*
++	 *  Put the datagram to the queue so that bcm_recvmsg() can
++	 *  get it from there.  We need to pass the interface index to
++	 *  bcm_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
++	 *  containing the interface index.
++	 */
++
++	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 +	addr = (struct sockaddr_can *)skb->cb;
 +	memset(addr, 0, sizeof(*addr));
 +	addr->can_family  = AF_CAN;
@@ -1211,7 +1218,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	struct bcm_sock *bo = bcm_sk(sk);
 +	struct bcm_op *op;
 +	int do_rx_register;
-+	int err;
++	int err = 0;
 +
 +	if ((msg_head->flags & RX_FILTER_ID) || (!(msg_head->nframes))) {
 +		/* be robust against wrong usage ... */
@@ -1333,7 +1340,7 @@ Index: net-2.6.24/net/can/bcm.c
 +		/* mark disabled timer */
 +		op->thrtimer.expires = 0;
 +
-+		/* add this bcm_op to the list of the tx_ops */
++		/* add this bcm_op to the list of the rx_ops */
 +		list_add(&op->list, &bo->rx_ops);
 +
 +		/* call can_rx_register() */
@@ -1417,16 +1424,25 @@ Index: net-2.6.24/net/can/bcm.c
 +
 +			dev = dev_get_by_index(&init_net, ifindex);
 +			if (dev) {
-+				can_rx_register(dev, op->can_id,
-+						REGMASK(op->can_id),
-+						bcm_rx_handler, op, IDENT);
++				err = can_rx_register(dev, op->can_id,
++						      REGMASK(op->can_id),
++						      bcm_rx_handler, op,
++						      IDENT);
++
 +				op->rx_reg_dev = dev;
 +				dev_put(dev);
 +			}
 +
 +		} else
-+			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
-+					bcm_rx_handler, op, IDENT);
++			err = can_rx_register(NULL, op->can_id,
++					      REGMASK(op->can_id),
++					      bcm_rx_handler, op, IDENT);
++		if (err) {
++			/* this bcm rx op is broken -> remove it */
++			list_del(&op->list);
++			bcm_remove_op(op);
++			return err;
++		}
 +	}
 +
 +	return msg_head->nframes * CFSIZ + MHSIZ;
@@ -1840,7 +1856,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	return mask;
 +}
 +
-+static struct proto_ops bcm_ops = {
++static struct proto_ops bcm_ops __read_mostly = {
 +	.family        = PF_CAN,
 +	.release       = bcm_release,
 +	.bind          = sock_no_bind,
@@ -1860,14 +1876,14 @@ Index: net-2.6.24/net/can/bcm.c
 +	.sendpage      = sock_no_sendpage,
 +};
 +
-+static struct proto bcm_proto = {
++static struct proto bcm_proto __read_mostly = {
 +	.name       = "CAN_BCM",
 +	.owner      = THIS_MODULE,
 +	.obj_size   = sizeof(struct bcm_sock),
 +	.init       = bcm_init,
 +};
 +
-+static struct can_proto bcm_can_proto = {
++static struct can_proto bcm_can_proto __read_mostly = {
 +	.type       = SOCK_DGRAM,
 +	.protocol   = CAN_BCM,
 +	.capability = BCM_CAP,
@@ -1877,9 +1893,15 @@ Index: net-2.6.24/net/can/bcm.c
 +
 +static int __init bcm_module_init(void)
 +{
++	int err;
++
 +	printk(banner);
 +
-+	can_proto_register(&bcm_can_proto);
++	err = can_proto_register(&bcm_can_proto);
++	if (err < 0) {
++		printk(KERN_ERR "can: registration of bcm protocol failed\n");
++		return err;
++	}
 +
 +	/* create /proc/net/can-bcm directory */
 +	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
