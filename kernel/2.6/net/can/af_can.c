@@ -107,6 +107,7 @@ static kmem_cache_t *rcv_cache;
 
 /* table of registered CAN protocols */
 static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
+static DEFINE_SPINLOCK(proto_tab_lock);
 
 struct timer_list stattimer; /* timer for statistics update */
 struct s_stats  stats;       /* packet statistics */
@@ -199,13 +200,27 @@ static int can_create(struct socket *sock, int protocol)
 		}
 	}
 
-	/* check for success and correct type */
+	spin_lock(&proto_tab_lock);
 	cp = proto_tab[protocol];
-	if (!cp || cp->type != sock->type)
-		return -EPROTONOSUPPORT;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	if (cp && !try_module_get(cp->prot->owner))
+		cp = NULL;
+#else
+	if (cp && !try_module_get(cp->owner))
+		cp = NULL;
+#endif
+	spin_unlock(&proto_tab_lock);
 
-	if (cp->capability >= 0 && !capable(cp->capability))
-		return -EPERM;
+	/* check for success and correct type */
+	if (!cp || cp->type != sock->type) {
+		ret = -EPROTONOSUPPORT;
+		goto errout;
+	}
+
+	if (cp->capability >= 0 && !capable(cp->capability)) {
+		ret = -EPERM;
+		goto errout;
+	}
 
 	sock->ops = cp->ops;
 
@@ -216,15 +231,18 @@ static int can_create(struct socket *sock, int protocol)
 #else
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1, 0);
 #endif
-	if (!sk)
-		return -ENOMEM;
+	if (!sk) {
+		ret = -ENOMEM;
+		goto errout;
+	}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,12)
 	if (cp->obj_size) {
 		sk->sk_protinfo = kmalloc(cp->obj_size, GFP_KERNEL);
 		if (!sk->sk_protinfo) {
 			sk_free(sk);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto errout;
 		}
 	}
 	sk_set_owner(sk, proto_tab[protocol]->owner);
@@ -249,6 +267,12 @@ static int can_create(struct socket *sock, int protocol)
 		sock_put(sk);
 	}
 
+ errout:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	module_put(cp->prot->owner);
+#else
+	module_put(cp->owner);
+#endif
 	return ret;
 }
 
@@ -750,16 +774,19 @@ int can_proto_register(struct can_proto *cp)
 		       proto);
 		return -EINVAL;
 	}
+
+	spin_lock(&proto_tab_lock);
 	if (proto_tab[proto]) {
 		printk(KERN_ERR "can: protocol %d already registered\n",
 		       proto);
-		return -EBUSY;
+		err = -EBUSY;
+		goto errout;
 	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	err = proto_register(cp->prot, 0);
 	if (err < 0)
-		return err;
+		goto errout;
 #endif
 
 	proto_tab[proto] = cp;
@@ -767,6 +794,9 @@ int can_proto_register(struct can_proto *cp)
 	/* use generic ioctl function if the module doesn't bring its own */
 	if (!cp->ops->ioctl)
 		cp->ops->ioctl = can_ioctl;
+
+ errout:
+	spin_unlock(&proto_tab_lock);
 
 	return err;
 }
@@ -780,15 +810,16 @@ void can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
 
+	spin_lock(&proto_tab_lock);
 	if (!proto_tab[proto]) {
 		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
 		       proto);
-		return;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	proto_unregister(cp->prot);
 #endif
 	proto_tab[proto] = NULL;
+	spin_unlock(&proto_tab_lock);
 }
 EXPORT_SYMBOL(can_proto_unregister);
 
