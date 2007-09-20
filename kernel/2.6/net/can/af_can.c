@@ -188,12 +188,15 @@ static int can_create(struct socket *sock, int protocol)
 		 * return the error code immediately.  Below we will
 		 * return -EPROTONOSUPPORT
 		 */
-		if (ret == -ENOSYS)
-			printk(KERN_INFO "can: request_module(%s) not"
-			       " implemented.\n", module_name);
-		else if (ret)
-			printk(KERN_ERR "can: request_module(%s) failed\n",
-			       module_name);
+		if (ret == -ENOSYS) {
+			if (printk_ratelimit())
+				printk(KERN_INFO "can: request_module(%s)"
+				        " not implemented.\n", module_name);
+		} else if (ret) {
+			if (printk_ratelimit())
+				printk(KERN_ERR "can: request_module(%s)"
+				       " failed.\n", module_name);
+		}
 	}
 
 	/* check for success and correct type */
@@ -353,7 +356,7 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 	 * cursor variable n to decide if a match was found.
 	 */
 
-	hlist_for_each_entry(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
 		if (d->dev == dev)
 			break;
 	}
@@ -446,7 +449,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	if (!r)
 		return -ENOMEM;
 
-	spin_lock_bh(&rcv_lists_lock);
+	spin_lock(&rcv_lists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (d) {
@@ -472,7 +475,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		ret = -ENODEV;
 	}
 
-	spin_unlock_bh(&rcv_lists_lock);
+	spin_unlock(&rcv_lists_lock);
 
 	return ret;
 }
@@ -522,7 +525,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p\n",
 	    dev, DNAME(dev), can_id, mask, func, data);
 
-	spin_lock_bh(&rcv_lists_lock);
+	spin_lock(&rcv_lists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
@@ -540,7 +543,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	 * been registered before.
 	 */
 
-	hlist_for_each_entry(r, next, rl, list) {
+	hlist_for_each_entry_rcu(r, next, rl, list) {
 		if (r->can_id == can_id && r->mask == mask
 		    && r->func == func && r->data == data)
 			break;
@@ -576,7 +579,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		d = NULL;
 
  out:
-	spin_unlock_bh(&rcv_lists_lock);
+	spin_unlock(&rcv_lists_lock);
 
 	/* schedule the receiver item for deletion */
 	if (r)
@@ -824,7 +827,6 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 
 		DBG("creating new dev_rcv_lists for %s\n", dev->name);
 
-		BUG_ON(in_interrupt());
 		d = kzalloc(sizeof(*d), GFP_KERNEL);
 		if (!d) {
 			printk(KERN_ERR
@@ -833,14 +835,14 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 		}
 		d->dev = dev;
 
-		spin_lock_bh(&rcv_lists_lock);
+		spin_lock(&rcv_lists_lock);
 		hlist_add_head_rcu(&d->list, &rx_dev_list);
-		spin_unlock_bh(&rcv_lists_lock);
+		spin_unlock(&rcv_lists_lock);
 
 		break;
 
 	case NETDEV_UNREGISTER:
-		spin_lock_bh(&rcv_lists_lock);
+		spin_lock(&rcv_lists_lock);
 
 		d = find_dev_rcv_lists(dev);
 		if (d) {
@@ -856,7 +858,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 			printk(KERN_ERR "can: notifier: receive list not "
 			       "found for dev %s\n", dev->name);
 
-		spin_unlock_bh(&rcv_lists_lock);
+		spin_unlock(&rcv_lists_lock);
 
 		if (d)
 			call_rcu(&d->rcu, can_rx_delete_device);
@@ -1007,9 +1009,9 @@ static __init int can_init(void)
 	 * embedded hlist heads, the dev pointer, and the entries counter.
 	 */
 
-	spin_lock_bh(&rcv_lists_lock);
+	spin_lock(&rcv_lists_lock);
 	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
-	spin_unlock_bh(&rcv_lists_lock);
+	spin_unlock(&rcv_lists_lock);
 
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
@@ -1051,13 +1053,13 @@ static __exit void can_exit(void)
 	sock_unregister(PF_CAN);
 
 	/* remove rx_dev_list */
-	spin_lock_bh(&rcv_lists_lock);
+	spin_lock(&rcv_lists_lock);
 	hlist_del(&rx_alldev_list.list);
 	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list) {
 		hlist_del(&d->list);
 		kfree(d);
 	}
-	spin_unlock_bh(&rcv_lists_lock);
+	spin_unlock(&rcv_lists_lock);
 
 	kmem_cache_destroy(rcv_cache);
 }
