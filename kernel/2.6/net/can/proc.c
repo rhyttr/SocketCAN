@@ -142,10 +142,12 @@ void can_stat_update(unsigned long data)
 	if (j < stats.jiffies_init)
 		can_init_stats();
 
-	/* stats.rx_frames is the definitively max. statistic value */
-
 	/* prevent overflow in calc_rate() */
 	if (stats.rx_frames > (ULONG_MAX / HZ))
+		can_init_stats();
+
+	/* prevent overflow in calc_rate() */
+	if (stats.tx_frames > (ULONG_MAX / HZ))
 		can_init_stats();
 
 	/* matches overflow - very improbable */
