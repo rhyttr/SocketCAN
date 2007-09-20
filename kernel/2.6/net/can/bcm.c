@@ -1268,7 +1268,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		/* mark disabled timer */
 		op->thrtimer.expires = 0;
 
-		/* add this bcm_op to the list of the tx_ops */
+		/* add this bcm_op to the list of the rx_ops */
 		list_add(&op->list, &bo->rx_ops);
 
 		/* call can_rx_register() */
@@ -1360,9 +1360,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 						      REGMASK(op->can_id),
 						      bcm_rx_handler, op,
 						      IDENT);
-				if (!err)
-					op->rx_reg_dev = dev;
 
+				op->rx_reg_dev = dev;
 				dev_put(dev);
 			}
 
@@ -1370,8 +1369,12 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			err = can_rx_register(NULL, op->can_id,
 					      REGMASK(op->can_id),
 					      bcm_rx_handler, op, IDENT);
-		if (err)
+		if (err) {
+			/* this bcm rx op is broken -> remove it */
+			list_del(&op->list);
+			bcm_remove_op(op);
 			return err;
+		}
 	}
 
 	return msg_head->nframes * CFSIZ + MHSIZ;
