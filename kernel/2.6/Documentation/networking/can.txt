@@ -284,7 +284,6 @@ solution for a couple of reasons:
                     struct { canid_t rx_id, tx_id; } tp20;
                     struct { canid_t rx_id, tx_id; } mcnet;
                     struct { canid_t rx_id, tx_id; } isotp;
-                    struct { int     lcu,   type;  } bap;
             } can_addr;
     };
 
