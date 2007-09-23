@@ -27,21 +27,6 @@ config CAN_RAW
 	  socket has several filter options e.g. ID-Masking / Errorframes.
 	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 
-config CAN_RAW_USER
-	bool "Allow non-root users to access Raw CAN Protocol sockets"
-	depends on CAN_RAW
-	default N
-	---help---
-	  The Controller Area Network is a local field bus transmitting only
-	  broadcast messages without any routing and security concepts.
-	  In the majority of cases the user application has to deal with
-	  raw CAN frames. Therefore it might be reasonable NOT to restrict
-	  the CAN access only to the user root, as known from other networks.
-	  Since CAN_RAW sockets can only send and receive frames to/from CAN
-	  interfaces this does not affect security of others networks.
-	  Say Y here if you want non-root users to be able to access CAN_RAW
-	  sockets.
-
 config CAN_BCM
 	tristate "Broadcast Manager CAN Protocol (with content filtering)"
 	depends on CAN
@@ -54,21 +39,6 @@ config CAN_BCM
 	  You probably want to use the bcm socket in most cases where cyclic
 	  CAN messages are used on the bus (e.g. in automotive environments).
 	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
-
-config CAN_BCM_USER
-	bool "Allow non-root users to access CAN broadcast manager sockets"
-	depends on CAN_BCM
-	default N
-	---help---
-	  The Controller Area Network is a local field bus transmitting only
-	  broadcast messages without any routing and security concepts.
-	  In the majority of cases the user application has to deal with
-	  raw CAN frames. Therefore it might be reasonable NOT to restrict
-	  the CAN access only to the user root, as known from other networks.
-	  Since CAN_BCM sockets can only send and receive frames to/from CAN
-	  interfaces this does not affect security of others networks.
-	  Say Y here if you want non-root users to be able to access CAN_BCM
-	  sockets.
 
 config CAN_DEBUG_CORE
 	bool "CAN Core debugging messages"

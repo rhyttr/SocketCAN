@@ -78,11 +78,8 @@ module_param(debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
-#ifdef CONFIG_CAN_RAW_USER
-#define RAW_CAP (-1)
-#else
-#define RAW_CAP CAP_NET_RAW
-#endif
+/* CAN RAW sockets capability needs */
+#define CAN_RAW_CAP CAN_CAP
 
 #define MASK_ALL 0
 
@@ -849,7 +846,7 @@ static struct proto raw_proto __read_mostly = {
 static struct can_proto raw_can_proto __read_mostly = {
 	.type       = SOCK_RAW,
 	.protocol   = CAN_RAW,
-	.capability = RAW_CAP,
+	.capability = CAN_RAW_CAP,
 	.ops        = &raw_ops,
 	.prot       = &raw_proto,
 };
@@ -857,7 +854,7 @@ static struct can_proto raw_can_proto __read_mostly = {
 static struct can_proto raw_can_proto __read_mostly = {
 	.type       = SOCK_RAW,
 	.protocol   = CAN_RAW,
-	.capability = RAW_CAP,
+	.capability = CAN_RAW_CAP,
 	.ops        = &raw_ops,
 	.owner      = THIS_MODULE,
 	.obj_size   = sizeof(struct raw_sock),
