@@ -28,9 +28,6 @@
 
 #define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
 
-/* CAN default capability needs (-1 == none) */
-#define CAN_CAP (-1)
-
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
 /**

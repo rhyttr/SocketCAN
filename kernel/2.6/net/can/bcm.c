@@ -123,9 +123,6 @@ struct bcm_op {
 
 static struct proc_dir_entry *proc_dir;
 
-/* CAN BCM sockets capability needs */
-#define CAN_BCM_CAP CAN_CAP
-
 struct bcm_sock {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	struct sock sk;
@@ -1841,7 +1838,7 @@ static struct proto bcm_proto __read_mostly = {
 static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
-	.capability = CAN_BCM_CAP,
+	.capability = -1,
 	.ops        = &bcm_ops,
 	.prot       = &bcm_proto,
 };
@@ -1849,7 +1846,7 @@ static struct can_proto bcm_can_proto __read_mostly = {
 static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
-	.capability = CAN_BCM_CAP,
+	.capability = -1,
 	.ops        = &bcm_ops,
 	.owner      = THIS_MODULE,
 	.obj_size   = sizeof(struct bcm_sock),
