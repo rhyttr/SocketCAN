@@ -80,7 +80,7 @@ static struct proc_dir_entry *pde_rcvlist_err;
 
 static int user_reset;
 
-static const char *rx_list_name[] = {
+static const char rx_list_name[][8] = {
 	[RX_ERR] = "rx_err",
 	[RX_ALL] = "rx_all",
 	[RX_FIL] = "rx_fil",
