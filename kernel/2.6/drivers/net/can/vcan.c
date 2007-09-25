@@ -70,11 +70,11 @@ module_param(debug, int, S_IRUGO);
 
 /* To be moved to linux/can/dev.h */
 #ifdef CONFIG_CAN_DEBUG_DEVICES
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
-				printk(args)) : 0)
+#define DBG(fmt, args...)  (debug & 1 ? \
+				printk(KERN_DEBUG "vcan %s: " fmt, \
+				__func__, ##args) : 0)
 #else
-#define DBG(args...)
+#define DBG(fmt, args...)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
