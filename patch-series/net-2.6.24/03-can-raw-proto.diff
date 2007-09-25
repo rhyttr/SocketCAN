@@ -8,15 +8,15 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can/raw.h |   31 +
- net/can/Kconfig         |   26 +
+ net/can/Kconfig         |   11 
  net/can/Makefile        |    3 
- net/can/raw.c           |  828 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 888 insertions(+)
+ net/can/raw.c           |  822 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 867 insertions(+)
 
 Index: net-2.6.24/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/raw.h	2007-09-20 18:48:59.000000000 +0200
++++ net-2.6.24/include/linux/can/raw.h	2007-09-25 13:23:05.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -51,9 +51,9 @@ Index: net-2.6.24/include/linux/can/raw.h
 +#endif
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-20 18:48:58.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
-@@ -16,6 +16,32 @@
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-25 13:31:06.000000000 +0200
+@@ -16,6 +16,17 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
  
@@ -68,28 +68,13 @@ Index: net-2.6.24/net/can/Kconfig
 +	  socket has several filter options e.g. ID-Masking / Errorframes.
 +	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 +
-+config CAN_RAW_USER
-+	bool "Allow non-root users to access Raw CAN Protocol sockets"
-+	depends on CAN_RAW
-+	default N
-+	---help---
-+	  The Controller Area Network is a local field bus transmitting only
-+	  broadcast messages without any routing and security concepts.
-+	  In the majority of cases the user application has to deal with
-+	  raw CAN frames. Therefore it might be reasonable NOT to restrict
-+	  the CAN access only to the user root, as known from other networks.
-+	  Since CAN_RAW sockets can only send and receive frames to/from CAN
-+	  interfaces this does not affect security of others networks.
-+	  Say Y here if you want non-root users to be able to access CAN_RAW
-+	  sockets.
-+
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-20 18:48:58.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-25 13:29:23.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -100,8 +85,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/raw.c	2007-09-20 18:48:59.000000000 +0200
-@@ -0,0 +1,828 @@
++++ net-2.6.24/net/can/raw.c	2007-09-25 13:25:24.000000000 +0200
+@@ -0,0 +1,822 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -174,12 +159,6 @@ Index: net-2.6.24/net/can/raw.c
 +static int debug;
 +module_param(debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
-+#endif
-+
-+#ifdef CONFIG_CAN_RAW_USER
-+#define RAW_CAP (-1)
-+#else
-+#define RAW_CAP CAP_NET_RAW
 +#endif
 +
 +#define MASK_ALL 0
@@ -905,7 +884,7 @@ Index: net-2.6.24/net/can/raw.c
 +static struct can_proto raw_can_proto __read_mostly = {
 +	.type       = SOCK_RAW,
 +	.protocol   = CAN_RAW,
-+	.capability = RAW_CAP,
++	.capability = -1,
 +	.ops        = &raw_ops,
 +	.prot       = &raw_proto,
 +};

@@ -1,13 +1,26 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #7
+CAN: Add new PF_CAN protocol family, try #8
 ESUBJECT
 
 Hello Dave, hello Patrick,
 
-this is the seventh post of the patch series that adds the PF_CAN
+this is the eigth post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
+
+* Some changes in debug code, following suggestions from Joe Perches:
+  - Remove dynamically allocated buffer for debug output.
+  - Use kernel functions for hexdumps.
+  - Don't interpret printf-style %-sequences in can_debug_cframe().
+  - Specify the fixed argument "fmt" to DBG() macro and use
+    GCC ## mechanism to remove , when args is empty.
+* Removed CAN_RAW_USER and CAN_BCM_USER Kconfig options following a
+  suggestion from Patrick.
+* Prevent overflow in statistics calculation.
+* Minor optimization.
+
+The changes in try #7 were:
 
 * Changes suggested by Patrick:
   - protect proto_tab[] by a lock.
@@ -86,7 +99,7 @@ The changes in try #2 were:
 
 
 This patch series applies against net-2.6.24 and is derived from Subversion
-revision r484 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r493 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 
@@ -96,7 +109,3 @@ Best regards,
 
 Urs Thuermann
 Oliver Hartkopp
-
-
-P.S. Greetings from some BSD and Linux users here at the LUG meeting in
-     Braunschweig :-)

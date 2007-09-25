@@ -8,15 +8,15 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can/bcm.h |   65 +
- net/can/Kconfig         |   28 
+ net/can/Kconfig         |   13 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1784 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1880 insertions(+)
+ net/can/bcm.c           | 1778 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1859 insertions(+)
 
 Index: net-2.6.24/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/bcm.h	2007-09-20 18:48:59.000000000 +0200
++++ net-2.6.24/include/linux/can/bcm.h	2007-09-25 13:31:23.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -85,11 +85,11 @@ Index: net-2.6.24/include/linux/can/bcm.h
 +#endif /* CAN_BCM_H */
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
-@@ -42,6 +42,34 @@
- 	  Say Y here if you want non-root users to be able to access CAN_RAW
- 	  sockets.
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:31:06.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-25 13:31:46.000000000 +0200
+@@ -27,6 +27,19 @@
+ 	  socket has several filter options e.g. ID-Masking / Errorframes.
+ 	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
  
 +config CAN_BCM
 +	tristate "Broadcast Manager CAN Protocol (with content filtering)"
@@ -104,28 +104,13 @@ Index: net-2.6.24/net/can/Kconfig
 +	  CAN messages are used on the bus (e.g. in automotive environments).
 +	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
 +
-+config CAN_BCM_USER
-+	bool "Allow non-root users to access CAN broadcast manager sockets"
-+	depends on CAN_BCM
-+	default N
-+	---help---
-+	  The Controller Area Network is a local field bus transmitting only
-+	  broadcast messages without any routing and security concepts.
-+	  In the majority of cases the user application has to deal with
-+	  raw CAN frames. Therefore it might be reasonable NOT to restrict
-+	  the CAN access only to the user root, as known from other networks.
-+	  Since CAN_BCM sockets can only send and receive frames to/from CAN
-+	  interfaces this does not affect security of others networks.
-+	  Say Y here if you want non-root users to be able to access CAN_BCM
-+	  sockets.
-+
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-20 18:48:59.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-09-25 13:29:23.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-09-25 13:31:23.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -136,8 +121,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/bcm.c	2007-09-20 18:48:59.000000000 +0200
-@@ -0,0 +1,1784 @@
++++ net-2.6.24/net/can/bcm.c	2007-09-25 13:31:23.000000000 +0200
+@@ -0,0 +1,1778 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -252,12 +237,6 @@ Index: net-2.6.24/net/can/bcm.c
 +};
 +
 +static struct proc_dir_entry *proc_dir;
-+
-+#ifdef CONFIG_CAN_BCM_USER
-+#define BCM_CAP (-1)
-+#else
-+#define BCM_CAP CAP_NET_RAW
-+#endif
 +
 +struct bcm_sock {
 +	struct sock sk;
@@ -1886,7 +1865,7 @@ Index: net-2.6.24/net/can/bcm.c
 +static struct can_proto bcm_can_proto __read_mostly = {
 +	.type       = SOCK_DGRAM,
 +	.protocol   = CAN_BCM,
-+	.capability = BCM_CAP,
++	.capability = -1,
 +	.ops        = &bcm_ops,
 +	.prot       = &bcm_proto,
 +};

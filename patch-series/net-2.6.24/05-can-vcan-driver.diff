@@ -18,8 +18,8 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 Index: net-2.6.24/drivers/net/Makefile
 ===================================================================
---- net-2.6.24.orig/drivers/net/Makefile	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/drivers/net/Makefile	2007-09-20 18:49:00.000000000 +0200
+--- net-2.6.24.orig/drivers/net/Makefile	2007-09-25 13:28:42.000000000 +0200
++++ net-2.6.24/drivers/net/Makefile	2007-09-25 13:32:23.000000000 +0200
 @@ -10,6 +10,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -31,7 +31,7 @@ Index: net-2.6.24/drivers/net/Makefile
 Index: net-2.6.24/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Kconfig	2007-09-20 18:49:00.000000000 +0200
++++ net-2.6.24/drivers/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -61,7 +61,7 @@ Index: net-2.6.24/drivers/net/can/Kconfig
 Index: net-2.6.24/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Makefile	2007-09-20 18:49:00.000000000 +0200
++++ net-2.6.24/drivers/net/can/Makefile	2007-09-25 13:32:23.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
@@ -71,7 +71,7 @@ Index: net-2.6.24/drivers/net/can/Makefile
 Index: net-2.6.24/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/vcan.c	2007-09-20 18:49:00.000000000 +0200
++++ net-2.6.24/drivers/net/can/vcan.c	2007-09-25 13:32:23.000000000 +0200
 @@ -0,0 +1,208 @@
 +/*
 + * vcan.c - Virtual CAN interface
@@ -139,11 +139,11 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +
 +/* To be moved to linux/can/dev.h */
 +#ifdef CONFIG_CAN_DEBUG_DEVICES
-+#define DBG(args...)       (debug & 1 ? \
-+			       (printk(KERN_DEBUG "vcan %s: ", __func__), \
-+				printk(args)) : 0)
++#define DBG(fmt, args...)  (debug & 1 ? \
++				printk(KERN_DEBUG "vcan %s: " fmt, \
++				__func__, ##args) : 0)
 +#else
-+#define DBG(args...)
++#define DBG(fmt, args...)
 +#endif
 +
 +
@@ -283,9 +283,9 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +module_exit(vcan_cleanup_module);
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-20 18:48:59.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-20 18:49:00.000000000 +0200
-@@ -77,3 +77,6 @@
+--- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
+@@ -47,3 +47,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a
  	  problem with CAN support and want to see more of what is going on.
