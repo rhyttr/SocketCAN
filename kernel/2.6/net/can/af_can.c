@@ -150,8 +150,10 @@ static void can_sock_destruct(struct sock *sk)
 	DBG("called for sock %p\n", sk);
 
 	skb_queue_purge(&sk->sk_receive_queue);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,12)
 	if (sk->sk_protinfo)
 		kfree(sk->sk_protinfo);
+#endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)

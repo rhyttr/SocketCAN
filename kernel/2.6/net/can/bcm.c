@@ -344,9 +344,7 @@ static void bcm_can_tx(struct bcm_op *op)
 		return;
 	}
 
-	skb = alloc_skb(CFSIZ,
-			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-
+	skb = alloc_skb(CFSIZ, gfp_any());
 	if (!skb)
 		goto out;
 
@@ -382,8 +380,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	int datalen = head->nframes * CFSIZ;
 	int err;
 
-	skb = alloc_skb(sizeof(*head) + datalen,
-			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	skb = alloc_skb(sizeof(*head) + datalen, gfp_any());
 	if (!skb)
 		return;
 
