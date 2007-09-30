@@ -67,7 +67,7 @@ extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
 			      void (*func)(struct sk_buff *, void *),
 			      void *data);
 
-extern int can_send(struct sk_buff *skb, int loop);
+extern int can_send(struct sk_buff *skb, int echo);
 
 #ifdef CONFIG_CAN_DEBUG_CORE
 extern void can_debug_skb(struct sk_buff *skb);
