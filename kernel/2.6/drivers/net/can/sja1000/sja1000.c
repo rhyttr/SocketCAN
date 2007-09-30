@@ -148,7 +148,7 @@ static int rx_probe[MAXDEV]	= { 0 };
 static int clk			= DEFAULT_HW_CLK;
 static int debug		= 0;
 static int restart_ms		= 100;
-static int loopback		= 1;
+static int echo			= 1;
 
 static int base_n;
 static int irq_n;
@@ -165,7 +165,7 @@ module_param_array(rx_probe, int, &rx_probe_n, 0);
 module_param(clk, int, 0);
 module_param(debug, int, 0);
 module_param(restart_ms, int, 0);
-module_param(loopback, int, S_IRUGO);
+module_param(echo, int, S_IRUGO);
 
 MODULE_PARM_DESC(base, "CAN controller base address");
 MODULE_PARM_DESC(irq, "CAN controller interrupt");
@@ -176,15 +176,15 @@ MODULE_PARM_DESC(rx_probe, "switch to trx mode after correct msg receiption. (de
 MODULE_PARM_DESC(clk, "CAN controller chip clock (default: 16MHz)");
 MODULE_PARM_DESC(debug, "set debug mask (default: 0)");
 MODULE_PARM_DESC(restart_ms, "restart chip on heavy bus errors / bus off after x ms (default 100ms)");
-MODULE_PARM_DESC(loopback, "Loop back sent frames. default: 1 (On)");
+MODULE_PARM_DESC(echo, "Echo sent frames. default: 1 (On)");
 
 /*
- * CAN network devices *should* support a local loopback functionality
+ * CAN network devices *should* support a local echo functionality
  * (see Documentation/networking/can.txt). To test the handling of CAN
- * interfaces that do not support the loopback both driver types are
+ * interfaces that do not support the local echo both driver types are
  * implemented inside this sja1000 driver. In the case that the driver does
- * not support the loopback the IFF_ECHO remains clear in dev->flags.
- * This causes the PF_CAN core to perform the loopback as a fallback solution.
+ * not support the echo the IFF_ECHO remains clear in dev->flags.
+ * This causes the PF_CAN core to perform the echo as a fallback solution.
  */
 
 /* function declarations */
@@ -438,9 +438,9 @@ static void chipset_init(struct net_device *dev, int wake)
 		chipset_init_trx(dev);
 
 	if ((wake) && netif_queue_stopped(dev)) {
-		if (priv->loop_skb) { /* pending loopback? */
-			kfree_skb(priv->loop_skb);
-			priv->loop_skb = NULL;
+		if (priv->echo_skb) { /* pending echo? */
+			kfree_skb(priv->echo_skb);
+			priv->echo_skb = NULL;
 		}
 		netif_wake_queue(dev);
 	}
@@ -543,12 +543,12 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* set flag whether this packet has to be looped back */
 	loop = skb->pkt_type == PACKET_LOOPBACK;
 
-	if (!loopback || !loop) {
+	if (!echo || !loop) {
 		kfree_skb(skb);
 		return 0;
 	}
 
-	if (!priv->loop_skb) {
+	if (!priv->echo_skb) {
 		struct sock *srcsk = skb->sk;
 
 		if (atomic_read(&skb->users) != 1) {
@@ -567,18 +567,18 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		skb->sk = srcsk;
 
-		/* make settings for loopback to reduce code in irq context */
+		/* make settings for echo to reduce code in irq context */
 		skb->protocol	= htons(ETH_P_CAN);
 		skb->pkt_type	= PACKET_BROADCAST;
 		skb->ip_summed	= CHECKSUM_UNNECESSARY;
 		skb->dev	= dev;
 
-		/* save this skb for tx interrupt loopback handling */
-		priv->loop_skb = skb;
+		/* save this skb for tx interrupt echo handling */
+		priv->echo_skb = skb;
 
 	} else {
 		/* locking problem with netif_stop_queue() ?? */
-		printk(KERN_ERR "%s: %s: occupied loop_skb!\n",
+		printk(KERN_ERR "%s: %s: occupied echo_skb!\n",
 		       dev->name, __FUNCTION__ );
 		kfree_skb(skb);
 	}
@@ -596,9 +596,9 @@ static void can_tx_timeout(struct net_device *dev)
 	/* do not conflict with e.g. bus error handling */
 	if (!(priv->timer.expires)){ /* no restart on the run */
 		chipset_init_trx(dev); /* no tx queue wakeup */
-		if (priv->loop_skb) { /* pending loopback? */
-			kfree_skb(priv->loop_skb);
-			priv->loop_skb = NULL;
+		if (priv->echo_skb) { /* pending echo? */
+			kfree_skb(priv->echo_skb);
+			priv->echo_skb = NULL;
 		}
 		netif_wake_queue(dev); /* wakeup here */
 	}
@@ -801,9 +801,9 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 			/* transmission complete interrupt */
 			stats->tx_packets++;
 
-			if (loopback && priv->loop_skb) {
-				netif_rx(priv->loop_skb);
-				priv->loop_skb = NULL;
+			if (echo && priv->echo_skb) {
+				netif_rx(priv->echo_skb);
+				priv->echo_skb = NULL;
 			}
 
 			netif_wake_queue(dev);
@@ -1032,7 +1032,7 @@ void can_netdev_setup(struct net_device *dev)
 #define IFF_ECHO IFF_LOOPBACK
 #endif
 	/* set flags according to driver capabilities */
-	if (loopback)
+	if (echo)
 		dev->flags |= IFF_ECHO;
 
 	dev->features			= NETIF_F_NO_CSUM;
