@@ -21,7 +21,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
-#define CAN_VERSION "20070920"
+#define CAN_VERSION "20070930"
 
 /* increment this number each time you change some user-space interface */
 #define CAN_ABI_VERSION "8"
