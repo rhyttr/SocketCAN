@@ -183,7 +183,7 @@ MODULE_PARM_DESC(loopback, "Loop back sent frames. default: 1 (On)");
  * (see Documentation/networking/can.txt). To test the handling of CAN
  * interfaces that do not support the loopback both driver types are
  * implemented inside this sja1000 driver. In the case that the driver does
- * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
+ * not support the loopback the IFF_ECHO remains clear in dev->flags.
  * This causes the PF_CAN core to perform the loopback as a fallback solution.
  */
 
@@ -1028,9 +1028,12 @@ void can_netdev_setup(struct net_device *dev)
 
 	dev->flags			= IFF_NOARP;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#define IFF_ECHO IFF_LOOPBACK
+#endif
 	/* set flags according to driver capabilities */
 	if (loopback)
-		dev->flags |= IFF_LOOPBACK;
+		dev->flags |= IFF_ECHO;
 
 	dev->features			= NETIF_F_NO_CSUM;
 

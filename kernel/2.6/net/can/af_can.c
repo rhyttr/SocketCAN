@@ -324,7 +324,10 @@ int can_send(struct sk_buff *skb, int loop)
 		 * after each skb_clone() or skb_orphan() usage.
 		 */
 
-		if (!(skb->dev->flags & IFF_LOOPBACK)) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#define IFF_ECHO IFF_LOOPBACK
+#endif
+		if (!(skb->dev->flags & IFF_ECHO)) {
 			/*
 			 * If the interface is not capable to do loopback
 			 * itself, we do it here.
