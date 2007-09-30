@@ -96,13 +96,13 @@ MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
 
 /*
  * CAN test feature:
- * Enable the loopback on driver level for testing the CAN core loopback modes.
+ * Enable the echo on driver level for testing the CAN core echo modes.
  * See Documentation/networking/can.txt for details.
  */
 
-static int loopback; /* loopback testing. Default: 0 (Off) */
-module_param(loopback, int, S_IRUGO);
-MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
+static int echo; /* echo testing. Default: 0 (Off) */
+module_param(echo, int, S_IRUGO);
+MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 static struct net_device **vcan_devs; /* root pointer to netdevice structs */
@@ -168,13 +168,13 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	/* set flag whether this packet has to be looped back */
 	loop = skb->pkt_type == PACKET_LOOPBACK;
 
-	if (!loopback) {
-		/* no loopback handling available inside this driver */
+	if (!echo) {
+		/* no echo handling available inside this driver */
 
 		if (loop) {
 			/*
 			 * only count the packets here, because the
-			 * CAN core already did the loopback for us
+			 * CAN core already did the echo for us
 			 */
 			stats->rx_packets++;
 			stats->rx_bytes += skb->len;
@@ -183,7 +183,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		return 0;
 	}
 
-	/* perform standard loopback handling for CAN network interfaces */
+	/* perform standard echo handling for CAN network interfaces */
 
 	if (loop) {
 		struct sock *srcsk = skb->sk;
@@ -226,7 +226,7 @@ static void vcan_setup(struct net_device *dev)
 #define IFF_ECHO IFF_LOOPBACK
 #endif
 	/* set flags according to driver capabilities */
-	if (loopback)
+	if (echo)
 		dev->flags |= IFF_ECHO;
 
 	dev->open              = vcan_open;
@@ -253,8 +253,8 @@ static __init int vcan_init_module(void)
 {
 	printk(banner);
 
-	if (loopback)
-		printk(KERN_INFO "vcan: enabled loopback on driver level.\n");
+	if (echo)
+		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
 
 	return rtnl_link_register(&vcan_link_ops);
 }
@@ -275,8 +275,8 @@ static __init int vcan_init_module(void)
 		numdev = 1;
 
 	printk(KERN_INFO
-	       "vcan: registering %d virtual CAN interfaces. (loopback %s)\n",
-	       numdev, loopback ? "enabled" : "disabled");
+	       "vcan: registering %d virtual CAN interfaces. (echo %s)\n",
+	       numdev, echo ? "enabled" : "disabled");
 
 	vcan_devs = kzalloc(numdev * sizeof(struct net_device *), GFP_KERNEL);
 	if (!vcan_devs) {
