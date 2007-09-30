@@ -349,7 +349,7 @@ static void bcm_can_tx(struct bcm_op *op)
 
 	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
 
-	/* send with loopback */
+	/* send with local echo */
 	skb->dev = dev;
 	skb->sk = op->sk;
 	can_send(skb, 1);
@@ -1278,7 +1278,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		/*
 		 * funny feature in RX(!)_SETUP only for RTR-mode:
 		 * copy can_id into frame BUT without RTR-flag to
-		 * prevent a full-load-loopback-test ... ;-]
+		 * prevent a full-load-echo-test ... ;-]
 		 */
 		if ((op->flags & TX_CP_CAN_ID) ||
 		    (op->frames[0].can_id == op->can_id))
@@ -1410,7 +1410,7 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 
 	skb->dev = dev;
 	skb->sk  = sk;
-	can_send(skb, 1); /* send with loopback */
+	can_send(skb, 1); /* send with local echo */
 	dev_put(dev);
 
 	return CFSIZ + MHSIZ;
