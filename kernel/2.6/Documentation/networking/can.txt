@@ -12,7 +12,7 @@ This file contains
 
   3 Socket CAN concept
     3.1 receive lists
-    3.2 loopback
+    3.2 local loopback of sent frames
     3.3 network security issues (capabilities)
     3.4 network problem notifications
 
@@ -33,7 +33,7 @@ This file contains
 
   6 CAN network drivers
     6.1 general settings
-    6.2 loopback
+    6.2 local loopback of sent frames
     6.3 CAN controller hardware filters
     6.4 currently supported CAN hardware
     6.5 todo
@@ -166,7 +166,7 @@ solution for a couple of reasons:
   into several specific lists per device that match the requested
   filter complexity for a given use-case.
 
-  3.2 loopback
+  3.2 local loopback of sent frames
 
   As known from other networking concepts the data exchanging
   applications may run on the same or different nodes without any
@@ -181,7 +181,7 @@ solution for a couple of reasons:
 
   To ensure that application A receives the same information in the
   example (2) as it would receive in example (1) there is need for
-  some kind of local loopback on the appropriate node.
+  some kind of local loopback of the sent frames on the appropriate node.
 
   The Linux network devices (by default) just can handle the
   transmission and reception of media dependent frames. Due to the
@@ -189,8 +189,8 @@ solution for a couple of reasons:
   may be delayed by the reception of a high prio CAN frame. To
   reflect the correct* traffic on the node the loopback of the sent
   data has to be performed right after a successful transmission. If
-  the CAN network interface is not capable of performing the loopback for
-  some reason the SocketCAN core can do this task as a fallback solution.
+  the CAN network interface is not capable of performing this echo handling
+  for some reason the SocketCAN core can do this task as a fallback solution.
   See chapter 6.2 for details (recommended).
 
   The loopback functionality is enabled by default to reflect standard
@@ -565,14 +565,15 @@ solution for a couple of reasons:
   The struct can_frame is the payload of each socket buffer in the
   protocol family PF_CAN.
 
-  6.2 loopback
+  6.2 local loopback of sent frames
 
   As described in chapter 3.2 the CAN network device driver should
-  support a local loopback functionality. In this case the driver flag
-  IFF_LOOPBACK has to be set to cause the PF_CAN core to not perform the
-  loopback as fallback solution:
+  support a local loopback functionality analogue to the local echo
+  e.g. of tty devices. In this case the driver flag IFF_ECHO has to be
+  set to cause the PF_CAN core to not perform the local echo
+  (aka loopback) as fallback solution:
 
-    dev->flags = (IFF_NOARP | IFF_LOOPBACK);
+    dev->flags = (IFF_NOARP | IFF_ECHO);
 
   6.3 CAN controller hardware filters
 
@@ -590,7 +591,7 @@ solution for a couple of reasons:
   @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
   load without any problems ...
 
-  6.4 currently supported CAN hardware (May 2007)
+  6.4 currently supported CAN hardware (September 2007)
 
   On the project website http://developer.berlios.de/projects/socketcan
   there are different drivers available:
@@ -599,6 +600,7 @@ solution for a couple of reasons:
     sja1000: Philips SJA1000 CAN controller (recommended)
     i82527:  Intel i82527 CAN controller
     mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
+    ccan:    CCAN controller core (e.g. inside SOC h7202)
     slcan:   For a bunch of CAN adaptors that are attached via a
              serial line ASCII protocol (for serial / USB adaptors)
 
@@ -608,7 +610,7 @@ solution for a couple of reasons:
 
   Please check the Mailing Lists on the berlios OSS project website.
 
-  6.5 todo (May 2007)
+  6.5 todo (September 2007)
 
   The configuration interface for CAN network drivers is still an open
   issue that has not been finalized in the socketcan project. Also the
