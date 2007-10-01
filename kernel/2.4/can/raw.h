@@ -58,7 +58,7 @@ RCSID("$Id$");
 
 #define CAN_RAW_FILTER		1	/* set 0 .. n can_filter(s)          */
 #define CAN_RAW_ERR_FILTER	2	/* set filter for error frames       */
-#define CAN_RAW_ECHO		3	/* local echo (default:on)           */
+#define CAN_RAW_LOOPBACK	3	/* local loopback (default:on)       */
 #define CAN_RAW_RECV_OWN_MSGS	4	/* receive my own msgs (default:off) */
 
 #endif

@@ -139,7 +139,7 @@ static struct proto_ops raw_ops = {
 struct canraw_opt {
 	int bound;
 	int ifindex;
-	int echo;
+	int loopback;
 	int recv_own_msgs;
 	int count;                 /* number of active filters */
 	struct can_filter dfilter; /* default/single filter */
@@ -193,8 +193,8 @@ static int raw_init(struct sock *sk)
 	ro->filter           = &ro->dfilter;
 	ro->count            = 1;
 
-	/* set default echo behaviour */
-	ro->echo             = 1;
+	/* set default loopback behaviour */
+	ro->loopback         = 1;
 	ro->recv_own_msgs    = 0;
 
 	return 0;
@@ -424,10 +424,10 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		break;
 
-	case CAN_RAW_ECHO:
-		if (optlen != sizeof(ro->echo))
+	case CAN_RAW_LOOPBACK:
+		if (optlen != sizeof(ro->loopback))
 			return -EINVAL;
-		if ((err = copy_from_user(&ro->echo, optval, optlen)))
+		if ((err = copy_from_user(&ro->loopback, optval, optlen)))
 			return err;
 		break;
 
@@ -495,7 +495,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 
 		break;
 
-	case CAN_RAW_ECHO:
+	case CAN_RAW_LOOPBACK:
 		if (get_user(len, optlen))
 			return -EFAULT;
 
@@ -505,7 +505,7 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 		if (len > sizeof(int))
 			len = sizeof(int);
 
-		if (copy_to_user(optval, &ro->echo, len))
+		if (copy_to_user(optval, &ro->loopback, len))
 			return -EFAULT;
 
 		if (put_user(len, optlen))
@@ -610,7 +610,7 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	DBG("sending skbuff to interface %d\n", ifindex);
 	DBG_SKB(skb);
 
-	err = can_send(skb, ro->echo);
+	err = can_send(skb, ro->loopback);
 
 	dev_put(dev);
 

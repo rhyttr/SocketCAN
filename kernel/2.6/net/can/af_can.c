@@ -282,18 +282,18 @@ static int can_create(struct socket *sock, int protocol)
  */
 
 /**
- * can_send - transmit a CAN frame (optional with local echo)
+ * can_send - transmit a CAN frame (optional with local loopback)
  * @skb: pointer to socket buffer with CAN frame in data section
- * @echo: echo CAN frames for listeners on local CAN sockets (recommended!)
+ * @loop: loopback for listeners on local CAN sockets (recommended default!)
  *
  * Return:
  *  0 on success
  *  -ENETDOWN when the selected interface is down
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
- *  -ENOMEM when local echo failed at calling skb_clone()
+ *  -ENOMEM when local loopback failed at calling skb_clone()
  *  -EPERM when trying to send on a non-CAN interface
  */
-int can_send(struct sk_buff *skb, int echo)
+int can_send(struct sk_buff *skb, int loop)
 {
 	int err;
 
@@ -309,10 +309,10 @@ int can_send(struct sk_buff *skb, int echo)
 
 	skb->protocol = htons(ETH_P_CAN);
 
-	if (echo) {
-		/* local echo of sent CAN frames */
+	if (loop) {
+		/* local loopback of sent CAN frames */
 
-		/* indication for the CAN driver: perform local echo */
+		/* indication for the CAN driver: do loopback */
 		skb->pkt_type = PACKET_LOOPBACK;
 
 		/*
@@ -329,8 +329,8 @@ int can_send(struct sk_buff *skb, int echo)
 #endif
 		if (!(skb->dev->flags & IFF_ECHO)) {
 			/*
-			 * If the interface is not capable to echo the
-			 * sent CAN frame itself, we do it here.
+			 * If the interface is not capable to do loopback
+			 * itself, we do it here.
 			 */
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 
@@ -345,7 +345,7 @@ int can_send(struct sk_buff *skb, int echo)
 			netif_rx(newskb);
 		}
 	} else {
-		/* indication for the CAN driver: no echo required */
+		/* indication for the CAN driver: no loopback required */
 		skb->pkt_type = PACKET_HOST;
 	}
 

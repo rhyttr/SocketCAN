@@ -98,7 +98,7 @@ struct raw_sock {
 	int bound;
 	int ifindex;
 	struct notifier_block notifier;
-	int echo;
+	int loopback;
 	int recv_own_msgs;
 	int count;                 /* number of active filters */
 	struct can_filter dfilter; /* default/single filter */
@@ -318,8 +318,8 @@ static int raw_init(struct sock *sk)
 	ro->filter           = &ro->dfilter;
 	ro->count            = 1;
 
-	/* set default echo behaviour */
-	ro->echo             = 1;
+	/* set default loopback behaviour */
+	ro->loopback         = 1;
 	ro->recv_own_msgs    = 0;
 
 	/* set notifier */
@@ -622,11 +622,11 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		break;
 
-	case CAN_RAW_ECHO:
-		if (optlen != sizeof(ro->echo))
+	case CAN_RAW_LOOPBACK:
+		if (optlen != sizeof(ro->loopback))
 			return -EINVAL;
 
-		err = copy_from_user(&ro->echo, optval, optlen);
+		err = copy_from_user(&ro->loopback, optval, optlen);
 
 		break;
 
@@ -683,10 +683,10 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 		val = &ro->err_mask;
 		break;
 
-	case CAN_RAW_ECHO:
+	case CAN_RAW_LOOPBACK:
 		if (len > sizeof(int))
 			len = sizeof(int);
-		val = &ro->echo;
+		val = &ro->loopback;
 		break;
 
 	case CAN_RAW_RECV_OWN_MSGS:
@@ -757,7 +757,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 	DBG("sending skbuff to interface %d\n", ifindex);
 	DBG_SKB(skb);
 
-	err = can_send(skb, ro->echo);
+	err = can_send(skb, ro->loopback);
 
 	dev_put(dev);
 
