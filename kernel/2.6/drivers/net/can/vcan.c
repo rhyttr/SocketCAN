@@ -101,7 +101,7 @@ MODULE_PARM_DESC(numdev, "Number of virtual CAN devices");
  */
 
 static int echo; /* echo testing. Default: 0 (Off) */
-module_param(echo, int, S_IRUGO);
+module_param(echo, bool, S_IRUGO);
 MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
