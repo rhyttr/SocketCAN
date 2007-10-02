@@ -1,5 +1,5 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #8
+CAN: Add new PF_CAN protocol family, try #9
 ESUBJECT
 
 Hello Dave, hello Patrick,
@@ -8,6 +8,15 @@ this is the eigth post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
+
+* Changes suggested by Arnaldo Carvalho de Melo:
+  - Use gfp_any() instead of checking in_interrupt().
+  - Don't kfree() the sk_protinfo field
+* Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
+* Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
+  as suggested by Eric W. Biederman
+
+The changes in try #8 were:
 
 * Some changes in debug code, following suggestions from Joe Perches:
   - Remove dynamically allocated buffer for debug output.
@@ -99,7 +108,7 @@ The changes in try #2 were:
 
 
 This patch series applies against net-2.6.24 and is derived from Subversion
-revision r493 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r511 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 

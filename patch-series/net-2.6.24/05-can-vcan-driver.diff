@@ -12,14 +12,14 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  drivers/net/Makefile     |    1 
  drivers/net/can/Kconfig  |   25 +++++
  drivers/net/can/Makefile |    5 +
- drivers/net/can/vcan.c   |  208 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  207 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 242 insertions(+)
+ 5 files changed, 241 insertions(+)
 
 Index: net-2.6.24/drivers/net/Makefile
 ===================================================================
---- net-2.6.24.orig/drivers/net/Makefile	2007-09-25 13:28:42.000000000 +0200
-+++ net-2.6.24/drivers/net/Makefile	2007-09-25 13:32:23.000000000 +0200
+--- net-2.6.24.orig/drivers/net/Makefile	2007-09-25 15:28:51.000000000 +0200
++++ net-2.6.24/drivers/net/Makefile	2007-10-02 08:42:20.000000000 +0200
 @@ -10,6 +10,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -31,7 +31,7 @@ Index: net-2.6.24/drivers/net/Makefile
 Index: net-2.6.24/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
++++ net-2.6.24/drivers/net/can/Kconfig	2007-10-02 08:42:20.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -61,7 +61,7 @@ Index: net-2.6.24/drivers/net/can/Kconfig
 Index: net-2.6.24/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Makefile	2007-09-25 13:32:23.000000000 +0200
++++ net-2.6.24/drivers/net/can/Makefile	2007-10-02 08:42:20.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
@@ -71,8 +71,8 @@ Index: net-2.6.24/drivers/net/can/Makefile
 Index: net-2.6.24/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/vcan.c	2007-09-25 13:32:23.000000000 +0200
-@@ -0,0 +1,208 @@
++++ net-2.6.24/drivers/net/can/vcan.c	2007-10-02 08:42:52.000000000 +0200
+@@ -0,0 +1,207 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -83,8 +83,7 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -94,8 +93,8 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.
@@ -149,13 +148,13 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +
 +/*
 + * CAN test feature:
-+ * Enable the loopback on driver level for testing the CAN core loopback modes.
++ * Enable the echo on driver level for testing the CAN core echo modes.
 + * See Documentation/networking/can.txt for details.
 + */
 +
-+static int loopback; /* loopback testing. Default: 0 (Off) */
-+module_param(loopback, int, S_IRUGO);
-+MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
++static int echo; /* echo testing. Default: 0 (Off) */
++module_param(echo, int, S_IRUGO);
++MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
 +
 +
 +static int vcan_open(struct net_device *dev)
@@ -204,13 +203,13 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +	/* set flag whether this packet has to be looped back */
 +	loop = skb->pkt_type == PACKET_LOOPBACK;
 +
-+	if (!loopback) {
-+		/* no loopback handling available inside this driver */
++	if (!echo) {
++		/* no echo handling available inside this driver */
 +
 +		if (loop) {
 +			/*
 +			 * only count the packets here, because the
-+			 * CAN core already did the loopback for us
++			 * CAN core already did the echo for us
 +			 */
 +			stats->rx_packets++;
 +			stats->rx_bytes += skb->len;
@@ -219,7 +218,7 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +		return 0;
 +	}
 +
-+	/* perform standard loopback handling for CAN network interfaces */
++	/* perform standard echo handling for CAN network interfaces */
 +
 +	if (loop) {
 +		struct sock *srcsk = skb->sk;
@@ -250,8 +249,8 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +	dev->flags             = IFF_NOARP;
 +
 +	/* set flags according to driver capabilities */
-+	if (loopback)
-+		dev->flags |= IFF_LOOPBACK;
++	if (echo)
++		dev->flags |= IFF_ECHO;
 +
 +	dev->open              = vcan_open;
 +	dev->stop              = vcan_stop;
@@ -268,8 +267,8 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +{
 +	printk(banner);
 +
-+	if (loopback)
-+		printk(KERN_INFO "vcan: enabled loopback on driver level.\n");
++	if (echo)
++		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
 +
 +	return rtnl_link_register(&vcan_link_ops);
 +}
@@ -283,8 +282,8 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +module_exit(vcan_cleanup_module);
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-25 13:32:23.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-02 08:42:19.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-02 08:42:20.000000000 +0200
 @@ -47,3 +47,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a

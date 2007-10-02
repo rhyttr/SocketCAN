@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   11 
  net/can/Makefile        |    3 
- net/can/raw.c           |  822 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 867 insertions(+)
+ net/can/raw.c           |  821 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 866 insertions(+)
 
 Index: net-2.6.24/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/raw.h	2007-09-25 13:23:05.000000000 +0200
++++ net-2.6.24/include/linux/can/raw.h	2007-10-02 08:33:39.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -51,8 +51,8 @@ Index: net-2.6.24/include/linux/can/raw.h
 +#endif
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:14:46.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-25 13:31:06.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-02 06:18:29.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-02 08:35:31.000000000 +0200
 @@ -16,6 +16,17 @@
  	  If you want CAN support, you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -73,8 +73,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-25 13:14:46.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-25 13:29:23.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-10-02 06:18:29.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-02 08:35:31.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -85,8 +85,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/raw.c	2007-09-25 13:25:24.000000000 +0200
-@@ -0,0 +1,822 @@
++++ net-2.6.24/net/can/raw.c	2007-10-02 08:35:48.000000000 +0200
+@@ -0,0 +1,821 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -97,8 +97,7 @@ Index: net-2.6.24/net/can/raw.c
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -108,8 +107,8 @@ Index: net-2.6.24/net/can/raw.c
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.

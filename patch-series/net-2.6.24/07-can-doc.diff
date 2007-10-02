@@ -8,14 +8,14 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  Documentation/networking/00-INDEX |    2 
- Documentation/networking/can.txt  |  634 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 636 insertions(+)
+ Documentation/networking/can.txt  |  637 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 639 insertions(+)
 
 Index: net-2.6.24/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/Documentation/networking/can.txt	2007-09-25 13:28:26.000000000 +0200
-@@ -0,0 +1,634 @@
++++ net-2.6.24/Documentation/networking/can.txt	2007-10-02 08:43:50.000000000 +0200
+@@ -0,0 +1,637 @@
 +============================================================================
 +
 +can.txt
@@ -30,7 +30,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +
 +  3 Socket CAN concept
 +    3.1 receive lists
-+    3.2 loopback
++    3.2 local loopback of sent frames
 +    3.3 network security issues (capabilities)
 +    3.4 network problem notifications
 +
@@ -51,7 +51,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +
 +  6 CAN network drivers
 +    6.1 general settings
-+    6.2 loopback
++    6.2 local loopback of sent frames
 +    6.3 CAN controller hardware filters
 +    6.4 currently supported CAN hardware
 +    6.5 todo
@@ -184,7 +184,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  into several specific lists per device that match the requested
 +  filter complexity for a given use-case.
 +
-+  3.2 loopback
++  3.2 local loopback of sent frames
 +
 +  As known from other networking concepts the data exchanging
 +  applications may run on the same or different nodes without any
@@ -199,7 +199,8 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +
 +  To ensure that application A receives the same information in the
 +  example (2) as it would receive in example (1) there is need for
-+  some kind of local loopback on the appropriate node.
++  some kind of local loopback of the sent CAN frames on the appropriate
++  node.
 +
 +  The Linux network devices (by default) just can handle the
 +  transmission and reception of media dependent frames. Due to the
@@ -583,14 +584,15 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  The struct can_frame is the payload of each socket buffer in the
 +  protocol family PF_CAN.
 +
-+  6.2 loopback
++  6.2 local loopback of sent frames
 +
 +  As described in chapter 3.2 the CAN network device driver should
-+  support a local loopback functionality. In this case the driver flag
-+  IFF_LOOPBACK has to be set to cause the PF_CAN core to not perform the
-+  loopback as fallback solution:
++  support a local loopback functionality similar to the local echo
++  e.g. of tty devices. In this case the driver flag IFF_ECHO has to be
++  set to prevent the PF_CAN core from locally echoing sent frames
++  (aka loopback) as fallback solution:
 +
-+    dev->flags = (IFF_NOARP | IFF_LOOPBACK);
++    dev->flags = (IFF_NOARP | IFF_ECHO);
 +
 +  6.3 CAN controller hardware filters
 +
@@ -608,7 +610,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
 +  load without any problems ...
 +
-+  6.4 currently supported CAN hardware (May 2007)
++  6.4 currently supported CAN hardware (September 2007)
 +
 +  On the project website http://developer.berlios.de/projects/socketcan
 +  there are different drivers available:
@@ -617,6 +619,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +    sja1000: Philips SJA1000 CAN controller (recommended)
 +    i82527:  Intel i82527 CAN controller
 +    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
++    ccan:    CCAN controller core (e.g. inside SOC h7202)
 +    slcan:   For a bunch of CAN adaptors that are attached via a
 +             serial line ASCII protocol (for serial / USB adaptors)
 +
@@ -626,7 +629,7 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +
 +  Please check the Mailing Lists on the berlios OSS project website.
 +
-+  6.5 todo (May 2007)
++  6.5 todo (September 2007)
 +
 +  The configuration interface for CAN network drivers is still an open
 +  issue that has not been finalized in the socketcan project. Also the
@@ -652,8 +655,8 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
 Index: net-2.6.24/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-24 17:53:07.000000000 +0200
-+++ net-2.6.24/Documentation/networking/00-INDEX	2007-09-25 13:27:55.000000000 +0200
+--- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-25 15:28:50.000000000 +0200
++++ net-2.6.24/Documentation/networking/00-INDEX	2007-10-02 08:43:21.000000000 +0200
 @@ -26,6 +26,8 @@
  	- info on the driver for Baycom style amateur radio modems
  bridge.txt

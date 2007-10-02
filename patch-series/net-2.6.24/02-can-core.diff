@@ -12,19 +12,20 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can.h       |  111 +++++
  include/linux/can/core.h  |   77 +++
  include/linux/can/error.h |   93 ++++
+ include/linux/if.h        |    4 
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/can/Kconfig           |   25 +
  net/can/Makefile          |    6 
- net/can/af_can.c          |  973 ++++++++++++++++++++++++++++++++++++++++++++++
- net/can/af_can.h          |  121 +++++
- net/can/proc.c            |  533 +++++++++++++++++++++++++
- 10 files changed, 1941 insertions(+)
+ net/can/af_can.c          |  970 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.h          |  120 +++++
+ net/can/proc.c            |  532 +++++++++++++++++++++++++
+ 11 files changed, 1939 insertions(+), 1 deletion(-)
 
 Index: net-2.6.24/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can.h	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/include/linux/can.h	2007-10-02 06:18:29.000000000 +0200
 @@ -0,0 +1,111 @@
 +/*
 + * linux/can.h
@@ -140,7 +141,7 @@ Index: net-2.6.24/include/linux/can.h
 Index: net-2.6.24/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/core.h	2007-09-25 13:22:22.000000000 +0200
++++ net-2.6.24/include/linux/can/core.h	2007-10-02 08:15:32.000000000 +0200
 @@ -0,0 +1,77 @@
 +/*
 + * linux/can/core.h
@@ -163,7 +164,7 @@ Index: net-2.6.24/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20070920"
++#define CAN_VERSION "20071001"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -221,8 +222,8 @@ Index: net-2.6.24/include/linux/can/core.h
 +#endif /* CAN_CORE_H */
 Index: net-2.6.24/net/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/Kconfig	2007-09-24 17:53:08.000000000 +0200
-+++ net-2.6.24/net/Kconfig	2007-09-25 13:14:46.000000000 +0200
+--- net-2.6.24.orig/net/Kconfig	2007-10-02 06:17:07.000000000 +0200
++++ net-2.6.24/net/Kconfig	2007-10-02 06:18:29.000000000 +0200
 @@ -210,6 +210,7 @@
  endmenu
  
@@ -233,8 +234,8 @@ Index: net-2.6.24/net/Kconfig
  source "net/rxrpc/Kconfig"
 Index: net-2.6.24/net/Makefile
 ===================================================================
---- net-2.6.24.orig/net/Makefile	2007-09-24 17:53:08.000000000 +0200
-+++ net-2.6.24/net/Makefile	2007-09-25 13:14:46.000000000 +0200
+--- net-2.6.24.orig/net/Makefile	2007-10-02 06:17:07.000000000 +0200
++++ net-2.6.24/net/Makefile	2007-10-02 06:18:29.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -246,7 +247,7 @@ Index: net-2.6.24/net/Makefile
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/Kconfig	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-02 08:36:04.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -276,7 +277,7 @@ Index: net-2.6.24/net/can/Kconfig
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/Makefile	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-02 08:36:04.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -287,8 +288,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/af_can.c	2007-09-25 13:22:22.000000000 +0200
-@@ -0,0 +1,973 @@
++++ net-2.6.24/net/can/af_can.c	2007-10-02 08:36:42.000000000 +0200
+@@ -0,0 +1,970 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -300,8 +301,7 @@ Index: net-2.6.24/net/can/af_can.c
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -311,8 +311,8 @@ Index: net-2.6.24/net/can/af_can.c
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.
@@ -413,8 +413,6 @@ Index: net-2.6.24/net/can/af_can.c
 +	DBG("called for sock %p\n", sk);
 +
 +	skb_queue_purge(&sk->sk_receive_queue);
-+	if (sk->sk_protinfo)
-+		kfree(sk->sk_protinfo);
 +}
 +
 +static int can_create(struct net *net, struct socket *sock, int protocol)
@@ -548,7 +546,7 @@ Index: net-2.6.24/net/can/af_can.c
 +		 * after each skb_clone() or skb_orphan() usage.
 +		 */
 +
-+		if (!(skb->dev->flags & IFF_LOOPBACK)) {
++		if (!(skb->dev->flags & IFF_ECHO)) {
 +			/*
 +			 * If the interface is not capable to do loopback
 +			 * itself, we do it here.
@@ -1265,8 +1263,8 @@ Index: net-2.6.24/net/can/af_can.c
 Index: net-2.6.24/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/af_can.h	2007-09-25 13:14:46.000000000 +0200
-@@ -0,0 +1,121 @@
++++ net-2.6.24/net/can/af_can.h	2007-10-02 08:36:43.000000000 +0200
+@@ -0,0 +1,120 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 + * All rights reserved.
@@ -1275,8 +1273,7 @@ Index: net-2.6.24/net/can/af_can.h
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -1286,8 +1283,8 @@ Index: net-2.6.24/net/can/af_can.h
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.
@@ -1391,8 +1388,8 @@ Index: net-2.6.24/net/can/af_can.h
 Index: net-2.6.24/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/proc.c	2007-09-25 13:22:22.000000000 +0200
-@@ -0,0 +1,533 @@
++++ net-2.6.24/net/can/proc.c	2007-10-02 08:39:22.000000000 +0200
+@@ -0,0 +1,532 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
 + *
@@ -1403,8 +1400,7 @@ Index: net-2.6.24/net/can/proc.c
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -1414,8 +1410,8 @@ Index: net-2.6.24/net/can/proc.c
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.
@@ -1929,7 +1925,7 @@ Index: net-2.6.24/net/can/proc.c
 Index: net-2.6.24/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/error.h	2007-09-25 13:14:46.000000000 +0200
++++ net-2.6.24/include/linux/can/error.h	2007-10-02 06:18:29.000000000 +0200
 @@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h
@@ -2024,3 +2020,18 @@ Index: net-2.6.24/include/linux/can/error.h
 +/* controller specific additional information / data[5..7] */
 +
 +#endif /* CAN_ERROR_H */
+Index: net-2.6.24/include/linux/if.h
+===================================================================
+--- net-2.6.24.orig/include/linux/if.h	2007-10-02 06:24:41.000000000 +0200
++++ net-2.6.24/include/linux/if.h	2007-10-02 06:27:10.000000000 +0200
+@@ -50,7 +50,9 @@
+ #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
+ #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
+ 
+-#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
++#define IFF_ECHO	0x40000		/* echo sent packets		*/
++
++#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
+ 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
+ 
+ /* Private (from user) interface flags (netdevice->priv_flags). */

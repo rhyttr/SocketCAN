@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   13 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1778 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1859 insertions(+)
+ net/can/bcm.c           | 1774 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1855 insertions(+)
 
 Index: net-2.6.24/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/bcm.h	2007-09-25 13:31:23.000000000 +0200
++++ net-2.6.24/include/linux/can/bcm.h	2007-10-02 08:33:40.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -85,8 +85,8 @@ Index: net-2.6.24/include/linux/can/bcm.h
 +#endif /* CAN_BCM_H */
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:31:06.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-25 13:31:46.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-02 08:33:39.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-02 08:33:40.000000000 +0200
 @@ -27,6 +27,19 @@
  	  socket has several filter options e.g. ID-Masking / Errorframes.
  	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
@@ -109,8 +109,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-25 13:29:23.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-25 13:31:23.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-10-02 08:33:39.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-02 08:33:40.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -121,8 +121,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/bcm.c	2007-09-25 13:31:23.000000000 +0200
-@@ -0,0 +1,1778 @@
++++ net-2.6.24/net/can/bcm.c	2007-10-02 08:35:04.000000000 +0200
+@@ -0,0 +1,1774 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -133,8 +133,7 @@ Index: net-2.6.24/net/can/bcm.c
 + * modification, are permitted provided that the following conditions
 + * are met:
 + * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
++ *    notice, this list of conditions and the following disclaimer.
 + * 2. Redistributions in binary form must reproduce the above copyright
 + *    notice, this list of conditions and the following disclaimer in the
 + *    documentation and/or other materials provided with the distribution.
@@ -144,8 +143,8 @@ Index: net-2.6.24/net/can/bcm.c
 + *
 + * Alternatively, provided that this notice is retained in full, this
 + * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
 + * The provided data structures and external interfaces from this code
 + * are not restricted to be used by modules with a GPL compatible license.
@@ -417,9 +416,7 @@ Index: net-2.6.24/net/can/bcm.c
 +		return;
 +	}
 +
-+	skb = alloc_skb(CFSIZ,
-+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-+
++	skb = alloc_skb(CFSIZ, gfp_any());
 +	if (!skb)
 +		goto out;
 +
@@ -455,8 +452,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	int datalen = head->nframes * CFSIZ;
 +	int err;
 +
-+	skb = alloc_skb(sizeof(*head) + datalen,
-+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
++	skb = alloc_skb(sizeof(*head) + datalen, gfp_any());
 +	if (!skb)
 +		return;
 +
