@@ -18,9 +18,9 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 Index: net-2.6.24/drivers/net/Makefile
 ===================================================================
---- net-2.6.24.orig/drivers/net/Makefile	2007-09-25 15:28:51.000000000 +0200
-+++ net-2.6.24/drivers/net/Makefile	2007-10-02 08:42:20.000000000 +0200
-@@ -10,6 +10,7 @@
+--- net-2.6.24.orig/drivers/net/Makefile	2007-09-20 23:46:01.000000000 +0200
++++ net-2.6.24/drivers/net/Makefile	2007-10-02 12:03:30.000000000 +0200
+@@ -12,6 +12,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
  obj-$(CONFIG_EHEA) += ehea/
@@ -31,7 +31,7 @@ Index: net-2.6.24/drivers/net/Makefile
 Index: net-2.6.24/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Kconfig	2007-10-02 08:42:20.000000000 +0200
++++ net-2.6.24/drivers/net/can/Kconfig	2007-10-02 12:03:30.000000000 +0200
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -61,7 +61,7 @@ Index: net-2.6.24/drivers/net/can/Kconfig
 Index: net-2.6.24/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/Makefile	2007-10-02 08:42:20.000000000 +0200
++++ net-2.6.24/drivers/net/can/Makefile	2007-10-02 12:03:30.000000000 +0200
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
@@ -71,7 +71,7 @@ Index: net-2.6.24/drivers/net/can/Makefile
 Index: net-2.6.24/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/drivers/net/can/vcan.c	2007-10-02 08:42:52.000000000 +0200
++++ net-2.6.24/drivers/net/can/vcan.c	2007-10-02 12:03:30.000000000 +0200
 @@ -0,0 +1,207 @@
 +/*
 + * vcan.c - Virtual CAN interface
@@ -282,8 +282,8 @@ Index: net-2.6.24/drivers/net/can/vcan.c
 +module_exit(vcan_cleanup_module);
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-10-02 08:42:19.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-10-02 08:42:20.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-02 12:03:28.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-02 12:03:30.000000000 +0200
 @@ -47,3 +47,6 @@
  	  Say Y here if you want the CAN core to produce a bunch of debug
  	  messages to the system log.  Select this if you are having a

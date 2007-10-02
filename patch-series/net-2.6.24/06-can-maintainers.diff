@@ -13,9 +13,9 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 Index: net-2.6.24/CREDITS
 ===================================================================
---- net-2.6.24.orig/CREDITS	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/CREDITS	2007-09-20 18:49:00.000000000 +0200
-@@ -1331,6 +1331,14 @@
+--- net-2.6.24.orig/CREDITS	2007-09-20 06:37:28.000000000 +0200
++++ net-2.6.24/CREDITS	2007-10-02 12:03:43.000000000 +0200
+@@ -1347,6 +1347,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
  
@@ -30,7 +30,7 @@ Index: net-2.6.24/CREDITS
  N: Andrew Haylett
  E: ajh@primag.co.uk
  D: Selection mechanism
-@@ -3284,6 +3292,14 @@
+@@ -3300,6 +3308,14 @@
  S: F-35042 Rennes Cedex
  S: France
  
@@ -47,9 +47,9 @@ Index: net-2.6.24/CREDITS
  W: http://www.esi.us.es/~jon
 Index: net-2.6.24/MAINTAINERS
 ===================================================================
---- net-2.6.24.orig/MAINTAINERS	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/MAINTAINERS	2007-09-20 18:49:00.000000000 +0200
-@@ -975,6 +975,15 @@
+--- net-2.6.24.orig/MAINTAINERS	2007-09-28 18:01:52.000000000 +0200
++++ net-2.6.24/MAINTAINERS	2007-10-02 12:03:43.000000000 +0200
+@@ -991,6 +991,15 @@
  L:	video4linux-list@redhat.com
  S:	Maintained
  

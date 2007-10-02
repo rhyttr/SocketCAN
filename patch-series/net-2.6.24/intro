@@ -4,7 +4,7 @@ ESUBJECT
 
 Hello Dave, hello Patrick,
 
-this is the eigth post of the patch series that adds the PF_CAN
+this is the nineth post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
 Since our last post we have changed the following:
@@ -14,7 +14,8 @@ Since our last post we have changed the following:
   - Don't kfree() the sk_protinfo field
 * Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
 * Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
-  as suggested by Eric W. Biederman
+  as suggested by Eric W. Biederman.  IFF_LOOPBACK is only for the normal
+  loopback interface.
 
 The changes in try #8 were:
 

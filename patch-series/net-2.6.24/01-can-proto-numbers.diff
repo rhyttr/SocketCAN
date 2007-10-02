@@ -9,17 +9,18 @@ Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
+ include/linux/if.h       |    4 +++-
  include/linux/if_arp.h   |    1 +
  include/linux/if_ether.h |    1 +
  include/linux/socket.h   |    2 ++
  include/linux/tty.h      |    3 ++-
  net/core/sock.c          |    4 ++--
- 5 files changed, 8 insertions(+), 3 deletions(-)
+ 6 files changed, 11 insertions(+), 4 deletions(-)
 
 Index: net-2.6.24/include/linux/if_arp.h
 ===================================================================
---- net-2.6.24.orig/include/linux/if_arp.h	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/include/linux/if_arp.h	2007-09-20 18:48:57.000000000 +0200
+--- net-2.6.24.orig/include/linux/if_arp.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/if_arp.h	2007-10-02 12:11:01.000000000 +0200
 @@ -52,6 +52,7 @@
  #define ARPHRD_ROSE	270
  #define ARPHRD_X25	271		/* CCITT X.25			*/
@@ -30,8 +31,8 @@ Index: net-2.6.24/include/linux/if_arp.h
  #define ARPHRD_HDLC	ARPHRD_CISCO
 Index: net-2.6.24/include/linux/if_ether.h
 ===================================================================
---- net-2.6.24.orig/include/linux/if_ether.h	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/include/linux/if_ether.h	2007-09-20 18:48:57.000000000 +0200
+--- net-2.6.24.orig/include/linux/if_ether.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/if_ether.h	2007-10-02 12:11:01.000000000 +0200
 @@ -90,6 +90,7 @@
  #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
  #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
@@ -42,8 +43,8 @@ Index: net-2.6.24/include/linux/if_ether.h
  #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
 Index: net-2.6.24/include/linux/socket.h
 ===================================================================
---- net-2.6.24.orig/include/linux/socket.h	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/include/linux/socket.h	2007-09-20 18:48:57.000000000 +0200
+--- net-2.6.24.orig/include/linux/socket.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/socket.h	2007-10-02 12:11:01.000000000 +0200
 @@ -185,6 +185,7 @@
  #define AF_PPPOX	24	/* PPPoX sockets		*/
  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
@@ -62,8 +63,8 @@ Index: net-2.6.24/include/linux/socket.h
  #define PF_IUCV		AF_IUCV
 Index: net-2.6.24/include/linux/tty.h
 ===================================================================
---- net-2.6.24.orig/include/linux/tty.h	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/include/linux/tty.h	2007-09-20 18:48:57.000000000 +0200
+--- net-2.6.24.orig/include/linux/tty.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/tty.h	2007-10-02 12:11:02.000000000 +0200
 @@ -24,7 +24,7 @@
  #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
  #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
@@ -83,8 +84,8 @@ Index: net-2.6.24/include/linux/tty.h
   * This character is the same as _POSIX_VDISABLE: it cannot be used as
 Index: net-2.6.24/net/core/sock.c
 ===================================================================
---- net-2.6.24.orig/net/core/sock.c	2007-09-20 18:48:21.000000000 +0200
-+++ net-2.6.24/net/core/sock.c	2007-09-20 18:48:57.000000000 +0200
+--- net-2.6.24.orig/net/core/sock.c	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/net/core/sock.c	2007-10-02 12:11:02.000000000 +0200
 @@ -154,7 +154,7 @@
    "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
    "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
@@ -103,3 +104,18 @@ Index: net-2.6.24/net/core/sock.c
    "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
    "slock-AF_RXRPC" , "slock-AF_MAX"
  };
+Index: net-2.6.24/include/linux/if.h
+===================================================================
+--- net-2.6.24.orig/include/linux/if.h	2007-10-02 12:10:28.000000000 +0200
++++ net-2.6.24/include/linux/if.h	2007-10-02 12:09:34.000000000 +0200
+@@ -50,7 +50,9 @@
+ #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
+ #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
+ 
+-#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
++#define IFF_ECHO	0x40000		/* echo sent packets		*/
++
++#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
+ 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
+ 
+ /* Private (from user) interface flags (netdevice->priv_flags). */
