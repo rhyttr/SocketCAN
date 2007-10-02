@@ -11,7 +11,7 @@ Since our last post we have changed the following:
 
 * Changes suggested by Arnaldo Carvalho de Melo:
   - Use gfp_any() instead of checking in_interrupt().
-  - Don't kfree() the sk_protinfo field
+  - Don't kfree() the sk_protinfo field.
 * Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
 * Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
   as suggested by Eric W. Biederman.  IFF_LOOPBACK is only for the normal
