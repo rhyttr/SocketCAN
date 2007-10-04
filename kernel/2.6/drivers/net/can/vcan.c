@@ -63,13 +63,13 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
-static int debug;
-module_param(debug, int, S_IRUGO);
+static int vcan_debug;
+module_param_named(debug, vcan_debug, int, S_IRUGO);
 #endif
 
 /* To be moved to linux/can/dev.h */
 #ifdef CONFIG_CAN_DEBUG_DEVICES
-#define DBG(fmt, args...)  (debug & 1 ? \
+#define DBG(fmt, args...)  (vcan_debug & 1 ? \
 				printk(KERN_DEBUG "vcan %s: " fmt, \
 				__func__, ##args) : 0)
 #else
