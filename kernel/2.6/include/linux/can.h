@@ -78,16 +78,16 @@ struct can_frame {
  * struct sockaddr_can - the sockaddr structure for CAN sockets
  * @can_family:  address family number AF_CAN.
  * @can_ifindex: CAN network interface index.
- * @can_addr:    transport protocol specific address, mostly CAN IDs.
+ * @can_addr:    protocol specific address information
  */
 struct sockaddr_can {
 	sa_family_t can_family;
 	int         can_ifindex;
 	union {
-		struct { canid_t rx_id, tx_id; } tp16;
-		struct { canid_t rx_id, tx_id; } tp20;
-		struct { canid_t rx_id, tx_id; } mcnet;
-		struct { canid_t rx_id, tx_id; } isotp;
+		/* transport protocol class address information (e.g. ISOTP) */
+		struct { canid_t rx_id, tx_id; } tp;
+
+		/* reserved for future CAN protocols address information */
 	} can_addr;
 };
 
