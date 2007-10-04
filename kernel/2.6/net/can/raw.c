@@ -45,7 +45,6 @@
 #include <linux/version.h>
 #include <linux/init.h>
 #include <linux/uio.h>
-#include <linux/poll.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
@@ -62,7 +61,6 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define IDENT "raw"
 #define CAN_RAW_VERSION CAN_VERSION
 static __initdata const char banner[] =
 	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
@@ -72,8 +70,10 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug;
-module_param(debug, int, S_IRUGO);
+#define DBG_PREFIX "can-raw"
+#define DBG_VAR    raw_debug
+static int raw_debug;
+module_param_named(debug, raw_debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
@@ -169,7 +169,7 @@ static int raw_enable_filters(struct net_device *dev, struct sock *sk,
 
 		err = can_rx_register(dev, filter[i].can_id,
 				      filter[i].can_mask,
-				      raw_rcv, sk, IDENT);
+				      raw_rcv, sk, "raw");
 
 		if (err) {
 			/* clean up successfully registered filters */
@@ -191,7 +191,7 @@ static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
 
 	if (err_mask)
 		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
-				      raw_rcv, sk, IDENT);
+				      raw_rcv, sk, "raw");
 
 	return err;
 }

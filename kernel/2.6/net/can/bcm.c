@@ -47,7 +47,6 @@
 #include <linux/list.h>
 #include <linux/proc_fs.h>
 #include <linux/uio.h>
-#include <linux/poll.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
@@ -73,7 +72,6 @@ RCSID("$Id$");
 #define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
 			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
 
-#define IDENT "bcm"
 #define CAN_BCM_VERSION CAN_VERSION
 static __initdata const char banner[] = KERN_INFO
 	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
@@ -83,8 +81,10 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug;
-module_param(debug, int, S_IRUGO);
+#define DBG_PREFIX "can-bcm"
+#define DBG_VAR    bcm_debug
+static int bcm_debug;
+module_param_named(debug, bcm_debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
@@ -1349,7 +1349,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 				err = can_rx_register(dev, op->can_id,
 						      REGMASK(op->can_id),
 						      bcm_rx_handler, op,
-						      IDENT);
+						      "bcm");
 
 				op->rx_reg_dev = dev;
 				dev_put(dev);
@@ -1358,7 +1358,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		} else
 			err = can_rx_register(NULL, op->can_id,
 					      REGMASK(op->can_id),
-					      bcm_rx_handler, op, IDENT);
+					      bcm_rx_handler, op, "bcm");
 		if (err) {
 			/* this bcm rx op is broken -> remove it */
 			list_del(&op->list);
@@ -1853,9 +1853,9 @@ static int __init bcm_module_init(void)
 
 	/* create /proc/net/can-bcm directory */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
+	proc_dir = proc_mkdir("can-bcm", init_net.proc_net);
 #else
-	proc_dir = proc_mkdir("can-"IDENT, proc_net);
+	proc_dir = proc_mkdir("can-bcm", proc_net);
 #endif
 
 	if (proc_dir)
@@ -1870,9 +1870,9 @@ static void __exit bcm_module_exit(void)
 
 	if (proc_dir)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-		proc_net_remove(&init_net, "can-"IDENT);
+		proc_net_remove(&init_net, "can-bcm");
 #else
-		proc_net_remove("can-"IDENT);
+		proc_net_remove("can-bcm");
 #endif
 }
 

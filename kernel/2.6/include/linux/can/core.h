@@ -72,10 +72,11 @@ extern int can_send(struct sk_buff *skb, int loop);
 #ifdef CONFIG_CAN_DEBUG_CORE
 extern void can_debug_skb(struct sk_buff *skb);
 extern void can_debug_cframe(const char *msg, struct can_frame *cframe);
-#define DBG(fmt, args...)  (debug & 1 ? printk(KERN_DEBUG "can-" IDENT \
-					" %s: " fmt, __func__, ##args) : 0)
-#define DBG_FRAME(fmt, cf) (debug & 2 ? can_debug_cframe(fmt, cf) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
+#define DBG(fmt, args...)  (DBG_VAR & 1 ? printk( \
+					KERN_DEBUG DBG_PREFIX " %s: " fmt, \
+					__func__, ##args) : 0)
+#define DBG_FRAME(fmt, cf) (DBG_VAR & 2 ? can_debug_cframe(fmt, cf) : 0)
+#define DBG_SKB(skb)       (DBG_VAR & 4 ? can_debug_skb(skb) : 0)
 #else
 #define DBG(fmt, args...)
 #define DBG_FRAME(fmt, cf)

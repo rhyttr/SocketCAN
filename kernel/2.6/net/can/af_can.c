@@ -73,7 +73,6 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define IDENT "core"
 static __initdata const char banner[] = KERN_INFO
 	"can: controller area network core (" CAN_VERSION_STRING ")\n";
 
@@ -89,8 +88,10 @@ module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
 #ifdef CONFIG_CAN_DEBUG_CORE
-static int debug __read_mostly;
-module_param(debug, int, S_IRUGO);
+#define DBG_PREFIX "can"
+#define DBG_VAR    can_debug
+static int can_debug __read_mostly;
+module_param_named(debug, can_debug, int, S_IRUGO);
 MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 #endif
 
@@ -714,7 +715,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	DBG("received skbuff on device %s, ptype %04x\n",
 	    dev->name, ntohs(pt->type));
 	DBG_SKB(skb);
-	DBG_FRAME("af_can: can_rcv: received CAN frame",
+	DBG_FRAME("can: can_rcv: received CAN frame",
 		  (struct can_frame *)skb->data);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
