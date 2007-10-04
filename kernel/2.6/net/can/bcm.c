@@ -1792,17 +1792,6 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
 	return size;
 }
 
-static unsigned int bcm_poll(struct file *file, struct socket *sock,
-			     poll_table *wait)
-{
-	unsigned int mask = 0;
-
-	DBG("socket %p\n", sock);
-
-	mask = datagram_poll(file, sock, wait);
-	return mask;
-}
-
 static struct proto_ops bcm_ops __read_mostly = {
 	.family        = PF_CAN,
 	.release       = bcm_release,
@@ -1811,7 +1800,7 @@ static struct proto_ops bcm_ops __read_mostly = {
 	.socketpair    = sock_no_socketpair,
 	.accept        = sock_no_accept,
 	.getname       = sock_no_getname,
-	.poll          = bcm_poll,
+	.poll          = datagram_poll,
 	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
 	.listen        = sock_no_listen,
 	.shutdown      = sock_no_shutdown,

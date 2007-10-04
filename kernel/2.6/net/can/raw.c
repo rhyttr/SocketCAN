@@ -479,17 +479,6 @@ static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
 	return 0;
 }
 
-static unsigned int raw_poll(struct file *file, struct socket *sock,
-			     poll_table *wait)
-{
-	unsigned int mask = 0;
-
-	DBG("socket %p\n", sock);
-
-	mask = datagram_poll(file, sock, wait);
-	return mask;
-}
-
 static int raw_setsockopt(struct socket *sock, int level, int optname,
 			  char __user *optval, int optlen)
 {
@@ -819,7 +808,7 @@ static struct proto_ops raw_ops __read_mostly = {
 	.socketpair    = sock_no_socketpair,
 	.accept        = sock_no_accept,
 	.getname       = raw_getname,
-	.poll          = raw_poll,
+	.poll          = datagram_poll,
 	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
 	.listen        = sock_no_listen,
 	.shutdown      = sock_no_shutdown,
