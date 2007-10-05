@@ -579,7 +579,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	}
 
 	/*
-	 * Check for bug in CAN protocol implementations:
+	 * Check for bugs in CAN protocol implementations:
 	 * If no matching list item was found, the list cursor variable next
 	 * will be NULL, while r will point to the last item of the list.
 	 */
@@ -1021,7 +1021,6 @@ static __init int can_init(void)
 	} else
 		stattimer.function = NULL;
 
-	/* procfs init */
 	can_init_proc();
 
 	/* protocol register */
@@ -1040,7 +1039,6 @@ static __exit void can_exit(void)
 	if (stats_timer)
 		del_timer(&stattimer);
 
-	/* procfs remove */
 	can_remove_proc();
 
 	/* protocol unregister */
