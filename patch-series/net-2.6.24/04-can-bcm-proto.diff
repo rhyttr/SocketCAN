@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/bcm.h |   65 +
  net/can/Kconfig         |   13 
  net/can/Makefile        |    3 
- net/can/bcm.c           | 1774 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1855 insertions(+)
+ net/can/bcm.c           | 1763 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1844 insertions(+)
 
 Index: net-2.6.24/include/linux/can/bcm.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/bcm.h	2007-10-02 08:33:40.000000000 +0200
++++ net-2.6.24/include/linux/can/bcm.h	2007-10-05 11:13:17.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + * linux/can/bcm.h
@@ -85,10 +85,10 @@ Index: net-2.6.24/include/linux/can/bcm.h
 +#endif /* CAN_BCM_H */
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-10-02 08:33:39.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-10-02 08:33:40.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-05 11:12:35.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-05 11:13:49.000000000 +0200
 @@ -27,6 +27,19 @@
- 	  socket has several filter options e.g. ID-Masking / Errorframes.
+ 	  socket has several filter options e.g. ID masking / error frames.
  	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
  
 +config CAN_BCM
@@ -97,7 +97,7 @@ Index: net-2.6.24/net/can/Kconfig
 +	default N
 +	---help---
 +	  The Broadcast Manager offers content filtering, timeout monitoring,
-+	  sending of RTR-frames and cyclic CAN messages without permanent user
++	  sending of RTR frames, and cyclic CAN messages without permanent user
 +	  interaction. The BCM can be 'programmed' via the BSD socket API and
 +	  informs you on demand e.g. only on content updates / timeouts.
 +	  You probably want to use the bcm socket in most cases where cyclic
@@ -109,8 +109,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-10-02 08:33:39.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-10-02 08:33:40.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-10-05 11:11:41.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-05 11:13:17.000000000 +0200
 @@ -7,3 +7,6 @@
  
  obj-$(CONFIG_CAN_RAW)	+= can-raw.o
@@ -121,8 +121,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/bcm.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/bcm.c	2007-10-02 08:35:04.000000000 +0200
-@@ -0,0 +1,1774 @@
++++ net-2.6.24/net/can/bcm.c	2007-10-05 11:13:17.000000000 +0200
+@@ -0,0 +1,1763 @@
 +/*
 + * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
 + *
@@ -171,7 +171,6 @@ Index: net-2.6.24/net/can/bcm.c
 +#include <linux/list.h>
 +#include <linux/proc_fs.h>
 +#include <linux/uio.h>
-+#include <linux/poll.h>
 +#include <linux/net.h>
 +#include <linux/netdevice.h>
 +#include <linux/socket.h>
@@ -192,7 +191,6 @@ Index: net-2.6.24/net/can/bcm.c
 +#define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
 +			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
 +
-+#define IDENT "bcm"
 +#define CAN_BCM_VERSION CAN_VERSION
 +static __initdata const char banner[] = KERN_INFO
 +	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
@@ -202,8 +200,10 @@ Index: net-2.6.24/net/can/bcm.c
 +MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 +
 +#ifdef CONFIG_CAN_DEBUG_CORE
-+static int debug;
-+module_param(debug, int, S_IRUGO);
++#define DBG_PREFIX "can-bcm"
++#define DBG_VAR    bcm_debug
++static int bcm_debug;
++module_param_named(debug, bcm_debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 +#endif
 +
@@ -1402,7 +1402,7 @@ Index: net-2.6.24/net/can/bcm.c
 +				err = can_rx_register(dev, op->can_id,
 +						      REGMASK(op->can_id),
 +						      bcm_rx_handler, op,
-+						      IDENT);
++						      "bcm");
 +
 +				op->rx_reg_dev = dev;
 +				dev_put(dev);
@@ -1411,7 +1411,7 @@ Index: net-2.6.24/net/can/bcm.c
 +		} else
 +			err = can_rx_register(NULL, op->can_id,
 +					      REGMASK(op->can_id),
-+					      bcm_rx_handler, op, IDENT);
++					      bcm_rx_handler, op, "bcm");
 +		if (err) {
 +			/* this bcm rx op is broken -> remove it */
 +			list_del(&op->list);
@@ -1820,17 +1820,6 @@ Index: net-2.6.24/net/can/bcm.c
 +	return size;
 +}
 +
-+static unsigned int bcm_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait)
-+{
-+	unsigned int mask = 0;
-+
-+	DBG("socket %p\n", sock);
-+
-+	mask = datagram_poll(file, sock, wait);
-+	return mask;
-+}
-+
 +static struct proto_ops bcm_ops __read_mostly = {
 +	.family        = PF_CAN,
 +	.release       = bcm_release,
@@ -1839,7 +1828,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	.socketpair    = sock_no_socketpair,
 +	.accept        = sock_no_accept,
 +	.getname       = sock_no_getname,
-+	.poll          = bcm_poll,
++	.poll          = datagram_poll,
 +	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
 +	.listen        = sock_no_listen,
 +	.shutdown      = sock_no_shutdown,
@@ -1879,7 +1868,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	}
 +
 +	/* create /proc/net/can-bcm directory */
-+	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
++	proc_dir = proc_mkdir("can-bcm", init_net.proc_net);
 +
 +	if (proc_dir)
 +		proc_dir->owner = THIS_MODULE;
@@ -1892,7 +1881,7 @@ Index: net-2.6.24/net/can/bcm.c
 +	can_proto_unregister(&bcm_can_proto);
 +
 +	if (proc_dir)
-+		proc_net_remove(&init_net, "can-"IDENT);
++		proc_net_remove(&init_net, "can-bcm");
 +}
 +
 +module_init(bcm_module_init);

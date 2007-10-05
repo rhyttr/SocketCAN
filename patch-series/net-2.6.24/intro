@@ -1,13 +1,28 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #9
+CAN: Add new PF_CAN protocol family, try #10
 ESUBJECT
 
 Hello Dave, hello Patrick,
 
-this is the nineth post of the patch series that adds the PF_CAN
+this is the tenth post of the patch series that adds the PF_CAN
 protocol family for the Controller Area Network.
 
-Since our last post we have changed the following:
+We've fixed some cosmetic issues as remarked by Arnaldo:
+
+* Rename our static debug variables to {can,raw,bcm,vcan}_debug.
+* Use module_param_named() so that the module option names remain.
+* Remove raw_poll() and bcm_poll() functions and use datagram_poll instead.
+* Cleanup of can_addr union in sockaddr_can.
+* Change type of echo module parameter to boolean.
+
+Thanks to all reviewers for the constructive feedback!
+
+Regards,
+urs
+
+
+
+The changes in try #9 were:
 
 * Changes suggested by Arnaldo Carvalho de Melo:
   - Use gfp_any() instead of checking in_interrupt().
@@ -109,7 +124,7 @@ The changes in try #2 were:
 
 
 This patch series applies against net-2.6.24 and is derived from Subversion
-revision r511 of http://svn.berlios.de/svnroot/repos/socketcan.
+revision r522 of http://svn.berlios.de/svnroot/repos/socketcan.
 It can be found in the directory
 http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
 

@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can.h       |  111 +++++
- include/linux/can/core.h  |   77 +++
+ include/linux/can/core.h  |   78 +++
  include/linux/can/error.h |   93 ++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/can/Kconfig           |   25 +
  net/can/Makefile          |    6 
- net/can/af_can.c          |  970 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.c          |  969 ++++++++++++++++++++++++++++++++++++++++++++++
  net/can/af_can.h          |  120 +++++
  net/can/proc.c            |  532 +++++++++++++++++++++++++
  10 files changed, 1936 insertions(+)
@@ -24,7 +24,7 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 Index: net-2.6.24/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can.h	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/include/linux/can.h	2007-10-05 08:11:15.000000000 +0200
 @@ -0,0 +1,111 @@
 +/*
 + * linux/can.h
@@ -103,16 +103,16 @@ Index: net-2.6.24/include/linux/can.h
 + * struct sockaddr_can - the sockaddr structure for CAN sockets
 + * @can_family:  address family number AF_CAN.
 + * @can_ifindex: CAN network interface index.
-+ * @can_addr:    transport protocol specific address, mostly CAN IDs.
++ * @can_addr:    protocol specific address information
 + */
 +struct sockaddr_can {
 +	sa_family_t can_family;
 +	int         can_ifindex;
 +	union {
-+		struct { canid_t rx_id, tx_id; } tp16;
-+		struct { canid_t rx_id, tx_id; } tp20;
-+		struct { canid_t rx_id, tx_id; } mcnet;
-+		struct { canid_t rx_id, tx_id; } isotp;
++		/* transport protocol class address information (e.g. ISOTP) */
++		struct { canid_t rx_id, tx_id; } tp;
++
++		/* reserved for future CAN protocols address information */
 +	} can_addr;
 +};
 +
@@ -140,8 +140,8 @@ Index: net-2.6.24/include/linux/can.h
 Index: net-2.6.24/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/core.h	2007-10-02 12:10:18.000000000 +0200
-@@ -0,0 +1,77 @@
++++ net-2.6.24/include/linux/can/core.h	2007-10-05 08:11:15.000000000 +0200
+@@ -0,0 +1,78 @@
 +/*
 + * linux/can/core.h
 + *
@@ -163,7 +163,7 @@ Index: net-2.6.24/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20071001"
++#define CAN_VERSION "20071004"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -208,10 +208,11 @@ Index: net-2.6.24/include/linux/can/core.h
 +#ifdef CONFIG_CAN_DEBUG_CORE
 +extern void can_debug_skb(struct sk_buff *skb);
 +extern void can_debug_cframe(const char *msg, struct can_frame *cframe);
-+#define DBG(fmt, args...)  (debug & 1 ? printk(KERN_DEBUG "can-" IDENT \
-+					" %s: " fmt, __func__, ##args) : 0)
-+#define DBG_FRAME(fmt, cf) (debug & 2 ? can_debug_cframe(fmt, cf) : 0)
-+#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
++#define DBG(fmt, args...)  (DBG_VAR & 1 ? printk( \
++					KERN_DEBUG DBG_PREFIX ": %s: " fmt, \
++					__func__, ##args) : 0)
++#define DBG_FRAME(fmt, cf) (DBG_VAR & 2 ? can_debug_cframe(fmt, cf) : 0)
++#define DBG_SKB(skb)       (DBG_VAR & 4 ? can_debug_skb(skb) : 0)
 +#else
 +#define DBG(fmt, args...)
 +#define DBG_FRAME(fmt, cf)
@@ -221,8 +222,8 @@ Index: net-2.6.24/include/linux/can/core.h
 +#endif /* CAN_CORE_H */
 Index: net-2.6.24/net/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/Kconfig	2007-10-02 12:10:09.000000000 +0200
-+++ net-2.6.24/net/Kconfig	2007-10-02 12:10:18.000000000 +0200
+--- net-2.6.24.orig/net/Kconfig	2007-10-05 08:11:10.000000000 +0200
++++ net-2.6.24/net/Kconfig	2007-10-05 08:11:15.000000000 +0200
 @@ -218,6 +218,7 @@
  endmenu
  
@@ -233,8 +234,8 @@ Index: net-2.6.24/net/Kconfig
  source "net/rxrpc/Kconfig"
 Index: net-2.6.24/net/Makefile
 ===================================================================
---- net-2.6.24.orig/net/Makefile	2007-10-02 12:10:09.000000000 +0200
-+++ net-2.6.24/net/Makefile	2007-10-02 12:10:18.000000000 +0200
+--- net-2.6.24.orig/net/Makefile	2007-10-05 08:11:10.000000000 +0200
++++ net-2.6.24/net/Makefile	2007-10-05 08:11:15.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -246,7 +247,7 @@ Index: net-2.6.24/net/Makefile
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/Kconfig	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-05 11:16:25.000000000 +0200
 @@ -0,0 +1,25 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
@@ -257,13 +258,13 @@ Index: net-2.6.24/net/can/Kconfig
 +	tristate "CAN bus subsystem support"
 +	---help---
 +	  Controller Area Network (CAN) is a slow (up to 1Mbit/s) serial
-+	  communications protocol, which was developed by Bosch at
-+	  1991 mainly for automotive, but now widely used in marine
-+	  (NMEA2000), industrial and medical applications.
++	  communications protocol which was developed by Bosch in
++	  1991, mainly for automotive, but now widely used in marine
++	  (NMEA2000), industrial, and medical applications.
 +	  More information on the CAN network protocol family PF_CAN
 +	  is contained in <Documentation/networking/can.txt>.
 +
-+	  If you want CAN support, you should say Y here and also to the
++	  If you want CAN support you should say Y here and also to the
 +	  specific driver for your controller(s) below.
 +
 +config CAN_DEBUG_CORE
@@ -271,12 +272,12 @@ Index: net-2.6.24/net/can/Kconfig
 +	depends on CAN
 +	---help---
 +	  Say Y here if you want the CAN core to produce a bunch of debug
-+	  messages to the system log.  Select this if you are having a
-+	  problem with CAN support and want to see more of what is going on.
++	  messages.  Select this if you are having a problem with CAN
++	  support and want to see more of what is going on.
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/Makefile	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-05 11:15:08.000000000 +0200
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -287,8 +288,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/af_can.c	2007-10-02 12:10:18.000000000 +0200
-@@ -0,0 +1,970 @@
++++ net-2.6.24/net/can/af_can.c	2007-10-05 11:09:07.000000000 +0200
+@@ -0,0 +1,969 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -354,7 +355,6 @@ Index: net-2.6.24/net/can/af_can.c
 +
 +#include "af_can.h"
 +
-+#define IDENT "core"
 +static __initdata const char banner[] = KERN_INFO
 +	"can: controller area network core (" CAN_VERSION_STRING ")\n";
 +
@@ -370,8 +370,10 @@ Index: net-2.6.24/net/can/af_can.c
 +MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 +
 +#ifdef CONFIG_CAN_DEBUG_CORE
-+static int debug __read_mostly;
-+module_param(debug, int, S_IRUGO);
++#define DBG_PREFIX "can"
++#define DBG_VAR    can_debug
++static int can_debug __read_mostly;
++module_param_named(debug, can_debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 +#endif
 +
@@ -796,7 +798,7 @@ Index: net-2.6.24/net/can/af_can.c
 +	}
 +
 +	/*
-+	 * Check for bug in CAN protocol implementations:
++	 * Check for bugs in CAN protocol implementations:
 +	 * If no matching list item was found, the list cursor variable next
 +	 * will be NULL, while r will point to the last item of the list.
 +	 */
@@ -927,7 +929,7 @@ Index: net-2.6.24/net/can/af_can.c
 +	DBG("received skbuff on device %s, ptype %04x\n",
 +	    dev->name, ntohs(pt->type));
 +	DBG_SKB(skb);
-+	DBG_FRAME("af_can: can_rcv: received CAN frame",
++	DBG_FRAME("can: can_rcv: received CAN frame",
 +		  (struct can_frame *)skb->data);
 +
 +	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
@@ -1218,7 +1220,6 @@ Index: net-2.6.24/net/can/af_can.c
 +	} else
 +		stattimer.function = NULL;
 +
-+	/* procfs init */
 +	can_init_proc();
 +
 +	/* protocol register */
@@ -1237,7 +1238,6 @@ Index: net-2.6.24/net/can/af_can.c
 +	if (stats_timer)
 +		del_timer(&stattimer);
 +
-+	/* procfs remove */
 +	can_remove_proc();
 +
 +	/* protocol unregister */
@@ -1262,7 +1262,7 @@ Index: net-2.6.24/net/can/af_can.c
 Index: net-2.6.24/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/af_can.h	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/net/can/af_can.h	2007-10-05 08:11:15.000000000 +0200
 @@ -0,0 +1,120 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
@@ -1387,7 +1387,7 @@ Index: net-2.6.24/net/can/af_can.h
 Index: net-2.6.24/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/proc.c	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/net/can/proc.c	2007-10-05 08:11:15.000000000 +0200
 @@ -0,0 +1,532 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
@@ -1924,7 +1924,7 @@ Index: net-2.6.24/net/can/proc.c
 Index: net-2.6.24/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/error.h	2007-10-02 12:10:18.000000000 +0200
++++ net-2.6.24/include/linux/can/error.h	2007-10-05 08:11:15.000000000 +0200
 @@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h

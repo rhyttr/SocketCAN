@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   11 
  net/can/Makefile        |    3 
- net/can/raw.c           |  821 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 866 insertions(+)
+ net/can/raw.c           |  810 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 855 insertions(+)
 
 Index: net-2.6.24/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/raw.h	2007-10-02 08:33:39.000000000 +0200
++++ net-2.6.24/include/linux/can/raw.h	2007-10-05 11:11:41.000000000 +0200
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -51,10 +51,10 @@ Index: net-2.6.24/include/linux/can/raw.h
 +#endif
 Index: net-2.6.24/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-10-02 06:18:29.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-10-02 08:35:31.000000000 +0200
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-05 11:11:04.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-05 11:12:35.000000000 +0200
 @@ -16,6 +16,17 @@
- 	  If you want CAN support, you should say Y here and also to the
+ 	  If you want CAN support you should say Y here and also to the
  	  specific driver for your controller(s) below.
  
 +config CAN_RAW
@@ -62,10 +62,10 @@ Index: net-2.6.24/net/can/Kconfig
 +	depends on CAN
 +	default N
 +	---help---
-+	  The Raw CAN protocol option offers access to the CAN bus via
++	  The raw CAN protocol option offers access to the CAN bus via
 +	  the BSD socket API. You probably want to use the raw socket in
 +	  most cases where no higher level protocol is being used. The raw
-+	  socket has several filter options e.g. ID-Masking / Errorframes.
++	  socket has several filter options e.g. ID masking / error frames.
 +	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 +
  config CAN_DEBUG_CORE
@@ -73,8 +73,8 @@ Index: net-2.6.24/net/can/Kconfig
  	depends on CAN
 Index: net-2.6.24/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-10-02 06:18:29.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-10-02 08:35:31.000000000 +0200
+--- net-2.6.24.orig/net/can/Makefile	2007-10-05 11:08:05.000000000 +0200
++++ net-2.6.24/net/can/Makefile	2007-10-05 11:11:41.000000000 +0200
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -85,8 +85,8 @@ Index: net-2.6.24/net/can/Makefile
 Index: net-2.6.24/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/raw.c	2007-10-02 08:35:48.000000000 +0200
-@@ -0,0 +1,821 @@
++++ net-2.6.24/net/can/raw.c	2007-10-05 11:11:41.000000000 +0200
+@@ -0,0 +1,810 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -133,7 +133,6 @@ Index: net-2.6.24/net/can/raw.c
 +#include <linux/module.h>
 +#include <linux/init.h>
 +#include <linux/uio.h>
-+#include <linux/poll.h>
 +#include <linux/net.h>
 +#include <linux/netdevice.h>
 +#include <linux/socket.h>
@@ -145,7 +144,6 @@ Index: net-2.6.24/net/can/raw.c
 +#include <net/sock.h>
 +#include <net/net_namespace.h>
 +
-+#define IDENT "raw"
 +#define CAN_RAW_VERSION CAN_VERSION
 +static __initdata const char banner[] =
 +	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
@@ -155,8 +153,10 @@ Index: net-2.6.24/net/can/raw.c
 +MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 +
 +#ifdef CONFIG_CAN_DEBUG_CORE
-+static int debug;
-+module_param(debug, int, S_IRUGO);
++#define DBG_PREFIX "can-raw"
++#define DBG_VAR    raw_debug
++static int raw_debug;
++module_param_named(debug, raw_debug, int, S_IRUGO);
 +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 +#endif
 +
@@ -244,7 +244,7 @@ Index: net-2.6.24/net/can/raw.c
 +
 +		err = can_rx_register(dev, filter[i].can_id,
 +				      filter[i].can_mask,
-+				      raw_rcv, sk, IDENT);
++				      raw_rcv, sk, "raw");
 +
 +		if (err) {
 +			/* clean up successfully registered filters */
@@ -266,7 +266,7 @@ Index: net-2.6.24/net/can/raw.c
 +
 +	if (err_mask)
 +		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
-+				      raw_rcv, sk, IDENT);
++				      raw_rcv, sk, "raw");
 +
 +	return err;
 +}
@@ -531,17 +531,6 @@ Index: net-2.6.24/net/can/raw.c
 +	*len = sizeof(*addr);
 +
 +	return 0;
-+}
-+
-+static unsigned int raw_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait)
-+{
-+	unsigned int mask = 0;
-+
-+	DBG("socket %p\n", sock);
-+
-+	mask = datagram_poll(file, sock, wait);
-+	return mask;
 +}
 +
 +static int raw_setsockopt(struct socket *sock, int level, int optname,
@@ -861,7 +850,7 @@ Index: net-2.6.24/net/can/raw.c
 +	.socketpair    = sock_no_socketpair,
 +	.accept        = sock_no_accept,
 +	.getname       = raw_getname,
-+	.poll          = raw_poll,
++	.poll          = datagram_poll,
 +	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
 +	.listen        = sock_no_listen,
 +	.shutdown      = sock_no_shutdown,
