@@ -309,6 +309,8 @@ int can_send(struct sk_buff *skb, int loop)
 	}
 
 	skb->protocol = htons(ETH_P_CAN);
+	skb_reset_network_header(skb);
+	skb_reset_transport_header(skb);
 
 	if (loop) {
 		/* local loopback of sent CAN frames */
