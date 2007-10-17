@@ -213,13 +213,12 @@ static int can_create(struct socket *sock, int protocol)
 #endif
 	spin_unlock(&proto_tab_lock);
 
+	/* check for success and correct type */
+	ret = -EPROTONOSUPPORT;
 	if (!cp)
-		return -EPROTONOSUPPORT;
-
-	if (cp->type != sock->type) {
-		ret = -EPROTONOSUPPORT;
+		return ret;
+	if (cp->type != sock->type)
 		goto errout;
-	}
 
 	if (cp->capability >= 0 && !capable(cp->capability)) {
 		ret = -EPERM;
