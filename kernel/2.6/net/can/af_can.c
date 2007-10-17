@@ -213,8 +213,10 @@ static int can_create(struct socket *sock, int protocol)
 #endif
 	spin_unlock(&proto_tab_lock);
 
-	/* check for success and correct type */
-	if (!cp || cp->type != sock->type) {
+	if (!cp)
+		return -EPROTONOSUPPORT;
+
+	if (cp->type != sock->type) {
 		ret = -EPROTONOSUPPORT;
 		goto errout;
 	}
