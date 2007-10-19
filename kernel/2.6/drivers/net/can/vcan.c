@@ -222,7 +222,7 @@ static void vcan_setup(struct net_device *dev)
 	dev->tx_queue_len      = 0;
 	dev->flags             = IFF_NOARP;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #define IFF_ECHO IFF_LOOPBACK
 #endif
 	/* set flags according to driver capabilities */

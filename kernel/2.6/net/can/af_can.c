@@ -331,7 +331,7 @@ int can_send(struct sk_buff *skb, int loop)
 		 * after each skb_clone() or skb_orphan() usage.
 		 */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #define IFF_ECHO IFF_LOOPBACK
 #endif
 		if (!(skb->dev->flags & IFF_ECHO)) {
