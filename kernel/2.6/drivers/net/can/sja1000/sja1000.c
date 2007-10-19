@@ -1047,10 +1047,6 @@ void can_netdev_setup(struct net_device *dev)
 
 	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-	SET_MODULE_OWNER(dev);
-#endif
 }
 
 static struct net_device* can_create_netdev(int dev_num, int hw_regs)

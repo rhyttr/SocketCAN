@@ -238,9 +238,6 @@ static void vcan_setup(struct net_device *dev)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats         = vcan_get_stats;
 #endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-	SET_MODULE_OWNER(dev);
-#endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
