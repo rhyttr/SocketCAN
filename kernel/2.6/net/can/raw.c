@@ -728,10 +728,11 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return -ENXIO;
 	}
 
-	skb = alloc_skb(size, GFP_KERNEL);
+	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
+				  &err);
 	if (!skb) {
 		dev_put(dev);
-		return -ENOMEM;
+		return err;
 	}
 
 	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
