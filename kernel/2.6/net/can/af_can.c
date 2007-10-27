@@ -375,7 +375,7 @@ EXPORT_SYMBOL(can_send);
 
 static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 {
-	struct dev_rcv_lists *d;
+	struct dev_rcv_lists *d = NULL;
 	struct hlist_node *n;
 
 	/*
