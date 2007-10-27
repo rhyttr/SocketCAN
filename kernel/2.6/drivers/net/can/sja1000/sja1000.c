@@ -1013,12 +1013,16 @@ void can_netdev_setup(struct net_device *dev)
 	   with CAN netdev generic values */
 
 	dev->change_mtu			= NULL;
+	dev->set_mac_address		= NULL;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	dev->hard_header		= NULL;
 	dev->rebuild_header		= NULL;
-	dev->set_mac_address		= NULL;
 	dev->hard_header_cache		= NULL;
 	dev->header_cache_update	= NULL;
 	dev->hard_header_parse		= NULL;
+#else
+	dev->header_ops			= NULL;
+#endif
 
 	dev->type			= ARPHRD_CAN;
 	dev->hard_header_len		= 0;
