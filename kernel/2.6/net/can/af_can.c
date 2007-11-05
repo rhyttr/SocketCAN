@@ -313,8 +313,13 @@ int can_send(struct sk_buff *skb, int loop)
 	}
 
 	skb->protocol = htons(ETH_P_CAN);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	skb_reset_network_header(skb);
 	skb_reset_transport_header(skb);
+#else
+	skb->nh.raw = skb->data;
+	skb->h.raw  = skb->data;
+#endif
 
 	if (loop) {
 		/* local loopback of sent CAN frames */
