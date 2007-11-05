@@ -1026,7 +1026,11 @@ static __init int can_init(void)
 		stattimer.function = can_stat_update;
 		stattimer.data = 0;
 		/* update every second */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 		stattimer.expires = round_jiffies(jiffies + HZ);
+#else
+		stattimer.expires = jiffies + HZ;
+#endif
 		/* start statistics timer */
 		add_timer(&stattimer);
 	} else

@@ -187,7 +187,11 @@ void can_stat_update(unsigned long data)
 	stats.matches_delta   = 0;
 
 	/* restart timer (one second) */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 	stattimer.expires = round_jiffies(jiffies + HZ);
+#else
+	stattimer.expires = jiffies + HZ;
+#endif
 	add_timer(&stattimer);
 }
 
