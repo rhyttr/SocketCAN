@@ -150,7 +150,7 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	struct can_priv *can = netdev_priv(dev);
 	struct can_bittime *bt = (struct can_bittime *)&ifr->ifr_ifru;
 	ulong *baudrate = (ulong *)&ifr->ifr_ifru;
-	int ret = -EOPNOTSUPP;
+	int err = -EOPNOTSUPP;
 
 	dev_dbg(ND2D(dev), "(%s) 0x%08x %p\n", __FUNCTION__, cmd, &ifr->ifr_ifru);
 
@@ -158,12 +158,12 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case SIOCSCANBAUDRATE:
 		if (can->do_set_bit_time) {
 			struct can_bittime bit_time;
-			ret = can_calc_bit_time(can, *baudrate, &bit_time.std);
-			if (ret != 0)
+			err = can_calc_bit_time(can, *baudrate, &bit_time.std);
+			if (err)
 				break;
 			bit_time.type = CAN_BITTIME_STD;
-			ret = can->do_set_bit_time(dev, &bit_time);
-			if (!ret) {
+			err = can->do_set_bit_time(dev, &bit_time);
+			if (!err) {
 				can->baudrate = *baudrate;
 				can->bit_time = bit_time;
 			}
@@ -171,12 +171,12 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	case SIOCGCANBAUDRATE:
 		*baudrate = can->baudrate;
-		ret = 0;
+		err = 0;
 		break;
 	case SIOCSCANCUSTOMBITTIME:
 		if (can->do_set_bit_time) {
-			ret = can->do_set_bit_time(dev, bt);
-			if (!ret) {
+			err = can->do_set_bit_time(dev, bt);
+			if (!err) {
 				can->bit_time = *bt;
 				if (bt->type == CAN_BITTIME_STD && bt->std.brp) {
 					can->baudrate = can->can_sys_clock/(bt->std.brp*
@@ -188,7 +188,7 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	case SIOCGCANCUSTOMBITTIME:
 		*bt = can->bit_time;
-		ret = 0;
+		err = 0;
 		break;
 	case SIOCSCANMODE:
 		if (can->do_set_mode) {
@@ -196,14 +196,14 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			if (mode == CAN_MODE_START &&
 			    can->baudrate == CAN_BAUDRATE_UNCONFIGURED) {
 				dev_info(ND2D(dev), "Impossible to start on UNKNOWN speed\n");
-				ret = EINVAL;
+				err = EINVAL;
 			} else
 				return can->do_set_mode(dev, mode);
 		}
 		break;
 	case SIOCGCANMODE:
 		*((can_mode_t *)(&ifr->ifr_ifru)) = can->mode;
-		ret = 0;
+		err = 0;
 		break;
 	case SIOCSCANCTRLMODE:
 		if (can->do_set_ctrlmode) {
@@ -213,7 +213,7 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	case SIOCGCANCTRLMODE:
 		*((can_ctrlmode_t *)(&ifr->ifr_ifru)) = can->ctrlmode;
-		ret = 0;
+		err = 0;
 		break;
 	case SIOCSCANFILTER:
 		break;
@@ -225,11 +225,11 @@ static int can_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	case SIOCGCANSTATS:
 		*((struct can_device_stats *)(&ifr->ifr_ifru)) = can->can_stats;
-		ret = 0;
+		err = 0;
 		break;
 	}
 
-	return ret;
+	return err;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)

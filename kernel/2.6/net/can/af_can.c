@@ -165,7 +165,7 @@ static int can_create(struct socket *sock, int protocol)
 	struct sock *sk;
 	struct can_proto *cp;
 	char module_name[sizeof("can-proto-000")];
-	int ret = 0;
+	int err = 0;
 
 	DBG("socket %p, type %d, proto %d\n", sock, sock->type, protocol);
 
@@ -184,18 +184,18 @@ static int can_create(struct socket *sock, int protocol)
 	/* try to load protocol module, when CONFIG_KMOD is defined */
 	if (!proto_tab[protocol]) {
 		sprintf(module_name, "can-proto-%d", protocol);
-		ret = request_module(module_name);
+		err = request_module(module_name);
 
 		/*
 		 * In case of error we only print a message but don't
 		 * return the error code immediately.  Below we will
 		 * return -EPROTONOSUPPORT
 		 */
-		if (ret == -ENOSYS) {
+		if (err == -ENOSYS) {
 			if (printk_ratelimit())
 				printk(KERN_INFO "can: request_module(%s)"
 				        " not implemented.\n", module_name);
-		} else if (ret) {
+		} else if (err) {
 			if (printk_ratelimit())
 				printk(KERN_ERR "can: request_module(%s)"
 				       " failed.\n", module_name);
@@ -219,12 +219,12 @@ static int can_create(struct socket *sock, int protocol)
 		return -EPROTONOSUPPORT;
 
 	if (cp->type != sock->type) {
-		ret = -EPROTONOSUPPORT;
+		err = -EPROTONOSUPPORT;
 		goto errout;
 	}
 
 	if (cp->capability >= 0 && !capable(cp->capability)) {
-		ret = -EPERM;
+		err = -EPERM;
 		goto errout;
 	}
 
@@ -238,7 +238,7 @@ static int can_create(struct socket *sock, int protocol)
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1, 0);
 #endif
 	if (!sk) {
-		ret = -ENOMEM;
+		err = -ENOMEM;
 		goto errout;
 	}
 
@@ -247,7 +247,7 @@ static int can_create(struct socket *sock, int protocol)
 		sk->sk_protinfo = kmalloc(cp->obj_size, GFP_KERNEL);
 		if (!sk->sk_protinfo) {
 			sk_free(sk);
-			ret = -ENOMEM;
+			err = -ENOMEM;
 			goto errout;
 		}
 	}
@@ -261,13 +261,13 @@ static int can_create(struct socket *sock, int protocol)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	if (sk->sk_prot->init)
-		ret = sk->sk_prot->init(sk);
+		err = sk->sk_prot->init(sk);
 #else
 	if (cp->init)
-		ret = cp->init(sk);
+		err = cp->init(sk);
 #endif
 
-	if (ret) {
+	if (err) {
 		/* release sk on errors */
 		sock_orphan(sk);
 		sock_put(sk);
@@ -279,7 +279,7 @@ static int can_create(struct socket *sock, int protocol)
 #else
 	module_put(cp->owner);
 #endif
-	return ret;
+	return err;
 }
 
 /*
@@ -478,7 +478,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	struct receiver *r;
 	struct hlist_head *rl;
 	struct dev_rcv_lists *d;
-	int ret = 0;
+	int err = 0;
 
 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 
@@ -512,12 +512,12 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
 		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
-		ret = -ENODEV;
+		err = -ENODEV;
 	}
 
 	spin_unlock(&rcv_lists_lock);
 
-	return ret;
+	return err;
 }
 EXPORT_SYMBOL(can_rx_register);
 

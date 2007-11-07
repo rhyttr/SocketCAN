@@ -112,7 +112,7 @@ static void can_init_stats(void)
 static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 			       unsigned long count)
 {
-	unsigned long ret = 0;
+	unsigned long rate;
 
 	if (oldjif == newjif)
 		return 0;
@@ -124,9 +124,9 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 		return 99999999;
 	}
 
-	ret = (count * HZ) / (newjif - oldjif);
+	rate = (count * HZ) / (newjif - oldjif);
 
-	return ret;
+	return rate;
 }
 
 void can_stat_update(unsigned long data)
