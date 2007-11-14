@@ -11,10 +11,10 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  Documentation/networking/can.txt  |  637 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 639 insertions(+)
 
-Index: net-2.6.24/Documentation/networking/can.txt
+Index: net-2.6.25/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/Documentation/networking/can.txt	2007-10-02 08:43:50.000000000 +0200
++++ net-2.6.25/Documentation/networking/can.txt	2007-11-14 13:04:57.000000000 +0100
 @@ -0,0 +1,637 @@
 +============================================================================
 +
@@ -653,16 +653,16 @@ Index: net-2.6.24/Documentation/networking/can.txt
 +  Klaus Hitschler (PEAK driver integration)
 +  Uwe Koppe (CAN netdevices with PF_PACKET approach)
 +  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
-Index: net-2.6.24/Documentation/networking/00-INDEX
+Index: net-2.6.25/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-25 15:28:50.000000000 +0200
-+++ net-2.6.24/Documentation/networking/00-INDEX	2007-10-02 08:43:21.000000000 +0200
-@@ -26,6 +26,8 @@
+--- net-2.6.25.orig/Documentation/networking/00-INDEX	2007-11-14 13:04:23.000000000 +0100
++++ net-2.6.25/Documentation/networking/00-INDEX	2007-11-14 13:04:57.000000000 +0100
+@@ -24,6 +24,8 @@
  	- info on the driver for Baycom style amateur radio modems
  bridge.txt
  	- where to get user space programs for ethernet bridging with Linux.
 +can.txt
 +	- documentation on CAN protocol family.
- comx.txt
- 	- info on drivers for COMX line of synchronous serial adapters.
  cops.txt
+ 	- info on the COPS LocalTalk Linux driver
+ cs89x0.txt

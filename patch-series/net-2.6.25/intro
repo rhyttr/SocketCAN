@@ -1,26 +1,39 @@
 SUBJECT
-CAN: Add new PF_CAN protocol family, try #10
+CAN: New PF_CAN protocol family for 2.6.25
 ESUBJECT
 
 Hello Dave, hello Patrick,
 
-this is the tenth post of the patch series that adds the PF_CAN
-protocol family for the Controller Area Network.
+this patch series that adds the PF_CAN protocol family for the
+Controller Area Network.  Since our last post we have changed:
 
-We've fixed some cosmetic issues as remarked by Arnaldo:
+* Fix a bug causing NULL pointer dereference when module autoloading fails.
+* Initialize skb using skb_reset_{transport,network}_header().
+* Use sock_alloc_send_skb() instead of alloc_skb().
+* Adapt to changes in sk_alloc() parameter list.
+* Rename some local variables for readability.
+
+This patch series applies against net-2.6.25 and is derived from Subversion
+revision r542 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
+
+
+
+The changes in try #10 were:
 
 * Rename our static debug variables to {can,raw,bcm,vcan}_debug.
 * Use module_param_named() so that the module option names remain.
 * Remove raw_poll() and bcm_poll() functions and use datagram_poll instead.
 * Cleanup of can_addr union in sockaddr_can.
 * Change type of echo module parameter to boolean.
-
-Thanks to all reviewers for the constructive feedback!
-
-Regards,
-urs
-
-
 
 The changes in try #9 were:
 
@@ -121,16 +134,3 @@ The changes in try #2 were:
 * added entry for can.txt in Documentation/networking/00-INDEX
 * added error frame definitions in include/linux/can/error.h, which are to
   be used by CAN network drivers.
-
-
-This patch series applies against net-2.6.24 and is derived from Subversion
-revision r522 of http://svn.berlios.de/svnroot/repos/socketcan.
-It can be found in the directory
-http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
-
-Thanks very much for your work!
-
-Best regards,
-
-Urs Thuermann
-Oliver Hartkopp

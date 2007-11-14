@@ -10,13 +10,13 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
  include/linux/can/raw.h |   31 +
  net/can/Kconfig         |   11 
  net/can/Makefile        |    3 
- net/can/raw.c           |  810 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 855 insertions(+)
+ net/can/raw.c           |  811 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 856 insertions(+)
 
-Index: net-2.6.24/include/linux/can/raw.h
+Index: net-2.6.25/include/linux/can/raw.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/raw.h	2007-10-05 11:11:41.000000000 +0200
++++ net-2.6.25/include/linux/can/raw.h	2007-11-14 13:04:51.000000000 +0100
 @@ -0,0 +1,31 @@
 +/*
 + * linux/can/raw.h
@@ -49,10 +49,10 @@ Index: net-2.6.24/include/linux/can/raw.h
 +};
 +
 +#endif
-Index: net-2.6.24/net/can/Kconfig
+Index: net-2.6.25/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-10-05 11:11:04.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-10-05 11:12:35.000000000 +0200
+--- net-2.6.25.orig/net/can/Kconfig	2007-11-14 13:04:49.000000000 +0100
++++ net-2.6.25/net/can/Kconfig	2007-11-14 13:04:51.000000000 +0100
 @@ -16,6 +16,17 @@
  	  If you want CAN support you should say Y here and also to the
  	  specific driver for your controller(s) below.
@@ -71,10 +71,10 @@ Index: net-2.6.24/net/can/Kconfig
  config CAN_DEBUG_CORE
  	bool "CAN Core debugging messages"
  	depends on CAN
-Index: net-2.6.24/net/can/Makefile
+Index: net-2.6.25/net/can/Makefile
 ===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-10-05 11:08:05.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-10-05 11:11:41.000000000 +0200
+--- net-2.6.25.orig/net/can/Makefile	2007-11-14 13:04:49.000000000 +0100
++++ net-2.6.25/net/can/Makefile	2007-11-14 13:04:51.000000000 +0100
 @@ -4,3 +4,6 @@
  
  obj-$(CONFIG_CAN)	+= can.o
@@ -82,11 +82,11 @@ Index: net-2.6.24/net/can/Makefile
 +
 +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
 +can-raw-objs		:= raw.o
-Index: net-2.6.24/net/can/raw.c
+Index: net-2.6.25/net/can/raw.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/raw.c	2007-10-05 11:11:41.000000000 +0200
-@@ -0,0 +1,810 @@
++++ net-2.6.25/net/can/raw.c	2007-11-14 13:04:51.000000000 +0100
+@@ -0,0 +1,811 @@
 +/*
 + * raw.c - Raw sockets for protocol family CAN
 + *
@@ -770,10 +770,11 @@ Index: net-2.6.24/net/can/raw.c
 +		return -ENXIO;
 +	}
 +
-+	skb = alloc_skb(size, GFP_KERNEL);
++	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
++				  &err);
 +	if (!skb) {
 +		dev_put(dev);
-+		return -ENOMEM;
++		return err;
 +	}
 +
 +	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
