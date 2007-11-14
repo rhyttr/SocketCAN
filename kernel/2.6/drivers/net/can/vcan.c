@@ -114,22 +114,6 @@ static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 #define PRIVSIZE 0
 #endif
 
-static int vcan_open(struct net_device *dev)
-{
-	DBG("%s: interface up\n", dev->name);
-
-	netif_start_queue(dev);
-	return 0;
-}
-
-static int vcan_stop(struct net_device *dev)
-{
-	DBG("%s: interface down\n", dev->name);
-
-	netif_stop_queue(dev);
-	return 0;
-}
-
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
@@ -180,7 +164,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			stats->rx_bytes += skb->len;
 		}
 		kfree_skb(skb);
-		return 0;
+		return NETDEV_TX_OK;
 	}
 
 	/* perform standard echo handling for CAN network interfaces */
@@ -199,7 +183,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 		/* no looped packets => no counting */
 		kfree_skb(skb);
 	}
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
@@ -229,8 +213,6 @@ static void vcan_setup(struct net_device *dev)
 	if (echo)
 		dev->flags |= IFF_ECHO;
 
-	dev->open              = vcan_open;
-	dev->stop              = vcan_stop;
 	dev->hard_start_xmit   = vcan_tx;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	dev->destructor        = free_netdev;
