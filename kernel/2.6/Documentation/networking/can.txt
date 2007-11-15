@@ -483,15 +483,7 @@ solution for a couple of reasons:
     invoked at can.ko module start time by default. This timer can be
     disabled by using stattimer=0 on the module comandline.
 
-  - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
-    compile time, the debug output code is compiled into the module.
-    debug = 0x01 => print general debug information
-    debug = 0x02 => print content of processed CAN frames
-    debug = 0x04 => print content of processed socket buffers
-
-    It is possible to use ORed values e.g. 3 or 7 for an output of
-    all available debug information. Using 0x02 and 0x04 may flood
-    your kernel log - so be careful.
+  - debug: (removed since SocketCAN SVN r546)
 
   5.2 procfs content
 
