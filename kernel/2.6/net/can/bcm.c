@@ -212,10 +212,11 @@ static char *bcm_proc_getifname(int ifindex)
 	if (!ifindex)
 		return "any";
 
+	/* no usage counting */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	dev = __dev_get_by_index(&init_net, ifindex); /* no usage counting */
+	dev = __dev_get_by_index(&init_net, ifindex); 
 #else
-	dev = __dev_get_by_index(ifindex); /* no usage counting */
+	dev = __dev_get_by_index(ifindex);
 #endif
 	if (dev)
 		return dev->name;
@@ -689,7 +690,6 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 
 	if (op->flags & RX_FILTER_ID) {
 		/* the easiest case */
-
 		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
 		bcm_rx_starttimer(op);
 		return;
@@ -697,14 +697,14 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 
 	if (op->nframes == 1) {
 		/* simple compare with index 0 */
-
 		bcm_rx_cmp_to_index(op, 0, &rxframe);
 		bcm_rx_starttimer(op);
 		return;
 	}
 
 	if (op->nframes > 1) {
-		/* multiplex compare
+		/*
+		 * multiplex compare
 		 *
 		 * find the first multiplex mask that fits.
 		 * Remark: The MUX-mask is stored in index 0
@@ -879,8 +879,9 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	op = bcm_find_op(&bo->tx_ops, msg_head->can_id, ifindex);
 
 	if (op) {
-		/* update existing BCM operation
-		 *
+		/* update existing BCM operation */
+
+		/*
 		 * Do we need more space for the can_frames than currently
 		 * allocated? -> This is a _really_ unusual use-case and
 		 * therefore (complexity / locking) it is not supported.
@@ -942,7 +943,6 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		/* bcm_can_tx / bcm_tx_timeout_handler needs this */
 		op->sk = sk;
-
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kmalloc) structure */
@@ -979,7 +979,6 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 	if (op->flags & SETTIMER) {
 		/* set timer values */
-
 		op->count = msg_head->count;
 		op->ival1 = msg_head->ival1;
 		op->ival2 = msg_head->ival2;
@@ -1028,7 +1027,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	if ((msg_head->flags & RX_FILTER_ID) || (!(msg_head->nframes))) {
 		/* be robust against wrong usage ... */
 		msg_head->flags |= RX_FILTER_ID;
-		msg_head->nframes = 0; /* ignore trailing garbage */
+		/* ignore trailing garbage */
+		msg_head->nframes = 0;
 	}
 
 	if ((msg_head->flags & RX_RTR_FRAME) &&
@@ -1039,8 +1039,9 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	/* check the given can_id */
 	op = bcm_find_op(&bo->rx_ops, msg_head->can_id, ifindex);
 	if (op) {
-		/* update existing BCM operation
-		 *
+		/* update existing BCM operation */
+
+		/*
 		 * Do we need more space for the can_frames than currently
 		 * allocated? -> This is a _really_ unusual use-case and
 		 * therefore (complexity / locking) it is not supported.
@@ -1067,7 +1068,6 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 	} else {
 		/* insert new BCM operation for the given can_id */
-
 		op = kzalloc(OPSIZ, GFP_KERNEL);
 		if (!op)
 			return -ENOMEM;
@@ -1111,6 +1111,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			}
 		}
 
+		/* bcm_can_tx / bcm_tx_timeout_handler needs this */
 		op->sk = sk;
 		op->ifindex = ifindex;
 
@@ -1181,6 +1182,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 				op->thrtimer.expires = jiffies + 2;
 				add_timer(&op->thrtimer);
 			}
+
 			/*
 			 * if (op->j_ival2) is zero, no (new) throttling
 			 * will happen. For details see functions
@@ -1239,9 +1241,8 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 	struct net_device *dev;
 	int err;
 
-	/* just copy and send one can_frame */
-
-	if (!ifindex) /* we need a real device to send frames */
+	/* we need a real device to send frames */
+	if (!ifindex)
 		return -ENODEV;
 
 	skb = alloc_skb(CFSIZ, GFP_KERNEL);
@@ -1298,7 +1299,8 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		if (addr->can_family != AF_CAN)
 			return -EINVAL;
 
-		ifindex = addr->can_ifindex; /* ifindex from sendto() */
+		/* ifindex from sendto() */
+		ifindex = addr->can_ifindex;
 
 		if (ifindex) {
 			struct net_device *dev;
