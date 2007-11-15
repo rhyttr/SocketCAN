@@ -194,7 +194,7 @@ static int can_create(struct socket *sock, int protocol)
 		if (err == -ENOSYS) {
 			if (printk_ratelimit())
 				printk(KERN_INFO "can: request_module(%s)"
-				        " not implemented.\n", module_name);
+				       " not implemented.\n", module_name);
 		} else if (err) {
 			if (printk_ratelimit())
 				printk(KERN_ERR "can: request_module(%s)"
