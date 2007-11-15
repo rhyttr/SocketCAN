@@ -682,8 +682,7 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 		return;
 
 	if (op->flags & RX_RTR_FRAME) {
-		/* send reply for RTR-request */
-		/* send op->frames[0] to CAN device */
+		/* send reply for RTR-request (placed in op->frames[0]) */
 		bcm_can_tx(op);
 		return;
 	}
@@ -1001,8 +1000,8 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->flags |= TX_ANNOUNCE;
 
 		if (op->j_ival1 && (op->count > 0)) {
-			op->timer.expires = jiffies + op->j_ival1;
 			/* op->count-- is done in bcm_tx_timeout_handler */
+			op->timer.expires = jiffies + op->j_ival1;
 		} else
 			op->timer.expires = jiffies + op->j_ival2;
 
