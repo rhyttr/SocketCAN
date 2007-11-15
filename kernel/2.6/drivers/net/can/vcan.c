@@ -62,20 +62,6 @@ MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-static int vcan_debug;
-module_param_named(debug, vcan_debug, int, S_IRUGO);
-#endif
-
-/* To be moved to linux/can/dev.h */
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-#define DBG(fmt, args...)  (vcan_debug & 1 ? \
-				printk(KERN_DEBUG "vcan %s: " fmt, \
-				__func__, ##args) : 0)
-#else
-#define DBG(fmt, args...)
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
 {
@@ -130,8 +116,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	skb->dev       = dev;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	DBG("received skbuff on interface %d\n", dev->ifindex);
-
 	netif_rx(skb);
 }
 
@@ -143,8 +127,6 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	struct net_device_stats *stats = netdev_priv(dev);
 #endif
 	int loop;
-
-	DBG("sending skbuff on interface %s\n", dev->name);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
@@ -197,8 +179,6 @@ static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 
 static void vcan_setup(struct net_device *dev)
 {
-	DBG("dev %s\n", dev->name);
-
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
 	dev->hard_header_len   = 0;
@@ -279,10 +259,6 @@ static __init int vcan_init_module(void)
 			free_netdev(vcan_devs[i]);
 			vcan_devs[i] = NULL;
 			goto out;
-
-		} else {
-			DBG("successfully registered interface %s\n",
-			    vcan_devs[i]->name);
 		}
 	}
 

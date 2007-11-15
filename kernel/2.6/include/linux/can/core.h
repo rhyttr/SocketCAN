@@ -69,23 +69,4 @@ extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
 
 extern int can_send(struct sk_buff *skb, int loop);
 
-#ifdef CONFIG_CAN_DEBUG_CORE
-extern void can_debug_skb(struct sk_buff *skb);
-extern void can_debug_cframe(const char *msg, struct can_frame *cframe);
-#define DBG(fmt, args...)  \
-	do if (DBG_VAR & 1) printk(KERN_DEBUG DBG_PREFIX ": %s: " fmt, \
-				   __func__, ##args) : 0);             \
-	while (0)
-
-#define DBG_FRAME(fmt, cf) \
-	do if (DBG_VAR & 2) can_debug_cframe(fmt, cf); while (0)
-
-#define DBG_SKB(skb) \
-	do if (DBG_VAR & 4) can_debug_skb(skb); while (0)
-#else
-#define DBG(fmt, args...)
-#define DBG_FRAME(fmt, cf)
-#define DBG_SKB(skb)
-#endif
-
 #endif /* CAN_CORE_H */
