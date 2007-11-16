@@ -255,7 +255,8 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld transmitted frames (TXF)\n", can_stats.tx_frames);
+			" %8ld transmitted frames (TXF)\n",
+			can_stats.tx_frames);
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld received frames (RXF)\n", can_stats.rx_frames);
 	len += snprintf(page + len, PAGE_SIZE - len,
