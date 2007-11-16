@@ -456,20 +456,16 @@ static void bcm_tx_timeout_handler(unsigned long data)
 
 	if (op->j_ival1 && (op->count > 0)) {
 
-		op->timer.expires = jiffies + op->j_ival1;
-		add_timer(&op->timer);
-
 		/* send (next) frame */
 		bcm_can_tx(op);
+		mod_timer(&op->timer, jiffies + op->j_ival1);
 
 	} else {
 		if (op->j_ival2) {
-			op->timer.expires = jiffies + op->j_ival2;
-			add_timer(&op->timer);
 
 			/* send (next) frame */
 			bcm_can_tx(op);
-
+			mod_timer(&op->timer, jiffies + op->j_ival2);
 		}
 	}
 
@@ -529,8 +525,7 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 
 		if (!(op->thrtimer.expires)) {
 			/* start the timer only the first time */
-			op->thrtimer.expires = nexttx;
-			add_timer(&op->thrtimer);
+			mod_timer(&op->thrtimer, nexttx);
 		}
 
 	} else {
@@ -584,10 +579,8 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 	if (op->flags & RX_NO_AUTOTIMER)
 		return;
 
-	if (op->j_ival1) {
-		op->timer.expires = jiffies + op->j_ival1;
-		add_timer(&op->timer);
-	}
+	if (op->j_ival1)
+		mod_timer(&op->timer, jiffies + op->j_ival1);
 }
 
 /*
@@ -993,18 +986,14 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	if ((op->flags & STARTTIMER) &&
 	    ((op->j_ival1 && op->count) || op->j_ival2)) {
 
-		del_timer(&op->timer);
-
 		/* spec: send can_frame when starting timer */
 		op->flags |= TX_ANNOUNCE;
 
 		if (op->j_ival1 && (op->count > 0)) {
 			/* op->count-- is done in bcm_tx_timeout_handler */
-			op->timer.expires = jiffies + op->j_ival1;
+			mod_timer(&op->timer, jiffies + op->j_ival1);
 		} else
-			op->timer.expires = jiffies + op->j_ival2;
-
-		add_timer(&op->timer);
+			mod_timer(&op->timer, jiffies + op->j_ival2);
 	}
 
 	if (op->flags & TX_ANNOUNCE)
@@ -1177,10 +1166,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 			/* free currently blocked msgs ? */
 			if (op->thrtimer.expires) {
-				del_timer(&op->thrtimer);
 				/* send blocked msgs hereafter */
-				op->thrtimer.expires = jiffies + 2;
-				add_timer(&op->thrtimer);
+				mod_timer(&op->thrtimer, jiffies + 2);
 			}
 
 			/*
@@ -1190,11 +1177,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			 */
 		}
 
-		if ((op->flags & STARTTIMER) && op->j_ival1) {
-			del_timer(&op->timer);
-			op->timer.expires = jiffies + op->j_ival1;
-			add_timer(&op->timer);
-		}
+		if ((op->flags & STARTTIMER) && op->j_ival1)
+			mod_timer(&op->timer, jiffies + op->j_ival1);
 	}
 
 	/* now we can register for can_ids, if we added a new bcm_op */
