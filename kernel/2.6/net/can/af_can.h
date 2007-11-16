@@ -77,6 +77,7 @@ struct dev_rcv_lists {
 
 /* statistic structures */
 
+/* can be reset e.g. by can_init_stats() */
 struct s_stats {
 	unsigned long jiffies_init;
 
@@ -99,14 +100,15 @@ struct s_stats {
 	unsigned long rx_frames_delta;
 	unsigned long tx_frames_delta;
 	unsigned long matches_delta;
-}; /* can be reset e.g. by can_init_stats() */
+};
 
+/* persistent statistics */
 struct s_pstats {
 	unsigned long stats_reset;
 	unsigned long user_reset;
 	unsigned long rcv_entries;
 	unsigned long rcv_entries_max;
-}; /* persistent statistics */
+};
 
 /* function prototypes for the CAN networklayer procfs (proc.c) */
 extern void can_init_proc(void);
@@ -114,9 +116,9 @@ extern void can_remove_proc(void);
 extern void can_stat_update(unsigned long data);
 
 /* structures and variables from af_can.c needed in proc.c for reading */
-extern struct timer_list stattimer;	/* timer for statistics update */
-extern struct s_stats  stats;		/* packet statistics */
-extern struct s_pstats pstats;		/* receive list statistics */
-extern struct hlist_head can_rx_dev_list;	/* rx dispatcher structures */
+extern struct timer_list can_stattimer;    /* timer for statistics update */
+extern struct s_stats    can_stats;        /* packet statistics */
+extern struct s_pstats   can_pstats;       /* receive list statistics */
+extern struct hlist_head can_rx_dev_list;  /* rx dispatcher structures */
 
 #endif /* AF_CAN_H */

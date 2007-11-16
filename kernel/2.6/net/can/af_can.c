@@ -88,8 +88,8 @@ module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
 HLIST_HEAD(can_rx_dev_list);
-static struct dev_rcv_lists rx_alldev_list;
-static DEFINE_SPINLOCK(rcv_lists_lock);
+static struct dev_rcv_lists can_rx_alldev_list;
+static DEFINE_SPINLOCK(can_rcvlists_lock);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 static struct kmem_cache *rcv_cache __read_mostly;
@@ -101,9 +101,9 @@ static kmem_cache_t *rcv_cache;
 static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
 static DEFINE_SPINLOCK(proto_tab_lock);
 
-struct timer_list stattimer; /* timer for statistics update */
-struct s_stats  stats;       /* packet statistics */
-struct s_pstats pstats;      /* receive list statistics */
+struct timer_list can_stattimer;   /* timer for statistics update */
+struct s_stats    can_stats;       /* packet statistics */
+struct s_pstats   can_pstats;      /* receive list statistics */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static void *kzalloc(size_t size, unsigned int __nocast flags)
@@ -351,8 +351,8 @@ int can_send(struct sk_buff *skb, int loop)
 		err = net_xmit_errno(err);
 
 	/* update statistics */
-	stats.tx_frames++;
-	stats.tx_frames_delta++;
+	can_stats.tx_frames++;
+	can_stats.tx_frames_delta++;
 
 	return err;
 }
@@ -470,7 +470,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	if (!r)
 		return -ENOMEM;
 
-	spin_lock(&rcv_lists_lock);
+	spin_lock(&can_rcvlists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (d) {
@@ -486,15 +486,15 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		hlist_add_head_rcu(&r->list, rl);
 		d->entries++;
 
-		pstats.rcv_entries++;
-		if (pstats.rcv_entries_max < pstats.rcv_entries)
-			pstats.rcv_entries_max = pstats.rcv_entries;
+		can_pstats.rcv_entries++;
+		if (can_pstats.rcv_entries_max < can_pstats.rcv_entries)
+			can_pstats.rcv_entries_max = can_pstats.rcv_entries;
 	} else {
 		kmem_cache_free(rcv_cache, r);
 		err = -ENODEV;
 	}
 
-	spin_unlock(&rcv_lists_lock);
+	spin_unlock(&can_rcvlists_lock);
 
 	return err;
 }
@@ -539,7 +539,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	struct hlist_node *next;
 	struct dev_rcv_lists *d;
 
-	spin_lock(&rcv_lists_lock);
+	spin_lock(&can_rcvlists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
@@ -581,8 +581,8 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	hlist_del_rcu(&r->list);
 	d->entries--;
 
-	if (pstats.rcv_entries > 0)
-		pstats.rcv_entries--;
+	if (can_pstats.rcv_entries > 0)
+		can_pstats.rcv_entries--;
 
 	/* remove device structure requested by NETDEV_UNREGISTER */
 	if (d->remove_on_zero_entries && !d->entries)
@@ -591,7 +591,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		d = NULL;
 
  out:
-	spin_unlock(&rcv_lists_lock);
+	spin_unlock(&can_rcvlists_lock);
 
 	/* schedule the receiver item for deletion */
 	if (r)
@@ -698,13 +698,13 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	}
 
 	/* update statistics */
-	stats.rx_frames++;
-	stats.rx_frames_delta++;
+	can_stats.rx_frames++;
+	can_stats.rx_frames_delta++;
 
 	rcu_read_lock();
 
 	/* deliver the packet to sockets listening on all devices */
-	matches = can_rcv_filter(&rx_alldev_list, skb);
+	matches = can_rcv_filter(&can_rx_alldev_list, skb);
 
 	/* find receive list for this device */
 	d = find_dev_rcv_lists(dev);
@@ -717,8 +717,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	kfree_skb(skb);
 
 	if (matches > 0) {
-		stats.matches++;
-		stats.matches_delta++;
+		can_stats.matches++;
+		can_stats.matches_delta++;
 	}
 
 	return 0;
@@ -835,14 +835,14 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 		}
 		d->dev = dev;
 
-		spin_lock(&rcv_lists_lock);
+		spin_lock(&can_rcvlists_lock);
 		hlist_add_head_rcu(&d->list, &can_rx_dev_list);
-		spin_unlock(&rcv_lists_lock);
+		spin_unlock(&can_rcvlists_lock);
 
 		break;
 
 	case NETDEV_UNREGISTER:
-		spin_lock(&rcv_lists_lock);
+		spin_lock(&can_rcvlists_lock);
 
 		d = find_dev_rcv_lists(dev);
 		if (d) {
@@ -855,7 +855,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 			printk(KERN_ERR "can: notifier: receive list not "
 			       "found for dev %s\n", dev->name);
 
-		spin_unlock(&rcv_lists_lock);
+		spin_unlock(&can_rcvlists_lock);
 
 		if (d)
 			call_rcu(&d->rcu, can_rx_delete_device);
@@ -902,25 +902,25 @@ static __init int can_init(void)
 		return -ENOMEM;
 
 	/*
-	 * Insert rx_alldev_list for reception on all devices.
+	 * Insert can_rx_alldev_list for reception on all devices.
 	 * This struct is zero initialized which is correct for the
 	 * embedded hlist heads, the dev pointer, and the entries counter.
 	 */
 
-	spin_lock(&rcv_lists_lock);
-	hlist_add_head_rcu(&rx_alldev_list.list, &can_rx_dev_list);
-	spin_unlock(&rcv_lists_lock);
+	spin_lock(&can_rcvlists_lock);
+	hlist_add_head_rcu(&can_rx_alldev_list.list, &can_rx_dev_list);
+	spin_unlock(&can_rcvlists_lock);
 
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
-		setup_timer(&stattimer, can_stat_update, 0);
+		setup_timer(&can_stattimer, can_stat_update, 0);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-		mod_timer(&stattimer, round_jiffies(jiffies + HZ));
+		mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
 #else
-		mod_timer(&stattimer, jiffies + HZ);
+		mod_timer(&can_stattimer, jiffies + HZ);
 #endif
 	} else
-		stattimer.function = NULL;
+		can_stattimer.function = NULL;
 
 	can_init_proc();
 
@@ -938,7 +938,7 @@ static __exit void can_exit(void)
 	struct hlist_node *n, *next;
 
 	if (stats_timer)
-		del_timer(&stattimer);
+		del_timer(&can_stattimer);
 
 	can_remove_proc();
 
@@ -948,13 +948,13 @@ static __exit void can_exit(void)
 	sock_unregister(PF_CAN);
 
 	/* remove can_rx_dev_list */
-	spin_lock(&rcv_lists_lock);
-	hlist_del(&rx_alldev_list.list);
+	spin_lock(&can_rcvlists_lock);
+	hlist_del(&can_rx_alldev_list.list);
 	hlist_for_each_entry_safe(d, n, next, &can_rx_dev_list, list) {
 		hlist_del(&d->list);
 		kfree(d);
 	}
-	spin_unlock(&rcv_lists_lock);
+	spin_unlock(&can_rcvlists_lock);
 
 	kmem_cache_destroy(rcv_cache);
 }
