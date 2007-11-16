@@ -117,6 +117,6 @@ extern void can_stat_update(unsigned long data);
 extern struct timer_list stattimer;	/* timer for statistics update */
 extern struct s_stats  stats;		/* packet statistics */
 extern struct s_pstats pstats;		/* receive list statistics */
-extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
+extern struct hlist_head can_rx_dev_list;	/* rx dispatcher structures */
 
 #endif /* AF_CAN_H */

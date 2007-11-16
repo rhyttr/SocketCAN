@@ -87,7 +87,7 @@ static int stats_timer __read_mostly = 1;
 module_param(stats_timer, int, S_IRUGO);
 MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 
-HLIST_HEAD(rx_dev_list);
+HLIST_HEAD(can_rx_dev_list);
 static struct dev_rcv_lists rx_alldev_list;
 static DEFINE_SPINLOCK(rcv_lists_lock);
 
@@ -380,7 +380,7 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 	 * cursor variable n to decide if a match was found.
 	 */
 
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 		if (d->dev == dev)
 			break;
 	}
@@ -836,7 +836,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 		d->dev = dev;
 
 		spin_lock(&rcv_lists_lock);
-		hlist_add_head_rcu(&d->list, &rx_dev_list);
+		hlist_add_head_rcu(&d->list, &can_rx_dev_list);
 		spin_unlock(&rcv_lists_lock);
 
 		break;
@@ -908,7 +908,7 @@ static __init int can_init(void)
 	 */
 
 	spin_lock(&rcv_lists_lock);
-	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
+	hlist_add_head_rcu(&rx_alldev_list.list, &can_rx_dev_list);
 	spin_unlock(&rcv_lists_lock);
 
 	if (stats_timer) {
@@ -947,10 +947,10 @@ static __exit void can_exit(void)
 	unregister_netdevice_notifier(&can_netdev_notifier);
 	sock_unregister(PF_CAN);
 
-	/* remove rx_dev_list */
+	/* remove can_rx_dev_list */
 	spin_lock(&rcv_lists_lock);
 	hlist_del(&rx_alldev_list.list);
-	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list) {
+	hlist_for_each_entry_safe(d, n, next, &can_rx_dev_list, list) {
 		hlist_del(&d->list);
 		kfree(d);
 	}

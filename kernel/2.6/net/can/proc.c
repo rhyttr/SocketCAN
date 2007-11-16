@@ -375,7 +375,7 @@ static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 			"\nreceive list '%s':\n", rx_list_name[idx]);
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 
 		if (!hlist_empty(&d->rx[idx])) {
 			len = can_print_recv_banner(page, len);
@@ -408,7 +408,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 			"\nreceive list 'rx_sff':\n");
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
+	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 		int i, all_empty = 1;
 		/* check wether at least one list is non-empty */
 		for (i = 0; i < 0x800; i++)
