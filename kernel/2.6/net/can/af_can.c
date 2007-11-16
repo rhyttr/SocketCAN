@@ -913,19 +913,13 @@ static __init int can_init(void)
 
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
-		init_timer(&stattimer);
-		stattimer.function = can_stat_update;
-		stattimer.data = 0;
-		/* update every second */
+		setup_timer(&stattimer, can_stat_update, 0);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-		stattimer.expires = round_jiffies(jiffies + HZ);
+		mod_timer(&stattimer, round_jiffies(jiffies + HZ));
 #else
-		stattimer.expires = jiffies + HZ;
+		mod_timer(&stattimer, jiffies + HZ);
 #endif
-		/* start statistics timer */
-		add_timer(&stattimer);
-	} else
-		stattimer.function = NULL;
+	}
 
 	can_init_proc();
 
