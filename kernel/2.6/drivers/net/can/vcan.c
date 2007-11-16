@@ -156,7 +156,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 
 		skb = skb_share_check(skb, GFP_ATOMIC);
 		if (!skb)
-			return 0;
+			return NETDEV_TX_OK;
 
 		/* receive with packet counting */
 		skb->sk = srcsk;
