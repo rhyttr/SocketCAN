@@ -8,14 +8,14 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  Documentation/networking/00-INDEX |    2 
- Documentation/networking/can.txt  |  637 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 639 insertions(+)
+ Documentation/networking/can.txt  |  629 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 631 insertions(+)
 
 Index: net-2.6.25/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/Documentation/networking/can.txt	2007-11-14 13:04:57.000000000 +0100
-@@ -0,0 +1,637 @@
++++ net-2.6.25/Documentation/networking/can.txt	2007-11-16 14:56:31.000000000 +0100
+@@ -0,0 +1,629 @@
 +============================================================================
 +
 +can.txt
@@ -501,15 +501,7 @@ Index: net-2.6.25/Documentation/networking/can.txt
 +    invoked at can.ko module start time by default. This timer can be
 +    disabled by using stattimer=0 on the module comandline.
 +
-+  - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
-+    compile time, the debug output code is compiled into the module.
-+    debug = 0x01 => print general debug information
-+    debug = 0x02 => print content of processed CAN frames
-+    debug = 0x04 => print content of processed socket buffers
-+
-+    It is possible to use ORed values e.g. 3 or 7 for an output of
-+    all available debug information. Using 0x02 and 0x04 may flood
-+    your kernel log - so be careful.
++  - debug: (removed since SocketCAN SVN r546)
 +
 +  5.2 procfs content
 +
@@ -655,8 +647,8 @@ Index: net-2.6.25/Documentation/networking/can.txt
 +  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
 Index: net-2.6.25/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.25.orig/Documentation/networking/00-INDEX	2007-11-14 13:04:23.000000000 +0100
-+++ net-2.6.25/Documentation/networking/00-INDEX	2007-11-14 13:04:57.000000000 +0100
+--- net-2.6.25.orig/Documentation/networking/00-INDEX	2007-11-16 14:52:07.000000000 +0100
++++ net-2.6.25/Documentation/networking/00-INDEX	2007-11-16 14:55:44.000000000 +0100
 @@ -24,6 +24,8 @@
  	- info on the driver for Baycom style amateur radio modems
  bridge.txt

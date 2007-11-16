@@ -10,16 +10,16 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  drivers/net/Makefile     |    1 
- drivers/net/can/Kconfig  |   25 +++++
+ drivers/net/can/Kconfig  |   25 ++++++
  drivers/net/can/Makefile |    5 +
- drivers/net/can/vcan.c   |  207 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/vcan.c   |  169 +++++++++++++++++++++++++++++++++++++++++++++++
  net/can/Kconfig          |    3 
- 5 files changed, 241 insertions(+)
+ 5 files changed, 203 insertions(+)
 
 Index: net-2.6.25/drivers/net/Makefile
 ===================================================================
---- net-2.6.25.orig/drivers/net/Makefile	2007-11-14 13:04:24.000000000 +0100
-+++ net-2.6.25/drivers/net/Makefile	2007-11-14 13:04:54.000000000 +0100
+--- net-2.6.25.orig/drivers/net/Makefile	2007-11-16 14:50:12.000000000 +0100
++++ net-2.6.25/drivers/net/Makefile	2007-11-16 14:50:18.000000000 +0100
 @@ -12,6 +12,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
@@ -31,7 +31,7 @@ Index: net-2.6.25/drivers/net/Makefile
 Index: net-2.6.25/drivers/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/drivers/net/can/Kconfig	2007-11-14 13:04:54.000000000 +0100
++++ net-2.6.25/drivers/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
 @@ -0,0 +1,25 @@
 +menu "CAN Device Drivers"
 +	depends on CAN
@@ -61,7 +61,7 @@ Index: net-2.6.25/drivers/net/can/Kconfig
 Index: net-2.6.25/drivers/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/drivers/net/can/Makefile	2007-11-14 13:04:54.000000000 +0100
++++ net-2.6.25/drivers/net/can/Makefile	2007-11-16 14:50:18.000000000 +0100
 @@ -0,0 +1,5 @@
 +#
 +#  Makefile for the Linux Controller Area Network drivers.
@@ -71,8 +71,8 @@ Index: net-2.6.25/drivers/net/can/Makefile
 Index: net-2.6.25/drivers/net/can/vcan.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/drivers/net/can/vcan.c	2007-11-14 13:04:54.000000000 +0100
-@@ -0,0 +1,207 @@
++++ net-2.6.25/drivers/net/can/vcan.c	2007-11-16 14:51:53.000000000 +0100
+@@ -0,0 +1,169 @@
 +/*
 + * vcan.c - Virtual CAN interface
 + *
@@ -131,20 +131,6 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +MODULE_LICENSE("Dual BSD/GPL");
 +MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 +
-+#ifdef CONFIG_CAN_DEBUG_DEVICES
-+static int vcan_debug;
-+module_param_named(debug, vcan_debug, int, S_IRUGO);
-+#endif
-+
-+/* To be moved to linux/can/dev.h */
-+#ifdef CONFIG_CAN_DEBUG_DEVICES
-+#define DBG(fmt, args...)  (vcan_debug & 1 ? \
-+				printk(KERN_DEBUG "vcan %s: " fmt, \
-+				__func__, ##args) : 0)
-+#else
-+#define DBG(fmt, args...)
-+#endif
-+
 +
 +/*
 + * CAN test feature:
@@ -156,22 +142,6 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +module_param(echo, bool, S_IRUGO);
 +MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
 +
-+
-+static int vcan_open(struct net_device *dev)
-+{
-+	DBG("%s: interface up\n", dev->name);
-+
-+	netif_start_queue(dev);
-+	return 0;
-+}
-+
-+static int vcan_stop(struct net_device *dev)
-+{
-+	DBG("%s: interface down\n", dev->name);
-+
-+	netif_stop_queue(dev);
-+	return 0;
-+}
 +
 +static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 +{
@@ -185,8 +155,6 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +	skb->dev       = dev;
 +	skb->ip_summed = CHECKSUM_UNNECESSARY;
 +
-+	DBG("received skbuff on interface %d\n", dev->ifindex);
-+
 +	netif_rx(skb);
 +}
 +
@@ -194,8 +162,6 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +{
 +	struct net_device_stats *stats = &dev->stats;
 +	int loop;
-+
-+	DBG("sending skbuff on interface %s\n", dev->name);
 +
 +	stats->tx_packets++;
 +	stats->tx_bytes += skb->len;
@@ -215,7 +181,7 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +			stats->rx_bytes += skb->len;
 +		}
 +		kfree_skb(skb);
-+		return 0;
++		return NETDEV_TX_OK;
 +	}
 +
 +	/* perform standard echo handling for CAN network interfaces */
@@ -225,7 +191,7 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +
 +		skb = skb_share_check(skb, GFP_ATOMIC);
 +		if (!skb)
-+			return 0;
++			return NETDEV_TX_OK;
 +
 +		/* receive with packet counting */
 +		skb->sk = srcsk;
@@ -234,13 +200,11 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +		/* no looped packets => no counting */
 +		kfree_skb(skb);
 +	}
-+	return 0;
++	return NETDEV_TX_OK;
 +}
 +
 +static void vcan_setup(struct net_device *dev)
 +{
-+	DBG("dev %s\n", dev->name);
-+
 +	dev->type              = ARPHRD_CAN;
 +	dev->mtu               = sizeof(struct can_frame);
 +	dev->hard_header_len   = 0;
@@ -252,8 +216,6 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +	if (echo)
 +		dev->flags |= IFF_ECHO;
 +
-+	dev->open              = vcan_open;
-+	dev->stop              = vcan_stop;
 +	dev->hard_start_xmit   = vcan_tx;
 +	dev->destructor        = free_netdev;
 +}
@@ -282,12 +244,12 @@ Index: net-2.6.25/drivers/net/can/vcan.c
 +module_exit(vcan_cleanup_module);
 Index: net-2.6.25/net/can/Kconfig
 ===================================================================
---- net-2.6.25.orig/net/can/Kconfig	2007-11-14 13:04:52.000000000 +0100
-+++ net-2.6.25/net/can/Kconfig	2007-11-14 13:04:54.000000000 +0100
-@@ -47,3 +47,6 @@
- 	  Say Y here if you want the CAN core to produce a bunch of debug
- 	  messages.  Select this if you are having a problem with CAN
- 	  support and want to see more of what is going on.
+--- net-2.6.25.orig/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
++++ net-2.6.25/net/can/Kconfig	2007-11-16 14:50:18.000000000 +0100
+@@ -39,3 +39,6 @@
+ 	  You probably want to use the bcm socket in most cases where cyclic
+ 	  CAN messages are used on the bus (e.g. in automotive environments).
+ 	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
 +
 +
 +source "drivers/net/can/Kconfig"

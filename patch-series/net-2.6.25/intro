@@ -1,31 +1,34 @@
 SUBJECT
-CAN: New PF_CAN protocol family for 2.6.25
+CAN: New PF_CAN protocol family for 2.6.25, update
 ESUBJECT
 
 Hello Dave, hello Patrick,
 
-this patch series that adds the PF_CAN protocol family for the
+this patch series adds the PF_CAN protocol family for the
 Controller Area Network.  Since our last post we have changed:
+
+* Remove vcan_open() and vcan_stop().
+* return NETDEV_TX_OK instead of 0.
+* Add can_ prefix to some global vars.
+* Remove all debug code completely.
+* Cleanup of timer code.
+
+This patch series applies against net-2.6.25 and is derived from Subversion
+revision r560 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+Urs Thuermann
+Oliver Hartkopp
+
+
+The changes in try #11 were:
 
 * Fix a bug causing NULL pointer dereference when module autoloading fails.
 * Initialize skb using skb_reset_{transport,network}_header().
 * Use sock_alloc_send_skb() instead of alloc_skb().
 * Adapt to changes in sk_alloc() parameter list.
 * Rename some local variables for readability.
-
-This patch series applies against net-2.6.25 and is derived from Subversion
-revision r542 of http://svn.berlios.de/svnroot/repos/socketcan.
-It can be found in the directory
-http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
-
-Thanks very much for your work!
-
-Best regards,
-
-Urs Thuermann
-Oliver Hartkopp
-
-
 
 The changes in try #10 were:
 

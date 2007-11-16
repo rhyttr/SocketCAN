@@ -10,21 +10,21 @@ Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
  include/linux/can.h       |  111 +++++
- include/linux/can/core.h  |   78 +++
+ include/linux/can/core.h  |   64 +++
  include/linux/can/error.h |   93 ++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
- net/can/Kconfig           |   25 +
+ net/can/Kconfig           |   17 
  net/can/Makefile          |    6 
- net/can/af_can.c          |  975 ++++++++++++++++++++++++++++++++++++++++++++++
- net/can/af_can.h          |  120 +++++
- net/can/proc.c            |  532 +++++++++++++++++++++++++
- 10 files changed, 1942 insertions(+)
+ net/can/af_can.c          |  861 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/af_can.h          |  122 ++++++
+ net/can/proc.c            |  533 ++++++++++++++++++++++++++++
+ 10 files changed, 1809 insertions(+)
 
 Index: net-2.6.25/include/linux/can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/include/linux/can.h	2007-11-14 13:04:49.000000000 +0100
++++ net-2.6.25/include/linux/can.h	2007-11-16 11:11:50.000000000 +0100
 @@ -0,0 +1,111 @@
 +/*
 + * linux/can.h
@@ -140,8 +140,8 @@ Index: net-2.6.25/include/linux/can.h
 Index: net-2.6.25/include/linux/can/core.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/include/linux/can/core.h	2007-11-14 13:04:49.000000000 +0100
-@@ -0,0 +1,78 @@
++++ net-2.6.25/include/linux/can/core.h	2007-11-16 14:38:25.000000000 +0100
+@@ -0,0 +1,64 @@
 +/*
 + * linux/can/core.h
 + *
@@ -163,7 +163,7 @@ Index: net-2.6.25/include/linux/can/core.h
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +
-+#define CAN_VERSION "20071027"
++#define CAN_VERSION "20071116"
 +
 +/* increment this number each time you change some user-space interface */
 +#define CAN_ABI_VERSION "8"
@@ -205,25 +205,11 @@ Index: net-2.6.25/include/linux/can/core.h
 +
 +extern int can_send(struct sk_buff *skb, int loop);
 +
-+#ifdef CONFIG_CAN_DEBUG_CORE
-+extern void can_debug_skb(struct sk_buff *skb);
-+extern void can_debug_cframe(const char *msg, struct can_frame *cframe);
-+#define DBG(fmt, args...)  (DBG_VAR & 1 ? printk( \
-+					KERN_DEBUG DBG_PREFIX ": %s: " fmt, \
-+					__func__, ##args) : 0)
-+#define DBG_FRAME(fmt, cf) (DBG_VAR & 2 ? can_debug_cframe(fmt, cf) : 0)
-+#define DBG_SKB(skb)       (DBG_VAR & 4 ? can_debug_skb(skb) : 0)
-+#else
-+#define DBG(fmt, args...)
-+#define DBG_FRAME(fmt, cf)
-+#define DBG_SKB(skb)
-+#endif
-+
 +#endif /* CAN_CORE_H */
 Index: net-2.6.25/net/Kconfig
 ===================================================================
---- net-2.6.25.orig/net/Kconfig	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/net/Kconfig	2007-11-14 13:04:49.000000000 +0100
+--- net-2.6.25.orig/net/Kconfig	2007-11-15 21:47:52.000000000 +0100
++++ net-2.6.25/net/Kconfig	2007-11-16 11:11:50.000000000 +0100
 @@ -218,6 +218,7 @@
  endmenu
  
@@ -234,8 +220,8 @@ Index: net-2.6.25/net/Kconfig
  source "net/rxrpc/Kconfig"
 Index: net-2.6.25/net/Makefile
 ===================================================================
---- net-2.6.25.orig/net/Makefile	2007-11-14 13:04:26.000000000 +0100
-+++ net-2.6.25/net/Makefile	2007-11-14 13:04:49.000000000 +0100
+--- net-2.6.25.orig/net/Makefile	2007-11-15 21:47:52.000000000 +0100
++++ net-2.6.25/net/Makefile	2007-11-16 11:11:51.000000000 +0100
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
@@ -247,8 +233,8 @@ Index: net-2.6.25/net/Makefile
 Index: net-2.6.25/net/can/Kconfig
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/Kconfig	2007-11-14 13:04:49.000000000 +0100
-@@ -0,0 +1,25 @@
++++ net-2.6.25/net/can/Kconfig	2007-11-16 14:34:20.000000000 +0100
+@@ -0,0 +1,17 @@
 +#
 +# Controller Area Network (CAN) network layer core configuration
 +#
@@ -266,18 +252,10 @@ Index: net-2.6.25/net/can/Kconfig
 +
 +	  If you want CAN support you should say Y here and also to the
 +	  specific driver for your controller(s) below.
-+
-+config CAN_DEBUG_CORE
-+	bool "CAN Core debugging messages"
-+	depends on CAN
-+	---help---
-+	  Say Y here if you want the CAN core to produce a bunch of debug
-+	  messages.  Select this if you are having a problem with CAN
-+	  support and want to see more of what is going on.
 Index: net-2.6.25/net/can/Makefile
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/Makefile	2007-11-14 13:04:49.000000000 +0100
++++ net-2.6.25/net/can/Makefile	2007-11-16 14:25:56.000000000 +0100
 @@ -0,0 +1,6 @@
 +#
 +#  Makefile for the Linux Controller Area Network core.
@@ -288,8 +266,8 @@ Index: net-2.6.25/net/can/Makefile
 Index: net-2.6.25/net/can/af_can.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/af_can.c	2007-11-14 13:04:49.000000000 +0100
-@@ -0,0 +1,975 @@
++++ net-2.6.25/net/can/af_can.c	2007-11-16 14:27:26.000000000 +0100
+@@ -0,0 +1,861 @@
 +/*
 + * af_can.c - Protocol family CAN core module
 + *            (used by different CAN protocol modules)
@@ -369,17 +347,9 @@ Index: net-2.6.25/net/can/af_can.c
 +module_param(stats_timer, int, S_IRUGO);
 +MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
 +
-+#ifdef CONFIG_CAN_DEBUG_CORE
-+#define DBG_PREFIX "can"
-+#define DBG_VAR    can_debug
-+static int can_debug __read_mostly;
-+module_param_named(debug, can_debug, int, S_IRUGO);
-+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
-+#endif
-+
-+HLIST_HEAD(rx_dev_list);
-+static struct dev_rcv_lists rx_alldev_list;
-+static DEFINE_SPINLOCK(rcv_lists_lock);
++HLIST_HEAD(can_rx_dev_list);
++static struct dev_rcv_lists can_rx_alldev_list;
++static DEFINE_SPINLOCK(can_rcvlists_lock);
 +
 +static struct kmem_cache *rcv_cache __read_mostly;
 +
@@ -387,9 +357,9 @@ Index: net-2.6.25/net/can/af_can.c
 +static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
 +static DEFINE_SPINLOCK(proto_tab_lock);
 +
-+struct timer_list stattimer; /* timer for statistics update */
-+struct s_stats  stats;       /* packet statistics */
-+struct s_pstats pstats;      /* receive list statistics */
++struct timer_list can_stattimer;   /* timer for statistics update */
++struct s_stats    can_stats;       /* packet statistics */
++struct s_pstats   can_pstats;      /* receive list statistics */
 +
 +/*
 + * af_can socket functions
@@ -411,8 +381,6 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +static void can_sock_destruct(struct sock *sk)
 +{
-+	DBG("called for sock %p\n", sk);
-+
 +	skb_queue_purge(&sk->sk_receive_queue);
 +}
 +
@@ -423,8 +391,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	char module_name[sizeof("can-proto-000")];
 +	int err = 0;
 +
-+	DBG("socket %p, type %d, proto %d\n", sock, sock->type, protocol);
-+
 +	sock->state = SS_UNCONNECTED;
 +
 +	if (protocol < 0 || protocol >= CAN_NPROTO)
@@ -432,8 +398,6 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +	if (net != &init_net)
 +		return -EAFNOSUPPORT;
-+
-+	DBG("looking up proto %d in proto_tab[]\n", protocol);
 +
 +	/* try to load protocol module, when CONFIG_KMOD is defined */
 +	if (!proto_tab[protocol]) {
@@ -448,7 +412,7 @@ Index: net-2.6.25/net/can/af_can.c
 +		if (err == -ENOSYS) {
 +			if (printk_ratelimit())
 +				printk(KERN_INFO "can: request_module(%s)"
-+				        " not implemented.\n", module_name);
++				       " not implemented.\n", module_name);
 +		} else if (err) {
 +			if (printk_ratelimit())
 +				printk(KERN_ERR "can: request_module(%s)"
@@ -487,8 +451,6 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +	sock_init_data(sock, sk);
 +	sk->sk_destruct = can_sock_destruct;
-+
-+	DBG("created sock: %p\n", sk);
 +
 +	if (sk->sk_prot->init)
 +		err = sk->sk_prot->init(sk);
@@ -581,8 +543,8 @@ Index: net-2.6.25/net/can/af_can.c
 +		err = net_xmit_errno(err);
 +
 +	/* update statistics */
-+	stats.tx_frames++;
-+	stats.tx_frames_delta++;
++	can_stats.tx_frames++;
++	can_stats.tx_frames_delta++;
 +
 +	return err;
 +}
@@ -610,7 +572,7 @@ Index: net-2.6.25/net/can/af_can.c
 +	 * cursor variable n to decide if a match was found.
 +	 */
 +
-+	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
++	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 +		if (d->dev == dev)
 +			break;
 +	}
@@ -696,14 +658,11 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 +
-+	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p, "
-+	    "ident %s\n", dev, DNAME(dev), can_id, mask, func, data, ident);
-+
 +	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
 +	if (!r)
 +		return -ENOMEM;
 +
-+	spin_lock(&rcv_lists_lock);
++	spin_lock(&can_rcvlists_lock);
 +
 +	d = find_dev_rcv_lists(dev);
 +	if (d) {
@@ -719,17 +678,15 @@ Index: net-2.6.25/net/can/af_can.c
 +		hlist_add_head_rcu(&r->list, rl);
 +		d->entries++;
 +
-+		pstats.rcv_entries++;
-+		if (pstats.rcv_entries_max < pstats.rcv_entries)
-+			pstats.rcv_entries_max = pstats.rcv_entries;
++		can_pstats.rcv_entries++;
++		if (can_pstats.rcv_entries_max < can_pstats.rcv_entries)
++			can_pstats.rcv_entries_max = can_pstats.rcv_entries;
 +	} else {
-+		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-+		    DNAME(dev), can_id, mask);
 +		kmem_cache_free(rcv_cache, r);
 +		err = -ENODEV;
 +	}
 +
-+	spin_unlock(&rcv_lists_lock);
++	spin_unlock(&can_rcvlists_lock);
 +
 +	return err;
 +}
@@ -742,7 +699,6 @@ Index: net-2.6.25/net/can/af_can.c
 +{
 +	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
 +
-+	DBG("removing dev_rcv_list at %p\n", d);
 +	kfree(d);
 +}
 +
@@ -753,7 +709,6 @@ Index: net-2.6.25/net/can/af_can.c
 +{
 +	struct receiver *r = container_of(rp, struct receiver, rcu);
 +
-+	DBG("removing receiver at %p\n", r);
 +	kmem_cache_free(rcv_cache, r);
 +}
 +
@@ -776,10 +731,7 @@ Index: net-2.6.25/net/can/af_can.c
 +	struct hlist_node *next;
 +	struct dev_rcv_lists *d;
 +
-+	DBG("dev %p (%s), id %03X, mask %03X, callback %p, data %p\n",
-+	    dev, DNAME(dev), can_id, mask, func, data);
-+
-+	spin_lock(&rcv_lists_lock);
++	spin_lock(&can_rcvlists_lock);
 +
 +	d = find_dev_rcv_lists(dev);
 +	if (!d) {
@@ -821,19 +773,17 @@ Index: net-2.6.25/net/can/af_can.c
 +	hlist_del_rcu(&r->list);
 +	d->entries--;
 +
-+	if (pstats.rcv_entries > 0)
-+		pstats.rcv_entries--;
++	if (can_pstats.rcv_entries > 0)
++		can_pstats.rcv_entries--;
 +
 +	/* remove device structure requested by NETDEV_UNREGISTER */
-+	if (d->remove_on_zero_entries && !d->entries) {
-+		DBG("removing dev_rcv_list for %s on zero entries\n",
-+		    dev->name);
++	if (d->remove_on_zero_entries && !d->entries)
 +		hlist_del_rcu(&d->list);
-+	} else
++	else
 +		d = NULL;
 +
 + out:
-+	spin_unlock(&rcv_lists_lock);
++	spin_unlock(&can_rcvlists_lock);
 +
 +	/* schedule the receiver item for deletion */
 +	if (r)
@@ -849,7 +799,6 @@ Index: net-2.6.25/net/can/af_can.c
 +{
 +	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
 +
-+	DBG("skbuff %p cloned to %p\n", skb, clone);
 +	if (clone) {
 +		clone->sk = skb->sk;
 +		r->func(clone, r->data);
@@ -872,7 +821,6 @@ Index: net-2.6.25/net/can/af_can.c
 +		/* check for error frame entries only */
 +		hlist_for_each_entry_rcu(r, n, &d->rx[RX_ERR], list) {
 +			if (can_id & r->mask) {
-+				DBG("match on rx_err skbuff %p\n", skb);
 +				deliver(skb, r);
 +				matches++;
 +			}
@@ -882,7 +830,6 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +	/* check for unfiltered entries */
 +	hlist_for_each_entry_rcu(r, n, &d->rx[RX_ALL], list) {
-+		DBG("match on rx_all skbuff %p\n", skb);
 +		deliver(skb, r);
 +		matches++;
 +	}
@@ -890,7 +837,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	/* check for can_id/mask entries */
 +	hlist_for_each_entry_rcu(r, n, &d->rx[RX_FIL], list) {
 +		if ((can_id & r->mask) == r->can_id) {
-+			DBG("match on rx_fil skbuff %p\n", skb);
 +			deliver(skb, r);
 +			matches++;
 +		}
@@ -899,7 +845,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	/* check for inverted can_id/mask entries */
 +	hlist_for_each_entry_rcu(r, n, &d->rx[RX_INV], list) {
 +		if ((can_id & r->mask) != r->can_id) {
-+			DBG("match on rx_inv skbuff %p\n", skb);
 +			deliver(skb, r);
 +			matches++;
 +		}
@@ -909,7 +854,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	if (can_id & CAN_EFF_FLAG) {
 +		hlist_for_each_entry_rcu(r, n, &d->rx[RX_EFF], list) {
 +			if (r->can_id == can_id) {
-+				DBG("match on rx_eff skbuff %p\n", skb);
 +				deliver(skb, r);
 +				matches++;
 +			}
@@ -917,7 +861,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	} else {
 +		can_id &= CAN_SFF_MASK;
 +		hlist_for_each_entry_rcu(r, n, &d->rx_sff[can_id], list) {
-+			DBG("match on rx_sff skbuff %p\n", skb);
 +			deliver(skb, r);
 +			matches++;
 +		}
@@ -932,25 +875,19 @@ Index: net-2.6.25/net/can/af_can.c
 +	struct dev_rcv_lists *d;
 +	int matches;
 +
-+	DBG("received skbuff on device %s, ptype %04x\n",
-+	    dev->name, ntohs(pt->type));
-+	DBG_SKB(skb);
-+	DBG_FRAME("can: can_rcv: received CAN frame",
-+		  (struct can_frame *)skb->data);
-+
 +	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
 +		kfree_skb(skb);
 +		return 0;
 +	}
 +
 +	/* update statistics */
-+	stats.rx_frames++;
-+	stats.rx_frames_delta++;
++	can_stats.rx_frames++;
++	can_stats.rx_frames_delta++;
 +
 +	rcu_read_lock();
 +
 +	/* deliver the packet to sockets listening on all devices */
-+	matches = can_rcv_filter(&rx_alldev_list, skb);
++	matches = can_rcv_filter(&can_rx_alldev_list, skb);
 +
 +	/* find receive list for this device */
 +	d = find_dev_rcv_lists(dev);
@@ -960,12 +897,11 @@ Index: net-2.6.25/net/can/af_can.c
 +	rcu_read_unlock();
 +
 +	/* free the skbuff allocated by the netdevice driver */
-+	DBG("freeing skbuff %p\n", skb);
 +	kfree_skb(skb);
 +
 +	if (matches > 0) {
-+		stats.matches++;
-+		stats.matches_delta++;
++		can_stats.matches++;
++		can_stats.matches_delta++;
 +	}
 +
 +	return 0;
@@ -1049,9 +985,6 @@ Index: net-2.6.25/net/can/af_can.c
 +	struct net_device *dev = (struct net_device *)data;
 +	struct dev_rcv_lists *d;
 +
-+	DBG("msg %ld for dev %p (%s idx %d)\n",
-+	    msg, dev, dev->name, dev->ifindex);
-+
 +	if (dev->nd_net != &init_net)
 +		return NOTIFY_DONE;
 +
@@ -1071,8 +1004,6 @@ Index: net-2.6.25/net/can/af_can.c
 +		 * explicit initialization.
 +		 */
 +
-+		DBG("creating new dev_rcv_lists for %s\n", dev->name);
-+
 +		d = kzalloc(sizeof(*d), GFP_KERNEL);
 +		if (!d) {
 +			printk(KERN_ERR
@@ -1081,20 +1012,17 @@ Index: net-2.6.25/net/can/af_can.c
 +		}
 +		d->dev = dev;
 +
-+		spin_lock(&rcv_lists_lock);
-+		hlist_add_head_rcu(&d->list, &rx_dev_list);
-+		spin_unlock(&rcv_lists_lock);
++		spin_lock(&can_rcvlists_lock);
++		hlist_add_head_rcu(&d->list, &can_rx_dev_list);
++		spin_unlock(&can_rcvlists_lock);
 +
 +		break;
 +
 +	case NETDEV_UNREGISTER:
-+		spin_lock(&rcv_lists_lock);
++		spin_lock(&can_rcvlists_lock);
 +
 +		d = find_dev_rcv_lists(dev);
 +		if (d) {
-+			DBG("remove dev_rcv_list for %s (%d entries)\n",
-+			    dev->name, d->entries);
-+
 +			if (d->entries) {
 +				d->remove_on_zero_entries = 1;
 +				d = NULL;
@@ -1104,7 +1032,7 @@ Index: net-2.6.25/net/can/af_can.c
 +			printk(KERN_ERR "can: notifier: receive list not "
 +			       "found for dev %s\n", dev->name);
 +
-+		spin_unlock(&rcv_lists_lock);
++		spin_unlock(&can_rcvlists_lock);
 +
 +		if (d)
 +			call_rcu(&d->rcu, can_rx_delete_device);
@@ -1114,65 +1042,6 @@ Index: net-2.6.25/net/can/af_can.c
 +
 +	return NOTIFY_DONE;
 +}
-+
-+/*
-+ * af_can debugging stuff
-+ */
-+
-+#ifdef CONFIG_CAN_DEBUG_CORE
-+
-+/**
-+ * can_debug_cframe - print CAN frame
-+ * @msg: pointer to message printed before the given CAN frame
-+ * @cf: pointer to CAN frame
-+ */
-+void can_debug_cframe(const char *msg, struct can_frame *cf)
-+{
-+	char idbuf[12];
-+	char hexbuf[28];
-+	int dlc;
-+
-+	dlc = cf->can_dlc;
-+	if (dlc > 8)
-+		dlc = 8;
-+
-+	if (cf->can_id & CAN_EFF_FLAG)
-+		sprintf(idbuf, "<%08X>", cf->can_id & CAN_EFF_MASK);
-+	else
-+		sprintf(idbuf, "<%03X>", cf->can_id & CAN_SFF_MASK);
-+
-+	if (cf->can_id & CAN_RTR_FLAG)
-+		sprintf(hexbuf, "(RTR)");
-+	else
-+		hex_dump_to_buffer(cf->data, dlc, 16, 1, hexbuf, 28, 0);
-+
-+	printk(KERN_DEBUG "%s: %s [%d] %s\n", msg, idbuf, dlc, hexbuf);
-+}
-+EXPORT_SYMBOL(can_debug_cframe);
-+
-+/**
-+ * can_debug_skb - print socket buffer content to kernel log
-+ * @skb: pointer to socket buffer
-+ */
-+void can_debug_skb(struct sk_buff *skb)
-+{
-+	printk(KERN_DEBUG "  skbuff at %p, dev: %d, proto: %04x\n"
-+	       KERN_DEBUG "  users: %d, dataref: %d, nr_frags: %d, "
-+	       "h,d,t,e,l: %p %+d %+d %+d, %d\n",
-+	       skb, skb->dev ? skb->dev->ifindex : -1,
-+	       ntohs(skb->protocol),
-+	       atomic_read(&skb->users),
-+	       atomic_read(&(skb_shinfo(skb)->dataref)),
-+	       skb_shinfo(skb)->nr_frags,
-+	       skb->head, skb->data - skb->head,
-+	       skb->tail - skb->head, skb->end - skb->head, skb->len);
-+
-+	print_hex_dump(KERN_DEBUG, "skb_head: ", DUMP_PREFIX_NONE,
-+		       16, 1, skb->head, skb->end - skb->head, 0);
-+}
-+EXPORT_SYMBOL(can_debug_skb);
-+
-+#endif
 +
 +/*
 + * af_can module init/exit functions
@@ -1205,26 +1074,21 @@ Index: net-2.6.25/net/can/af_can.c
 +		return -ENOMEM;
 +
 +	/*
-+	 * Insert rx_alldev_list for reception on all devices.
++	 * Insert can_rx_alldev_list for reception on all devices.
 +	 * This struct is zero initialized which is correct for the
 +	 * embedded hlist heads, the dev pointer, and the entries counter.
 +	 */
 +
-+	spin_lock(&rcv_lists_lock);
-+	hlist_add_head_rcu(&rx_alldev_list.list, &rx_dev_list);
-+	spin_unlock(&rcv_lists_lock);
++	spin_lock(&can_rcvlists_lock);
++	hlist_add_head_rcu(&can_rx_alldev_list.list, &can_rx_dev_list);
++	spin_unlock(&can_rcvlists_lock);
 +
 +	if (stats_timer) {
 +		/* the statistics are updated every second (timer triggered) */
-+		init_timer(&stattimer);
-+		stattimer.function = can_stat_update;
-+		stattimer.data = 0;
-+		/* update every second */
-+		stattimer.expires = round_jiffies(jiffies + HZ);
-+		/* start statistics timer */
-+		add_timer(&stattimer);
++		setup_timer(&can_stattimer, can_stat_update, 0);
++		mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
 +	} else
-+		stattimer.function = NULL;
++		can_stattimer.function = NULL;
 +
 +	can_init_proc();
 +
@@ -1242,7 +1106,7 @@ Index: net-2.6.25/net/can/af_can.c
 +	struct hlist_node *n, *next;
 +
 +	if (stats_timer)
-+		del_timer(&stattimer);
++		del_timer(&can_stattimer);
 +
 +	can_remove_proc();
 +
@@ -1251,14 +1115,14 @@ Index: net-2.6.25/net/can/af_can.c
 +	unregister_netdevice_notifier(&can_netdev_notifier);
 +	sock_unregister(PF_CAN);
 +
-+	/* remove rx_dev_list */
-+	spin_lock(&rcv_lists_lock);
-+	hlist_del(&rx_alldev_list.list);
-+	hlist_for_each_entry_safe(d, n, next, &rx_dev_list, list) {
++	/* remove can_rx_dev_list */
++	spin_lock(&can_rcvlists_lock);
++	hlist_del(&can_rx_alldev_list.list);
++	hlist_for_each_entry_safe(d, n, next, &can_rx_dev_list, list) {
 +		hlist_del(&d->list);
 +		kfree(d);
 +	}
-+	spin_unlock(&rcv_lists_lock);
++	spin_unlock(&can_rcvlists_lock);
 +
 +	kmem_cache_destroy(rcv_cache);
 +}
@@ -1268,8 +1132,8 @@ Index: net-2.6.25/net/can/af_can.c
 Index: net-2.6.25/net/can/af_can.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/af_can.h	2007-11-14 13:04:49.000000000 +0100
-@@ -0,0 +1,120 @@
++++ net-2.6.25/net/can/af_can.h	2007-11-16 14:27:20.000000000 +0100
+@@ -0,0 +1,122 @@
 +/*
 + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 + * All rights reserved.
@@ -1347,6 +1211,7 @@ Index: net-2.6.25/net/can/af_can.h
 +
 +/* statistic structures */
 +
++/* can be reset e.g. by can_init_stats() */
 +struct s_stats {
 +	unsigned long jiffies_init;
 +
@@ -1369,14 +1234,15 @@ Index: net-2.6.25/net/can/af_can.h
 +	unsigned long rx_frames_delta;
 +	unsigned long tx_frames_delta;
 +	unsigned long matches_delta;
-+}; /* can be reset e.g. by can_init_stats() */
++};
 +
++/* persistent statistics */
 +struct s_pstats {
 +	unsigned long stats_reset;
 +	unsigned long user_reset;
 +	unsigned long rcv_entries;
 +	unsigned long rcv_entries_max;
-+}; /* persistent statistics */
++};
 +
 +/* function prototypes for the CAN networklayer procfs (proc.c) */
 +extern void can_init_proc(void);
@@ -1384,17 +1250,17 @@ Index: net-2.6.25/net/can/af_can.h
 +extern void can_stat_update(unsigned long data);
 +
 +/* structures and variables from af_can.c needed in proc.c for reading */
-+extern struct timer_list stattimer;	/* timer for statistics update */
-+extern struct s_stats  stats;		/* packet statistics */
-+extern struct s_pstats pstats;		/* receive list statistics */
-+extern struct hlist_head rx_dev_list;	/* rx dispatcher structures */
++extern struct timer_list can_stattimer;    /* timer for statistics update */
++extern struct s_stats    can_stats;        /* packet statistics */
++extern struct s_pstats   can_pstats;       /* receive list statistics */
++extern struct hlist_head can_rx_dev_list;  /* rx dispatcher structures */
 +
 +#endif /* AF_CAN_H */
 Index: net-2.6.25/net/can/proc.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/net/can/proc.c	2007-11-14 13:04:49.000000000 +0100
-@@ -0,0 +1,532 @@
++++ net-2.6.25/net/can/proc.c	2007-11-16 14:27:37.000000000 +0100
+@@ -0,0 +1,533 @@
 +/*
 + * proc.c - procfs support for Protocol family CAN core module
 + *
@@ -1489,17 +1355,17 @@ Index: net-2.6.25/net/can/proc.c
 +{
 +	/*
 +	 * This memset function is called from a timer context (when
-+	 * stattimer is active which is the default) OR in a process
-+	 * context (reading the proc_fs when stattimer is disabled).
++	 * can_stattimer is active which is the default) OR in a process
++	 * context (reading the proc_fs when can_stattimer is disabled).
 +	 */
-+	memset(&stats, 0, sizeof(stats));
-+	stats.jiffies_init = jiffies;
++	memset(&can_stats, 0, sizeof(can_stats));
++	can_stats.jiffies_init = jiffies;
 +
-+	pstats.stats_reset++;
++	can_pstats.stats_reset++;
 +
 +	if (user_reset) {
 +		user_reset = 0;
-+		pstats.user_reset++;
++		can_pstats.user_reset++;
 +	}
 +}
 +
@@ -1532,57 +1398,57 @@ Index: net-2.6.25/net/can/proc.c
 +		can_init_stats();
 +
 +	/* restart counting on jiffies overflow */
-+	if (j < stats.jiffies_init)
++	if (j < can_stats.jiffies_init)
 +		can_init_stats();
 +
 +	/* prevent overflow in calc_rate() */
-+	if (stats.rx_frames > (ULONG_MAX / HZ))
++	if (can_stats.rx_frames > (ULONG_MAX / HZ))
 +		can_init_stats();
 +
 +	/* prevent overflow in calc_rate() */
-+	if (stats.tx_frames > (ULONG_MAX / HZ))
++	if (can_stats.tx_frames > (ULONG_MAX / HZ))
 +		can_init_stats();
 +
 +	/* matches overflow - very improbable */
-+	if (stats.matches > (ULONG_MAX / 100))
++	if (can_stats.matches > (ULONG_MAX / 100))
 +		can_init_stats();
 +
 +	/* calc total values */
-+	if (stats.rx_frames)
-+		stats.total_rx_match_ratio = (stats.matches * 100) /
-+						stats.rx_frames;
++	if (can_stats.rx_frames)
++		can_stats.total_rx_match_ratio = (can_stats.matches * 100) /
++			can_stats.rx_frames;
 +
-+	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
-+					stats.tx_frames);
-+	stats.total_rx_rate = calc_rate(stats.jiffies_init, j,
-+					stats.rx_frames);
++	can_stats.total_tx_rate = calc_rate(can_stats.jiffies_init, j,
++					    can_stats.tx_frames);
++	can_stats.total_rx_rate = calc_rate(can_stats.jiffies_init, j,
++					    can_stats.rx_frames);
 +
 +	/* calc current values */
-+	if (stats.rx_frames_delta)
-+		stats.current_rx_match_ratio =
-+			(stats.matches_delta * 100) / stats.rx_frames_delta;
++	if (can_stats.rx_frames_delta)
++		can_stats.current_rx_match_ratio =
++			(can_stats.matches_delta * 100) /
++			can_stats.rx_frames_delta;
 +
-+	stats.current_tx_rate = calc_rate(0, HZ, stats.tx_frames_delta);
-+	stats.current_rx_rate = calc_rate(0, HZ, stats.rx_frames_delta);
++	can_stats.current_tx_rate = calc_rate(0, HZ, can_stats.tx_frames_delta);
++	can_stats.current_rx_rate = calc_rate(0, HZ, can_stats.rx_frames_delta);
 +
 +	/* check / update maximum values */
-+	if (stats.max_tx_rate < stats.current_tx_rate)
-+		stats.max_tx_rate = stats.current_tx_rate;
++	if (can_stats.max_tx_rate < can_stats.current_tx_rate)
++		can_stats.max_tx_rate = can_stats.current_tx_rate;
 +
-+	if (stats.max_rx_rate < stats.current_rx_rate)
-+		stats.max_rx_rate = stats.current_rx_rate;
++	if (can_stats.max_rx_rate < can_stats.current_rx_rate)
++		can_stats.max_rx_rate = can_stats.current_rx_rate;
 +
-+	if (stats.max_rx_match_ratio < stats.current_rx_match_ratio)
-+		stats.max_rx_match_ratio = stats.current_rx_match_ratio;
++	if (can_stats.max_rx_match_ratio < can_stats.current_rx_match_ratio)
++		can_stats.max_rx_match_ratio = can_stats.current_rx_match_ratio;
 +
 +	/* clear values for 'current rate' calculation */
-+	stats.tx_frames_delta = 0;
-+	stats.rx_frames_delta = 0;
-+	stats.matches_delta   = 0;
++	can_stats.tx_frames_delta = 0;
++	can_stats.rx_frames_delta = 0;
++	can_stats.matches_delta   = 0;
 +
 +	/* restart timer (one second) */
-+	stattimer.expires = round_jiffies(jiffies + HZ);
-+	add_timer(&stattimer);
++	mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
 +}
 +
 +/*
@@ -1645,71 +1511,72 @@ Index: net-2.6.25/net/can/proc.c
 +
 +	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +	len += snprintf(page + len, PAGE_SIZE - len,
-+			" %8ld transmitted frames (TXF)\n", stats.tx_frames);
++			" %8ld transmitted frames (TXF)\n",
++			can_stats.tx_frames);
 +	len += snprintf(page + len, PAGE_SIZE - len,
-+			" %8ld received frames (RXF)\n", stats.rx_frames);
++			" %8ld received frames (RXF)\n", can_stats.rx_frames);
 +	len += snprintf(page + len, PAGE_SIZE - len,
-+			" %8ld matched frames (RXMF)\n", stats.matches);
++			" %8ld matched frames (RXMF)\n", can_stats.matches);
 +
 +	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +
-+	if (stattimer.function == can_stat_update) {
++	if (can_stattimer.function == can_stat_update) {
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld %% total match ratio (RXMR)\n",
-+				stats.total_rx_match_ratio);
++				can_stats.total_rx_match_ratio);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s total tx rate (TXR)\n",
-+				stats.total_tx_rate);
++				can_stats.total_tx_rate);
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s total rx rate (RXR)\n",
-+				stats.total_rx_rate);
++				can_stats.total_rx_rate);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld %% current match ratio (CRXMR)\n",
-+				stats.current_rx_match_ratio);
++				can_stats.current_rx_match_ratio);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s current tx rate (CTXR)\n",
-+				stats.current_tx_rate);
++				can_stats.current_tx_rate);
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s current rx rate (CRXR)\n",
-+				stats.current_rx_rate);
++				can_stats.current_rx_rate);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld %% max match ratio (MRXMR)\n",
-+				stats.max_rx_match_ratio);
++				can_stats.max_rx_match_ratio);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s max tx rate (MTXR)\n",
-+				stats.max_tx_rate);
++				can_stats.max_tx_rate);
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld frames/s max rx rate (MRXR)\n",
-+				stats.max_rx_rate);
++				can_stats.max_rx_rate);
 +
 +		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +	}
 +
 +	len += snprintf(page + len, PAGE_SIZE - len,
 +			" %8ld current receive list entries (CRCV)\n",
-+			pstats.rcv_entries);
++			can_pstats.rcv_entries);
 +	len += snprintf(page + len, PAGE_SIZE - len,
 +			" %8ld maximum receive list entries (MRCV)\n",
-+			pstats.rcv_entries_max);
++			can_pstats.rcv_entries_max);
 +
-+	if (pstats.stats_reset)
++	if (can_pstats.stats_reset)
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				"\n %8ld statistic resets (STR)\n",
-+				pstats.stats_reset);
++				can_pstats.stats_reset);
 +
-+	if (pstats.user_reset)
++	if (can_pstats.user_reset)
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				" %8ld user statistic resets (USTR)\n",
-+				pstats.user_reset);
++				can_pstats.user_reset);
 +
 +	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 +
@@ -1724,18 +1591,18 @@ Index: net-2.6.25/net/can/proc.c
 +
 +	user_reset = 1;
 +
-+	if (stattimer.function == can_stat_update) {
++	if (can_stattimer.function == can_stat_update) {
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				"Scheduled statistic reset #%ld.\n",
-+				pstats.stats_reset + 1);
++				can_pstats.stats_reset + 1);
 +
 +	} else {
-+		if (stats.jiffies_init != jiffies)
++		if (can_stats.jiffies_init != jiffies)
 +			can_init_stats();
 +
 +		len += snprintf(page + len, PAGE_SIZE - len,
 +				"Performed statistic reset #%ld.\n",
-+				pstats.stats_reset);
++				can_pstats.stats_reset);
 +	}
 +
 +	*eof = 1;
@@ -1766,7 +1633,7 @@ Index: net-2.6.25/net/can/proc.c
 +			"\nreceive list '%s':\n", rx_list_name[idx]);
 +
 +	rcu_read_lock();
-+	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
++	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 +
 +		if (!hlist_empty(&d->rx[idx])) {
 +			len = can_print_recv_banner(page, len);
@@ -1799,7 +1666,7 @@ Index: net-2.6.25/net/can/proc.c
 +			"\nreceive list 'rx_sff':\n");
 +
 +	rcu_read_lock();
-+	hlist_for_each_entry_rcu(d, n, &rx_dev_list, list) {
++	hlist_for_each_entry_rcu(d, n, &can_rx_dev_list, list) {
 +		int i, all_empty = 1;
 +		/* check wether at least one list is non-empty */
 +		for (i = 0; i < 0x800; i++)
@@ -1930,7 +1797,7 @@ Index: net-2.6.25/net/can/proc.c
 Index: net-2.6.25/include/linux/can/error.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.25/include/linux/can/error.h	2007-11-14 13:04:49.000000000 +0100
++++ net-2.6.25/include/linux/can/error.h	2007-11-16 11:11:51.000000000 +0100
 @@ -0,0 +1,93 @@
 +/*
 + * linux/can/error.h
