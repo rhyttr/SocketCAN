@@ -214,7 +214,7 @@ static char *bcm_proc_getifname(int ifindex)
 
 	/* no usage counting */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	dev = __dev_get_by_index(&init_net, ifindex); 
+	dev = __dev_get_by_index(&init_net, ifindex);
 #else
 	dev = __dev_get_by_index(ifindex);
 #endif
