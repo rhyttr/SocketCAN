@@ -919,7 +919,8 @@ static __init int can_init(void)
 #else
 		mod_timer(&stattimer, jiffies + HZ);
 #endif
-	}
+	} else
+		stattimer.function = NULL;
 
 	can_init_proc();
 
