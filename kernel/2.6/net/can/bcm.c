@@ -938,17 +938,12 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->sk = sk;
 		op->ifindex = ifindex;
 
-		/* initialize uninitialized (kmalloc) structure */
-		init_timer(&op->timer);
+		/* initialize uninitialized (kzalloc) structure */
+		setup_timer(&op->timer, bcm_tx_timeout_handler,
+			    (unsigned long)op);
 
 		/* currently unused in tx_ops */
 		init_timer(&op->thrtimer);
-
-		/* handler for tx_ops */
-		op->timer.function = bcm_tx_timeout_handler;
-
-		/* timer.data points to this op-structure */
-		op->timer.data = (unsigned long)op;
 
 		/* add this bcm_op to the list of the tx_ops */
 		list_add(&op->list, &bo->tx_ops);
@@ -1105,22 +1100,12 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kzalloc) structure */
-		init_timer(&op->timer);
+		setup_timer(&op->timer, bcm_rx_timeout_handler,
+			    (unsigned long)op);
 
 		/* init throttle timer for RX_CHANGED */
-		init_timer(&op->thrtimer);
-
-		/* handler for rx timeouts */
-		op->timer.function = bcm_rx_timeout_handler;
-
-		/* timer.data points to this op-structure */
-		op->timer.data = (unsigned long)op;
-
-		/* handler for RX_CHANGED throttle timeouts */
-		op->thrtimer.function = bcm_rx_thr_handler;
-
-		/* timer.data points to this op-structure */
-		op->thrtimer.data = (unsigned long)op;
+		setup_timer(&op->thrtimer, bcm_rx_thr_handler,
+			    (unsigned long)op);
 
 		/* mark disabled timer */
 		op->thrtimer.expires = 0;
