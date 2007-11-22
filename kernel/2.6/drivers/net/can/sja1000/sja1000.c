@@ -843,7 +843,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				       "restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			} else if (status & SR_ES) {
 				iDBG(KERN_INFO "%s: error\n", dev->name);
 			}
@@ -872,7 +872,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     " restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			}
 #if 1
 			/* don't know, if this is a good idea, */
@@ -882,7 +882,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     " restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			}
 #endif
 		}
@@ -898,7 +898,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 				     "restarting device\n", dev->name);
 				can_restart_on(dev);
 				/* controller has been restarted: leave here */
-				return IRQ_HANDLED;
+				goto out;
 			} else {
 				iDBG(KERN_INFO "%s: -> ERROR ACTIVE\n",
 				     dev->name);
@@ -918,7 +918,7 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 	if (n > 1) {
 		iDBG(KERN_INFO "%s: handled %d IRQs\n", dev->name, n);
 	}
-
+out:
 	hw_postirq(dev);
 
 	return n == 0 ? IRQ_NONE : IRQ_HANDLED;
