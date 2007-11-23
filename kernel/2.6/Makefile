@@ -5,8 +5,8 @@ PWD       := $(shell pwd)
 TOPDIR    := $(PWD)
 
 export CONFIG_CAN_VCAN=m
-export CONFIG_CAN_SJA1000=m
-export CONFIG_CAN_I82527=m
+export CONFIG_CAN_SJA1000_OLD=m
+export CONFIG_CAN_I82527_OLD=m
 
 export CONFIG_CAN=m
 export CONFIG_CAN_RAW=m
