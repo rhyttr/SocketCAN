@@ -1,0 +1,118 @@
+TO-DO and Wish list for the Socket-CAN-Project:
+==============================================
+
+
+o CAN bit rate setting:
+
+  Default CAN bit rate calculation and custom bit rate setting in a
+  more hardware independent way should re-worked. See thread
+  https://lists.berlios.de/pipermail/socketcan-core/2007-October/000715.html.
+
+
+o CAN state management:
+
+  How should the CAN state be managed? We have the common "state"
+  variable of the CAN device interface and the do_get_state() method.
+  I see two methods:
+
+  - the common "state" variable is updated in the ISR and it always
+    hold the proper state. There's no need for do_get_state().
+
+  - if do_get_state(), it should return the proper state.
+
+  Part of it could be handled in common code.
+
+
+o Controller start, stop and re-start (mode setting):
+
+  When and how should the controller be restarted? I see the following
+  three methods:
+
+  - via ifconfig up/down
+
+  - via automatic restart in case of persistent error condition or
+    TX timeout (do we really need that?).
+
+  - via ioctl request SIOCGCANCTRLMODE / CAN_MODE_START
+
+  A restart may also be triggered by a baud-rate setting. The restart
+  behavior should also be configurable when the driver is statically
+  linked into the kernel (no module parameters).
+
+
+o Feature RX-Probe:
+
+  See https://lists.berlios.de/pipermail/socketcan-core/2007-November/000789.html
+
+
+o CAN controller mode setting:
+
+  Currently we have defined:
+
+  #define CAN_CTRLMODE_LOOPBACK   0x1
+  #define CAN_CTRLMODE_LISTENONLY 0x2
+  #define CAN_CTRLMODE_SINGLESHOT 0x3
+
+  How should the mode be set and handled by the driver.
+
+
+o PROCFS or SYSFS support:
+
+  How to set/get common and specific device properties like the CAN
+  baudrate, ctrlmode or device statistics?
+
+  $ cat /proc/net/dev_can
+  i-face can-clock bitrate canstate err-warn err-pass buserrors overruns arb-lost wakeups restarts
+    can0   8000000  125000   active        5        3        92        0        0       0        6
+    can1   8000000  500000  stopped        0        0         0        0        0       0        0
+
+
+o Driver options/parameters:
+
+  So far driver options have been set through module parameters. Does
+  it work with static linking as well? Should we switch to SYSFS.
+
+
+o Naming issues:
+
+  - baudrate, speed -> bitrate
+  - bit_time -> bittime
+  - names of CAN devices and modules
+  - prefix in variables and definitions of the SJA1000 driver
+
+
+o CAN device statistics:
+
+  I think it is to much biased by the SJA1000. It actually counts
+  the error interrupt sources of the SJA1000.
+
+
+o Debugging code:
+
+  The debugging code should be reviewed and used consistantly.
+
+
+
+Further wishes:
+--------------
+
+o Using (N)NAPI, rx-poll for SJA1000 to deal better with high interrupt
+  load, especially bus error flooding (check MSCAN driver).
+
+
+o Purge Tx queue before restarting the CAN [Vladislav Gribov]
+
+
+o Automatic bit rate detection [Vladislav Gribov]
+
+
+o Support for CAN tranceivers  [Vladislav Gribov]
+
+  There are CAN interface boards which allows to switch CAN transceiver
+  between low-speed / high-speed . Shall be selection done over IOCTL or
+  other module parameter?
+  Are there any boards with termination resistance which may be switched
+  on/off? If yes, the same question: ioctl or module parameters?
+
+
+o Interface to query the capabilities of the CAN controllers.
