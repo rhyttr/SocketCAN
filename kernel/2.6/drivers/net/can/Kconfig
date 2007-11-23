@@ -34,9 +34,9 @@ config CAN_DEBUG_DEVICES
 	  a problem with CAN support and want to see more of what is going
 	  on.
 
-config CAN_SJA1000
+config CAN_SJA1000_OLD
 	depends on CAN
-	tristate "Philips SJA1000"
+	tristate "Philips SJA1000 (old)"
 	---help---
 	  The SJA1000 is one of the top CAN controllers out there. As it
 	  has a multiplexed interface it fits directly to 8051
@@ -44,10 +44,13 @@ config CAN_SJA1000
 	  is a full CAN controller, with shadow registers for RX and TX.
 	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
 	  with a single (simple) filter setup.
+	  REMARK: This is the 'old' driver originally written by Matthias
+	  Brukner and Oliver Hartkopp which uses a non-standard hardware
+	  abstaction layer (HAL) inspired by the OCAN driver.
 
-config CAN_I82527
+config CAN_I82527_OLD
 	depends on CAN
-	tristate "Intel 82527"
+	tristate "Intel 82527 (old)"
 	---help---
 	  The i82527 is a complex CAN controller that can handle RTR
 	  frame replies on it's own. This feature (and diffent RX filters)  
@@ -60,6 +63,9 @@ config CAN_I82527
 	  it is not possible to determine the received RTR CAN-ID.
 	  The reliable message object 15 receives SFF frames by default.
 	  This message object 15 usage maybe changed with the mo15 param.
+	  REMARK: This is the 'old' driver originally written by Oliver
+	  Hartkopp which uses a non-standard hardware abstaction layer (HAL)
+	  inspired by the OCAN driver. http://ar.linux.it/software/#ocan
 
 config CAN_MSCAN
 	depends on CAN && (PPC || M68K || M68KNOMMU)
