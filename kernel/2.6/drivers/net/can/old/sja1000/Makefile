@@ -45,7 +45,7 @@ ifeq ($(KERNELRELEASE),)
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
-TOPDIR    := $(PWD)/../../../..
+TOPDIR    := $(PWD)/../../../../..
 
 modules modules_install clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
@@ -53,7 +53,7 @@ modules modules_install clean:
 else
 
 -include $(TOPDIR)/Makefile.common
-EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/hal
+EXTRA_CFLAGS += -I$(TOPDIR)/drivers/net/can/old/hal
 
 obj-m := sja1000-io.o sja1000-iomem.o sja1000-iomux.o sja1000-gw2.o sja1000-esdio.o sja1000-c200.o
 
