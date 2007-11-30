@@ -217,7 +217,7 @@ static int can_create(struct socket *sock, int protocol)
 	sock->ops = cp->ops;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot, 1);
+	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, cp->prot, 1);
 #else
