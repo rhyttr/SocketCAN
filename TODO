@@ -2,6 +2,19 @@ TO-DO and Wish list for the Socket-CAN-Project:
 ==============================================
 
 
+o Naming issues:
+
+  - baudrate, speed -> bitrate
+  - bit_time -> bittime
+  - names of CAN devices and modules
+  - prefix in variables and definitions of the SJA1000 driver
+
+
+o Coding style issues:
+
+  E.g. net/can/dev.[ch] needs reformatting and beautification.
+
+
 o CAN bit rate setting:
 
   Default CAN bit rate calculation and custom bit rate setting in a
@@ -40,6 +53,20 @@ o Controller start, stop and re-start (mode setting):
   linked into the kernel (no module parameters).
 
 
+o Local loopback device (echo).
+
+  The SJA1000 driver has a local loopback implemented:
+
+  /*
+   * CAN network devices *should* support a local echo functionality
+   * (see Documentation/networking/can.txt). To test the handling of CAN
+   * interfaces that do not support the local echo both driver types are
+   * implemented inside this sja1000 driver. In the case that the driver does
+   * not support the echo the IFF_ECHO remains clear in dev->flags.
+   * This causes the PF_CAN core to perform the echo as a fallback solution.
+   */
+
+
 o Feature RX-Probe:
 
   See https://lists.berlios.de/pipermail/socketcan-core/2007-November/000789.html
@@ -71,14 +98,6 @@ o Driver options/parameters:
 
   So far driver options have been set through module parameters. Does
   it work with static linking as well? Should we switch to SYSFS.
-
-
-o Naming issues:
-
-  - baudrate, speed -> bitrate
-  - bit_time -> bittime
-  - names of CAN devices and modules
-  - prefix in variables and definitions of the SJA1000 driver
 
 
 o CAN device statistics:
