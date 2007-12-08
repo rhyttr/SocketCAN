@@ -96,7 +96,7 @@ static const char rx_list_name[][8] = {
  * af_can statistics stuff
  */
 
-static void can_init_stats(int caller)
+static void can_init_stats(void)
 {
 	memset(&can_stats, 0, sizeof(can_stats));
 	can_stats.jiffies_init = jiffies;
@@ -129,15 +129,15 @@ static void can_stat_update(unsigned long data)
 
 	/* restart counting on jiffies overflow */
 	if (j < can_stats.jiffies_init)
-		can_init_stats(2);
+		can_init_stats();
 
 	/* prevent overflow in calc_rate() */
 	if (can_stats.rx_frames > (ULONG_MAX / HZ))
-		can_init_stats(3);
+		can_init_stats();
 
 	/* matches overflow - very improbable */
 	if (can_stats.matches > (ULONG_MAX / 100))
-		can_init_stats(4);
+		can_init_stats();
 
 	/* calc total values */
 	if (can_stats.rx_frames)
@@ -312,7 +312,7 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 
 	MOD_INC_USE_COUNT;
 
-	can_init_stats(1);
+	can_init_stats();
 
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"CAN statistic reset #%ld done.\n",

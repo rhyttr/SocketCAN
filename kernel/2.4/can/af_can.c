@@ -386,18 +386,19 @@ static void can_rx_delete_all(struct receiver **rl)
  *  -EINVAL on missing subscription entry
  *  -ENODEV unknown device
  */
-int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
-		      void (*func)(struct sk_buff *, void *), void *data)
+void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+		       void (*func)(struct sk_buff *, void *), void *data)
 {
 	struct receiver *r, **rl;
 	struct dev_rcv_lists *d;
-	int err = 0;
 
 	write_lock_bh(&can_rcvlists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
-		err = -ENODEV;
+		printk(KERN_ERR "BUG: receive list not found for "
+		       "dev %s, id %03X, mask %03X\n",
+		       DNAME(dev), can_id, mask);
 		goto out;
 	}
 
@@ -421,7 +422,9 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	 */
 
 	if (!r) {
-		err = -EINVAL;
+		printk(KERN_ERR "BUG: receive list entry not found for "
+		       "dev %s, id %03X, mask %03X\n",
+		       DNAME(dev), can_id, mask);
 		goto out;
 	}
 
@@ -434,8 +437,6 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
  out:
 	write_unlock_bh(&can_rcvlists_lock);
-
-	return err;
 }
 
 static inline void deliver(struct sk_buff *skb, struct receiver *r)

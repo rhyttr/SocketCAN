@@ -74,7 +74,7 @@ void can_proto_unregister(struct can_proto *cp);
 int  can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		     void (*func)(struct sk_buff *, void *), void *data,
 		     char *ident);
-int  can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		       void (*func)(struct sk_buff *, void *), void *data);
 void can_dev_register(struct net_device *dev,
 		      void (*func)(unsigned long msg, void *), void *data);
