@@ -259,7 +259,7 @@ static struct receiver **find_rcv_list(canid_t *can_id, canid_t *mask,
 	if (*mask & CAN_ERR_FLAG) {
 		/* clear CAN_ERR_FLAG in list entry */
 		*mask &= CAN_ERR_MASK;
-		return &d->rx_err;
+		return &d->rx[RX_ERR];
 	}
 
 	/* ensure valid values in can_mask */
@@ -273,24 +273,24 @@ static struct receiver **find_rcv_list(canid_t *can_id, canid_t *mask,
 
 	/* inverse can_id/can_mask filter */
 	if (inv)
-		return &d->rx_inv;
+		return &d->rx[RX_INV];
 
 	/* mask == 0 => no condition testing at receive time */
 	if (!(*mask))
-		return &d->rx_all;
+		return &d->rx[RX_ALL];
 
 	/* use extra filterset for the subscription of exactly *ONE* can_id */
 	if (*can_id & CAN_EFF_FLAG) {
 		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG))
 			/* RFC: a use-case for hash-tables in the future? */
-			return &d->rx_eff;
+			return &d->rx[RX_EFF];
 	} else {
 		if (*mask == CAN_SFF_MASK)
 			return &d->rx_sff[*can_id];
 	}
 
 	/* default: filter via can_id/can_mask */
-	return &d->rx_fil;
+	return &d->rx[RX_FIL];
 }
 
 /**
@@ -459,7 +459,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 
 	if (can_id & CAN_ERR_FLAG) {
 		/* check for error frame entries only */
-		for (r = d->rx_err; r; r = r->next) {
+		for (r = d->rx[RX_ERR]; r; r = r->next) {
 			if (can_id & r->mask) {
 				deliver(skb, r);
 				matches++;
@@ -469,13 +469,13 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	}
 
 	/* check for unfiltered entries */
-	for (r = d->rx_all; r; r = r->next) {
+	for (r = d->rx[RX_ALL]; r; r = r->next) {
 		deliver(skb, r);
 		matches++;
 	}
 
 	/* check for can_id/mask entries */
-	for (r = d->rx_fil; r; r = r->next) {
+	for (r = d->rx[RX_FIL]; r; r = r->next) {
 		if ((can_id & r->mask) == r->can_id) {
 			deliver(skb, r);
 			matches++;
@@ -483,7 +483,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	}
 
 	/* check for inverted can_id/mask entries */
-	for (r = d->rx_inv; r; r = r->next) {
+	for (r = d->rx[RX_INV]; r; r = r->next) {
 		if ((can_id & r->mask) != r->can_id) {
 			deliver(skb, r);
 			matches++;
@@ -492,7 +492,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 
 	/* check CAN_ID specific entries */
 	if (can_id & CAN_EFF_FLAG) {
-		for (r = d->rx_eff; r; r = r->next) {
+		for (r = d->rx[RX_EFF]; r; r = r->next) {
 			if (r->can_id == can_id) {
 				deliver(skb, r);
 				matches++;

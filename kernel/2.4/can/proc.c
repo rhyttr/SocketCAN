@@ -84,6 +84,14 @@ struct s_pstats can_pstats;
 extern struct dev_rcv_lists *rx_dev_list; /* rx dispatcher structures */
 extern int stats_timer;                   /* module parameter. default: on */
 
+static const char rx_list_name[][8] = {
+	[RX_ERR] = "rx_err",
+	[RX_ALL] = "rx_all",
+	[RX_FIL] = "rx_fil",
+	[RX_INV] = "rx_inv",
+	[RX_EFF] = "rx_eff",
+};
+
 /*
  * af_can statistics stuff
  */
@@ -333,98 +341,31 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 	return len;
 }
 
-static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
+static int can_proc_read_rcvlist(char *page, char **start, off_t off,
+				 int count, int *eof, void *data)
 {
+	/* double cast to prevent GCC warning */
+	int idx = (int)(long)data;
 	int len = 0;
 	struct dev_rcv_lists *d;
 
 	MOD_INC_USE_COUNT;
 
-	/* RX_ALL */
 	len += snprintf(page + len, PAGE_SIZE - len,
-			"\nreceive list 'rx_all':\n");
+			"\nreceive list '%s':\n", rx_list_name[idx]);
 
-	/* find receive list for this device */
 	for (d = rx_dev_list; d; d = d->next) {
 
-		if (d->rx_all) {
+		if (d->rx[idx]) {
 			len = can_print_recv_banner(page, len);
-			len = can_print_rcvlist(page, len, d->rx_all, d->dev);
+			len = can_print_rcvlist(page, len, d->rx[idx], d->dev);
 		} else
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
-	}
-
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
-	MOD_DEC_USE_COUNT;
-
-	*eof = 1;
-	return len;
-}
-
-static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	int len = 0;
-	struct dev_rcv_lists *d;
-
-	MOD_INC_USE_COUNT;
-
-	/* RX_FIL */
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"\nreceive list 'rx_fil':\n");
-
-	/* find receive list for this device */
-	for (d = rx_dev_list; d; d = d->next) {
-
-		if (d->rx_fil) {
-			len = can_print_recv_banner(page, len);
-			len = can_print_rcvlist(page, len, d->rx_fil, d->dev);
-		} else
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", DNAME(d->dev));
-
-		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
-	}
-
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
-	MOD_DEC_USE_COUNT;
-
-	*eof = 1;
-	return len;
-}
-
-static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	int len = 0;
-	struct dev_rcv_lists *d;
-
-	MOD_INC_USE_COUNT;
-
-	/* RX_INV */
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"\nreceive list 'rx_inv':\n");
-
-	/* find receive list for this device */
-	for (d = rx_dev_list; d; d = d->next) {
-
-		if (d->rx_inv) {
-			len = can_print_recv_banner(page, len);
-			len = can_print_rcvlist(page, len, d->rx_inv, d->dev);
-		} else
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", DNAME(d->dev));
-
-		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -481,74 +422,6 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 	return len;
 }
 
-static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	int len = 0;
-	struct dev_rcv_lists *d;
-
-	MOD_INC_USE_COUNT;
-
-	/* RX_EFF */
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"\nreceive list 'rx_eff':\n");
-
-	/* find receive list for this device */
-	for (d = rx_dev_list; d; d = d->next) {
-
-		if (d->rx_eff) {
-			len = can_print_recv_banner(page, len);
-			len = can_print_rcvlist(page, len, d->rx_eff, d->dev);
-		} else
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", DNAME(d->dev));
-
-		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
-	}
-
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
-	MOD_DEC_USE_COUNT;
-
-	*eof = 1;
-	return len;
-}
-
-static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
-{
-	int len = 0;
-	struct dev_rcv_lists *d;
-
-	MOD_INC_USE_COUNT;
-
-	/* RX_ERR */
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"\nreceive list 'rx_err':\n");
-
-	/* find receive list for this device */
-	for (d = rx_dev_list; d; d = d->next) {
-
-		if (d->rx_err) {
-			len = can_print_recv_banner(page, len);
-			len = can_print_rcvlist(page, len, d->rx_err, d->dev);
-		} else
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"  (%s: no entry)\n", DNAME(d->dev));
-
-		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
-	}
-
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
-	MOD_DEC_USE_COUNT;
-
-	*eof = 1;
-	return len;
-}
-
 /*
  * proc utility functions
  */
@@ -588,24 +461,24 @@ void can_init_proc(void)
 	can_dir->owner = THIS_MODULE;
 
 	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_readentry(
-		CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_readentry(
-		CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_readentry(
-		CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
+	pde_version     = can_create_proc_readentry(CAN_PROC_VERSION, 0644,
+					can_proc_read_version, NULL);
+	pde_stats       = can_create_proc_readentry(CAN_PROC_STATS, 0644,
+					can_proc_read_stats, NULL);
+	pde_reset_stats = can_create_proc_readentry(CAN_PROC_RESET_STATS, 0644,
+					can_proc_read_reset_stats, NULL);
+	pde_rcvlist_err = can_create_proc_readentry(CAN_PROC_RCVLIST_ERR, 0644,
+					can_proc_read_rcvlist, (void *)RX_ERR);
+	pde_rcvlist_all = can_create_proc_readentry(CAN_PROC_RCVLIST_ALL, 0644,
+					can_proc_read_rcvlist, (void *)RX_ALL);
+	pde_rcvlist_fil = can_create_proc_readentry(CAN_PROC_RCVLIST_FIL, 0644,
+					can_proc_read_rcvlist, (void *)RX_FIL);
+	pde_rcvlist_inv = can_create_proc_readentry(CAN_PROC_RCVLIST_INV, 0644,
+					can_proc_read_rcvlist, (void *)RX_INV);
+	pde_rcvlist_eff = can_create_proc_readentry(CAN_PROC_RCVLIST_EFF, 0644,
+					can_proc_read_rcvlist, (void *)RX_EFF);
+	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF, 0644,
+					can_proc_read_rcvlist_sff, NULL);
 
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
@@ -630,6 +503,9 @@ void can_remove_proc(void)
 	if (pde_reset_stats)
 		can_remove_proc_readentry(CAN_PROC_RESET_STATS);
 
+	if (pde_rcvlist_err)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
+
 	if (pde_rcvlist_all)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
 
@@ -639,14 +515,11 @@ void can_remove_proc(void)
 	if (pde_rcvlist_inv)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
 
-	if (pde_rcvlist_sff)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
-
 	if (pde_rcvlist_eff)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
 
-	if (pde_rcvlist_err)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
+	if (pde_rcvlist_sff)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
 		remove_proc_entry(CAN_PROC_DIR, NULL);
