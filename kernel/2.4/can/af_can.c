@@ -78,20 +78,6 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 int stats_timer = 1; /* default: on */
 MODULE_PARM(stats_timer, "1i");
 
-#ifdef DEBUG
-static int debug = 0;
-MODULE_PARM(debug, "1i");
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "CAN %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
-#endif
-
 struct notifier {
 	struct list_head list;
 	struct net_device *dev;
@@ -140,8 +126,6 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 
 static void can_sock_destruct(struct sock *sk)
 {
-	DBG("called for sock %p\n", sk);
-
 	skb_queue_purge(&sk->receive_queue);
 }
 
@@ -151,14 +135,10 @@ static int can_create(struct socket *sock, int protocol)
 	struct can_proto *cp;
 	int err;
 
-	DBG("socket %p, type %d, proto %d\n", sock, sock->type, protocol);
-
 	sock->state = SS_UNCONNECTED;
 
 	if (protocol < 0 || protocol >= CAN_NPROTO)
 		return -EINVAL;
-
-	DBG("looking up proto %d in proto_tab[]\n", protocol);
 
 	/* try to load protocol module, when CONFIG_KMOD is defined */
 	if (!proto_tab[protocol]) {
@@ -185,8 +165,6 @@ static int can_create(struct socket *sock, int protocol)
 
 	sock_init_data(sock, sk);
 	sk->destruct = can_sock_destruct;
-
-	DBG("created sock: %p\n", sk);
 
 	err = 0;
 	if (cp->init)
@@ -348,9 +326,6 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 
-	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
-	    dev, can_id, mask, func, data, ident);
-
 	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
 	if (!r)
 		return -ENOMEM;
@@ -376,8 +351,6 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		if (can_pstats.rcv_entries_max < can_pstats.rcv_entries)
 			can_pstats.rcv_entries_max = can_pstats.rcv_entries;
 	} else {
-		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
 		err = -ENODEV;
 	}
@@ -420,15 +393,10 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	struct dev_rcv_lists *d;
 	int err = 0;
 
-	DBG("dev %p, id %03X, mask %03X, callback %p, data %p\n",
-	    dev, can_id, mask, func, data);
-
 	write_lock_bh(&can_rcvlists_lock);
 
 	d = find_dev_rcv_lists(dev);
 	if (!d) {
-		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
-		    DNAME(dev), can_id, mask);
 		err = -ENODEV;
 		goto out;
 	}
@@ -453,8 +421,6 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	 */
 
 	if (!r) {
-		DBG("receive list entry not found for "
-		    "dev %s, id %03X, mask %03X\n", DNAME(dev), can_id, mask);
 		err = -EINVAL;
 		goto out;
 	}
@@ -475,7 +441,6 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
 	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
-	DBG("skbuff %p cloned to %p\n", skb, clone);
 	if (clone) {
 		r->func(clone, r->data);
 		r->matches++;
@@ -496,7 +461,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 		/* check for error frame entries only */
 		for (r = d->rx_err; r; r = r->next) {
 			if (can_id & r->mask) {
-				DBG("match on rx_err skbuff %p\n", skb);
 				deliver(skb, r);
 				matches++;
 			}
@@ -506,7 +470,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 
 	/* check for unfiltered entries */
 	for (r = d->rx_all; r; r = r->next) {
-		DBG("match on rx_all skbuff %p\n", skb);
 		deliver(skb, r);
 		matches++;
 	}
@@ -514,7 +477,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	/* check for can_id/mask entries */
 	for (r = d->rx_fil; r; r = r->next) {
 		if ((can_id & r->mask) == r->can_id) {
-			DBG("match on rx_fil skbuff %p\n", skb);
 			deliver(skb, r);
 			matches++;
 		}
@@ -523,7 +485,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	/* check for inverted can_id/mask entries */
 	for (r = d->rx_inv; r; r = r->next) {
 		if ((can_id & r->mask) != r->can_id) {
-			DBG("match on rx_inv skbuff %p\n", skb);
 			deliver(skb, r);
 			matches++;
 		}
@@ -533,14 +494,12 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 	if (can_id & CAN_EFF_FLAG) {
 		for (r = d->rx_eff; r; r = r->next) {
 			if (r->can_id == can_id) {
-				DBG("match on rx_eff skbuff %p\n", skb);
 				deliver(skb, r);
 				matches++;
 			}
 		}
 	} else {
 		for (r = d->rx_sff[can_id & CAN_SFF_MASK]; r; r = r->next) {
-			DBG("match on rx_sff skbuff %p\n", skb);
 			deliver(skb, r);
 			matches++;
 		}
@@ -554,12 +513,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 {
 	struct dev_rcv_lists *d;
 	int matches;
-
-	DBG("received skbuff on device %s, ptype %04x\n",
-	    DNAME(dev), ntohs(pt->type));
-	DBG_SKB(skb);
-	DBG_FRAME("af_can: can_rcv: received CAN frame",
-		  (struct can_frame *)skb->data);
 
 	/* update statistics */
 	can_stats.rx_frames++;
@@ -578,7 +531,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	read_unlock(&can_rcvlists_lock);
 
 	/* free the skbuff allocated by the netdevice driver */
-	DBG("freeing skbuff %p\n", skb);
 	kfree_skb(skb);
 
 	if (matches > 0) {
@@ -588,97 +540,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	return 0;
 }
-
-
-/*
- * af_can debugging stuff
- */
-
-#ifdef DEBUG
-
-/**
- * can_debug_cframe - print CAN frame
- * @msg: pointer to message printed before the given CAN frame
- * @cf: pointer to CAN frame
- */
-void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
-{
-	va_list ap;
-	int len;
-	int dlc, i;
-	char buf[1024];
-
-	len = sprintf(buf, KERN_DEBUG);
-	va_start(ap, cf);
-	len += snprintf(buf + len, sizeof(buf) - 64, msg, ap);
-	buf[len++] = ':';
-	buf[len++] = ' ';
-	va_end(ap);
-
-	dlc = cf->can_dlc;
-	if (dlc > 8)
-		dlc = 8;
-
-	if (cf->can_id & CAN_EFF_FLAG)
-		len += sprintf(buf + len, "<%08X> [%X] ",
-			       cf->can_id & CAN_EFF_MASK, dlc);
-	else
-		len += sprintf(buf + len, "<%03X> [%X] ",
-			       cf->can_id & CAN_SFF_MASK, dlc);
-
-	for (i = 0; i < dlc; i++)
-		len += sprintf(buf + len, "%02X ", cf->data[i]);
-
-	if (cf->can_id & CAN_RTR_FLAG)
-		len += sprintf(buf + len, "(RTR)");
-
-	buf[len++] = '\n';
-	buf[len]   = '\0';
-	printk(buf);
-}
-
-/**
- * can_debug_skb - print socket buffer content to kernel log
- * @skb: pointer to socket buffer
- */
-void can_debug_skb(struct sk_buff *skb)
-{
-	int len, nbytes, i;
-	char buf[1024];
-
-	len = sprintf(buf,
-		      KERN_DEBUG "  skbuff at %p, dev: %d, proto: %04x\n"
-		      KERN_DEBUG "  users: %d, dataref: %d, nr_frags: %d, "
-		      "h,d,t,e,l: %p %+d %+d %+d, %d",
-		      skb, skb->dev ? skb->dev->ifindex : -1,
-		      ntohs(skb->protocol),
-		      atomic_read(&skb->users),
-		      atomic_read(&(skb_shinfo(skb)->dataref)),
-		      skb_shinfo(skb)->nr_frags,
-		      skb->head, skb->data - skb->head,
-		      skb->tail - skb->head, skb->end - skb->head, skb->len);
-	nbytes = skb->end - skb->head;
-	for (i = 0; i < nbytes; i++) {
-		if (i % 16 == 0)
-			len += sprintf(buf + len, "\n" KERN_DEBUG "  ");
-		if (len < sizeof(buf) - 16) {
-			len += sprintf(buf + len, " %02x", skb->head[i]);
-		} else {
-			len += sprintf(buf + len, "...");
-			break;
-		}
-	}
-	buf[len++] = '\n';
-	buf[len]   = '\0';
-	printk(buf);
-}
-
-#ifdef EXPORT_SYMTAB
-EXPORT_SYMBOL(can_debug_cframe);
-EXPORT_SYMBOL(can_debug_skb);
-#endif
-
-#endif
 
 
 /*
@@ -738,8 +599,6 @@ void can_dev_register(struct net_device *dev,
 {
 	struct notifier *n;
 
-	DBG("called for %s\n", DNAME(dev));
-
 	n = kmalloc(sizeof(*n), GFP_KERNEL);
 	if (!n)
 		return;
@@ -767,8 +626,6 @@ void can_dev_unregister(struct net_device *dev,
 {
 	struct notifier *n, *next;
 
-	DBG("called for %s\n", DNAME(dev));
-
 	write_lock(&notifier_lock);
 	list_for_each_entry_safe(n, next, &notifier_list, list) {
 		if (n->dev == dev && n->func == func && n->data == data) {
@@ -786,8 +643,6 @@ static int can_notifier(struct notifier_block *nb,
 	struct net_device *dev = (struct net_device *)data;
 	struct notifier *n;
 
-	DBG("called for %s, msg = %lu\n", DNAME(dev), msg);
-
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
 
@@ -799,7 +654,6 @@ static int can_notifier(struct notifier_block *nb,
 
 		/* create new dev_rcv_lists for this device */
 
-		DBG("creating new dev_rcv_lists for %s\n", DNAME(dev));
 		d = kmalloc(sizeof(*d),
 			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 		if (!d) {

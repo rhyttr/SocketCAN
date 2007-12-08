@@ -66,18 +66,6 @@ MODULE_DESCRIPTION("PF_CAN raw sockets");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
-#ifdef DEBUG
-static int debug = 0;
-MODULE_PARM(debug, "1i");
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "RAW %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_SKB(skb)
-#endif
-
 #undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
 
 #ifdef CONFIG_CAN_RAW_USER
@@ -122,8 +110,6 @@ static void raw_notifier(unsigned long msg, void *data)
 	struct sock *sk = (struct sock *)data;
 	struct canraw_opt *ro = raw_sk(sk);
 
-	DBG("called for sock %p\n", sk);
-
 	switch (msg) {
 	case NETDEV_UNREGISTER:
 		ro->ifindex = 0;
@@ -144,13 +130,9 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	struct sockaddr_can *addr;
 	int error;
 
-	DBG("received skbuff %p, sk %p\n", skb, sk);
-	DBG_SKB(skb);
-
 	if (!ro->recv_own_msgs) {
 		/* check the received tx sock reference */
 		if (*(struct sock **)skb->cb == sk) {
-			DBG("trashed own tx msg\n");
 			kfree_skb(skb);
 			return;
 		}
@@ -161,11 +143,8 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	addr->can_family  = AF_CAN;
 	addr->can_ifindex = skb->dev->ifindex;
 
-	if ((error = sock_queue_rcv_skb(sk, skb)) < 0) {
-		DBG("sock_queue_rcv_skb failed: %d\n", error);
-		DBG("freeing skbuff %p\n", skb);
+	if ((error = sock_queue_rcv_skb(sk, skb)) < 0)
 		kfree_skb(skb);
-	}
 }
 
 static void raw_add_filters(struct net_device *dev, struct sock *sk)
@@ -177,9 +156,6 @@ static void raw_add_filters(struct net_device *dev, struct sock *sk)
 	for (i = 0; i < ro->count; i++) {
 		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
 				raw_rcv, sk, IDENT);
-		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-		    filter[i].can_id, filter[i].can_mask,
-		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 	}
 }
 
@@ -192,9 +168,6 @@ static void raw_remove_filters(struct net_device *dev, struct sock *sk)
 	for (i = 0; i < ro->count; i++) {
 		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
 				  raw_rcv, sk);
-		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-		    filter[i].can_id, filter[i].can_mask,
-		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
 	}
 }
 
@@ -222,9 +195,6 @@ static int raw_release(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct canraw_opt *ro = raw_sk(sk);
 	struct net_device *dev = NULL;
-
-	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
-	    atomic_read(&sk->refcnt));
 
 	if (ro->bound && ro->ifindex)
 		dev = dev_get_by_index(ro->ifindex);
@@ -257,8 +227,6 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct canraw_opt *ro = raw_sk(sk);
 	struct net_device *dev;
 
-	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
-
 	if (len < sizeof(*addr))
 		return -EINVAL;
 
@@ -268,8 +236,6 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		if (ro->ifindex) {
 			dev = dev_get_by_index(ro->ifindex);
 			if (!dev) {
-				DBG("could not find device %d\n",
-				    addr->can_ifindex);
 				return -ENODEV;
 			}
 			if (!(dev->flags & IFF_UP)) {
@@ -297,7 +263,6 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	if (addr->can_ifindex) {
 		dev = dev_get_by_index(addr->can_ifindex);
 		if (!dev) {
-			DBG("could not find device %d\n", addr->can_ifindex);
 			return -ENODEV;
 		}
 		if (!(dev->flags & IFF_UP)) {
@@ -350,8 +315,6 @@ static unsigned int raw_poll(struct file *file, struct socket *sock,
 			     poll_table *wait)
 {
 	unsigned int mask = 0;
-
-	DBG("socket %p\n", sock);
 
 	mask = datagram_poll(file, sock, wait);
 	return mask;
@@ -568,8 +531,6 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	int ifindex;
 	int err;
 
-	DBG("socket %p, sk %p\n", sock, sk);
-
 	if (msg->msg_name) {
 		struct sockaddr_can *addr =
 			(struct sockaddr_can *)msg->msg_name;
@@ -580,7 +541,6 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		ifindex = ro->ifindex;
 
 	if (!(dev = dev_get_by_index(ifindex))) {
-		DBG("device %d not found\n", ifindex);
 		return -ENXIO;
 	}
 
@@ -597,9 +557,6 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	}
 	skb->dev = dev;
 	skb->sk  = sk;
-
-	DBG("sending skbuff to interface %d\n", ifindex);
-	DBG_SKB(skb);
 
 	err = can_send(skb, ro->loopback);
 
@@ -619,16 +576,11 @@ static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 	int error = 0;
 	int noblock;
 
-	DBG("socket %p, sk %p\n", sock, sk);
-
 	noblock =  flags & MSG_DONTWAIT;
 	flags   &= ~MSG_DONTWAIT;
 
 	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error)))
 		return error;
-
-	DBG("delivering skbuff %p\n", skb);
-	DBG_SKB(skb);
 
 	if (size < skb->len)
 		msg->msg_flags |= MSG_TRUNC;
@@ -647,7 +599,6 @@ static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 	}
 
-	DBG("freeing sock %p, skbuff %p\n", sk, skb);
 	skb_free_datagram(sk, skb);
 
 	return size;

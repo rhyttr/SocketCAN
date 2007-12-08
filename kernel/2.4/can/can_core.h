@@ -69,9 +69,6 @@ struct can_proto {
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
-void can_debug_skb(struct sk_buff *skb);
-void can_debug_cframe(const char *msg, struct can_frame *cframe, ...);
-
 void can_proto_register(struct can_proto *cp);
 void can_proto_unregister(struct can_proto *cp);
 int  can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
