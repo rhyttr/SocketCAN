@@ -65,16 +65,16 @@ RCSID("$Id$");
 #define CAN_PROC_RCVLIST_EFF "rcvlist_eff"
 #define CAN_PROC_RCVLIST_ERR "rcvlist_err"
 
-static struct proc_dir_entry *can_dir         = NULL;
-static struct proc_dir_entry *pde_version     = NULL;
-static struct proc_dir_entry *pde_stats       = NULL;
-static struct proc_dir_entry *pde_reset_stats = NULL;
-static struct proc_dir_entry *pde_rcvlist_all = NULL;
-static struct proc_dir_entry *pde_rcvlist_fil = NULL;
-static struct proc_dir_entry *pde_rcvlist_inv = NULL;
-static struct proc_dir_entry *pde_rcvlist_sff = NULL;
-static struct proc_dir_entry *pde_rcvlist_eff = NULL;
-static struct proc_dir_entry *pde_rcvlist_err = NULL;
+static struct proc_dir_entry *can_dir;
+static struct proc_dir_entry *pde_version;
+static struct proc_dir_entry *pde_stats;
+static struct proc_dir_entry *pde_reset_stats;
+static struct proc_dir_entry *pde_rcvlist_all;
+static struct proc_dir_entry *pde_rcvlist_fil;
+static struct proc_dir_entry *pde_rcvlist_inv;
+static struct proc_dir_entry *pde_rcvlist_sff;
+static struct proc_dir_entry *pde_rcvlist_eff;
+static struct proc_dir_entry *pde_rcvlist_err;
 
 struct timer_list stattimer; /* timer for statistics update */
 
