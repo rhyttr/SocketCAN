@@ -170,7 +170,8 @@ static int can_create(struct socket *sock, int protocol)
 	}
 
 	/* check for success and correct type */
-	if (!(cp = proto_tab[protocol]) || cp->type != sock->type)
+	cp = proto_tab[protocol];
+	if (!cp || cp->type != sock->type)
 		return -EPROTONOSUPPORT;
 
 	if (cp->capability >= 0 && !capable(cp->capability))
@@ -178,7 +179,8 @@ static int can_create(struct socket *sock, int protocol)
 
 	sock->ops = cp->ops;
 
-	if (!(sk = sk_alloc(PF_CAN, GFP_KERNEL, 1)))
+	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1);
+	if (!sk)
 		goto oom;
 
 	sock_init_data(sock, sk);
@@ -239,8 +241,11 @@ int can_send(struct sk_buff *skb, int loop)
 	}
 
 	if (!(skb->dev->flags & IFF_UP))
-		err = -ENETDOWN;
-	else if ((err = dev_queue_xmit(skb)) > 0)  /* send to netdevice */
+		return -ENETDOWN;
+
+	/* send to netdevice */
+	err = dev_queue_xmit(skb);
+	if (err > 0)
 		err = net_xmit_errno(err);
 
 	/* update statistics */
@@ -349,14 +354,16 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	DBG("dev %p, id %03X, mask %03X, callback %p, data %p, ident %s\n",
 	    dev, can_id, mask, func, data, ident);
 
-	if (!(r = kmem_cache_alloc(rcv_cache, GFP_KERNEL))) {
+	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
+	if (!r) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
 	write_lock_bh(&rcv_lists_lock);
 
-	if (!(d = find_dev_rcv_lists(dev))) {
+	d = find_dev_rcv_lists(dev);
+	if (!d) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
 		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
@@ -426,7 +433,8 @@ int can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	write_lock_bh(&rcv_lists_lock);
 
-	if (!(d = find_dev_rcv_lists(dev))) {
+	d = find_dev_rcv_lists(dev);
+	if (!d) {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
 		    DNAME(dev), can_id, mask);
 		ret = -ENODEV;
@@ -572,7 +580,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	matches = can_rcv_filter(&rx_alldev_list, skb);
 
 	/* find receive list for this device */
-	if ((d = find_dev_rcv_lists(dev)))
+	d = find_dev_rcv_lists(dev);
+	if (d)
 		matches += can_rcv_filter(d, skb);
 
 	read_unlock(&rcv_lists_lock);
@@ -615,7 +624,8 @@ void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
 	buf[len++] = ' ';
 	va_end(ap);
 
-	if ((dlc = cf->can_dlc) > 8)
+	dlc = cf->can_dlc;
+	if (dlc > 8)
 		dlc = 8;
 
 	if (cf->can_id & CAN_EFF_FLAG)
@@ -739,7 +749,8 @@ void can_dev_register(struct net_device *dev,
 
 	DBG("called for %s\n", DNAME(dev));
 
-	if (!(n = kmalloc(sizeof(*n), GFP_KERNEL)))
+	n = kmalloc(sizeof(*n), GFP_KERNEL);
+	if (!n)
 		return;
 
 	n->dev  = dev;
@@ -798,8 +809,9 @@ static int can_notifier(struct notifier_block *nb,
 		/* create new dev_rcv_lists for this device */
 
 		DBG("creating new dev_rcv_lists for %s\n", DNAME(dev));
-		if (!(d = kmalloc(sizeof(*d),
-				  in_interrupt() ? GFP_ATOMIC : GFP_KERNEL))) {
+		d = kmalloc(sizeof(*d),
+			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		if (!d) {
 			printk(KERN_ERR "CAN: allocation of receive "
 			       "list failed\n");
 			return NOTIFY_DONE;
@@ -821,7 +833,8 @@ static int can_notifier(struct notifier_block *nb,
 	case NETDEV_UNREGISTER:
 		write_lock_bh(&rcv_lists_lock);
 
-		if (!(d = find_dev_rcv_lists(dev))) {
+		d = find_dev_rcv_lists(dev);
+		if (!d) {
 			printk(KERN_ERR "CAN: notifier: receive list not "
 			       "found for dev %s\n", DNAME(dev));
 			goto unreg_out;
