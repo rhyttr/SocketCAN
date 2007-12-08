@@ -760,8 +760,12 @@ static __init int can_init(void)
 	write_unlock_bh(&can_rcvlists_lock);
 
 	if (stats_timer) {
-		/* statistics init */
+		/* the statistics are updated every second (timer triggered) */
 		init_timer(&can_stattimer);
+		can_stattimer.function = can_stat_update;
+		can_stattimer.data = 0;
+		can_stattimer.expires = jiffies + HZ; /* every second */
+		add_timer(&can_stattimer); /* start statistics timer */
 	}
 
 	can_init_proc();

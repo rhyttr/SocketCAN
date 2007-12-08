@@ -471,14 +471,6 @@ void can_init_proc(void)
 					can_proc_read_rcvlist, (void *)RX_EFF);
 	pde_rcvlist_sff = can_create_proc_readentry(CAN_PROC_RCVLIST_SFF, 0644,
 					can_proc_read_rcvlist_sff, NULL);
-
-	if (stats_timer) {
-		/* the statistics are updated every second (timer triggered) */
-		can_stattimer.function = can_stat_update;
-		can_stattimer.data = 0;
-		can_stattimer.expires = jiffies + HZ; /* every second */
-		add_timer(&can_stattimer); /* start statistics timer */
-	}
 }
 
 /*
