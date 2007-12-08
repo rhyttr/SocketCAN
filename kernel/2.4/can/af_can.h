@@ -79,6 +79,7 @@ struct dev_rcv_lists {
 
 /* statistic structures */
 
+/* can be reset e.g. by can_init_stats() */
 struct s_stats {
 	unsigned long jiffies_init;
 
@@ -101,13 +102,14 @@ struct s_stats {
 	unsigned long rx_frames_delta;
 	unsigned long tx_frames_delta;
 	unsigned long matches_delta;
-}; /* can be reset e.g. by can_init_stats() */
+};
 
+/* persistent statistics */
 struct s_pstats {
 	unsigned long stats_reset;
 	unsigned long rcv_entries;
 	unsigned long rcv_entries_max;
-}; /* persistent statistics */
+};
 
 /* function prototypes for the CAN networklayer procfs (proc.c) */
 

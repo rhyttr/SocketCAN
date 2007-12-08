@@ -51,7 +51,9 @@
 
 RCSID("$Id$");
 
-/* proc filenames */
+/*
+ * proc filenames for the PF_CAN core
+ */
 
 #define CAN_PROC_VERSION     "version"
 #define CAN_PROC_STATS       "stats"
@@ -82,9 +84,9 @@ struct s_pstats pstats;
 extern struct dev_rcv_lists *rx_dev_list; /* rx dispatcher structures */
 extern int stats_timer;                   /* module parameter. default: on */
 
-/**************************************************/
-/* af_can statistics stuff                        */
-/**************************************************/
+/*
+ * af_can statistics stuff
+ */
 
 static void can_init_stats(int caller)
 {
@@ -101,7 +103,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 	if (oldjif == newjif)
 		return 0;
 
-	/* see can_rcv() - this should NEVER happen! */
+	/* see can_stat_update() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
 		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
 		       count);
@@ -117,16 +119,13 @@ static void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
-	//DBG("CAN: can_stat_update() jiffies = %ld\n", j);
-
-	if (j < stats.jiffies_init) /* jiffies overflow */
+	/* restart counting on jiffies overflow */
+	if (j < stats.jiffies_init)
 		can_init_stats(2);
-
-	/* stats.rx_frames is the definitively max. statistic value */
 
 	/* prevent overflow in calc_rate() */
 	if (stats.rx_frames > (ULONG_MAX / HZ))
-		can_init_stats(3); /* restart */
+		can_init_stats(3);
 
 	/* matches overflow - very improbable */
 	if (stats.matches > (ULONG_MAX / 100))
@@ -165,14 +164,18 @@ static void can_stat_update(unsigned long data)
 	stats.rx_frames_delta = 0;
 	stats.matches_delta   = 0;
 
-	/* restart timer */
-	stattimer.expires = jiffies + HZ; /* every second */
+	/* restart timer (one second) */
+	stattimer.expires = jiffies + HZ;
 	add_timer(&stattimer);
 }
 
-/**************************************************/
-/* proc read functions                            */
-/**************************************************/
+/*
+ * proc read functions
+ *
+ * From known use-cases we expect about 10 entries in a receive list to be
+ * printed in the proc_fs. So PAGE_SIZE is definitely enough space here.
+ *
+ */
 
 static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
 			     struct net_device *dev)
@@ -205,8 +208,10 @@ static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
 
 static int can_print_recv_banner(char *page, int len)
 {
-	/*                  can1.  00000000  00000000  00000000
-			   .......          0  tp20 */
+	/*
+	 *                  can1.  00000000  00000000  00000000
+	 *                 .......          0  tp20
+	 */
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"  device   can_id   can_mask  function"
 			"  userdata   matches  ident\n");
@@ -440,7 +445,6 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"\nreceive list 'rx_sff':\n");
 
-	/* find receive list for this device */
 	for (d = rx_dev_list; d; d = d->next) {
 		int i, all_empty = 1;
 		/* check wether at least one list is non-empty */
@@ -462,8 +466,9 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"  (%s: no entry)\n", DNAME(d->dev));
 
+		/* exit on end of buffer? */
 		if (len > PAGE_SIZE - 100)
-			break; /* exit on end of buffer */
+			break;
 	}
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
@@ -542,9 +547,9 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 	return len;
 }
 
-/**************************************************/
-/* proc utility functions                         */
-/**************************************************/
+/*
+ * proc utility functions
+ */
 
 static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 							mode_t mode,
@@ -564,16 +569,12 @@ static void can_remove_proc_readentry(const char *name)
 		remove_proc_entry(name, can_dir);
 }
 
-/**************************************************/
-/* procfs init / remove                           */
-/**************************************************/
-
+/*
+ * can_init_proc - create main CAN proc directory and procfs entries
+ */
 void can_init_proc(void)
 {
-
-	/* procfs init */
-
-	/* create /proc/can directory */
+	/* create /proc/net/can directory */
 	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
 
 	if (!can_dir) {
@@ -613,9 +614,11 @@ void can_init_proc(void)
 	}
 }
 
+/*
+ * can_remove_proc - remove procfs entries and main CAN proc directory
+ */
 void can_remove_proc(void)
 {
-	/* procfs remove */
 	if (pde_version)
 		can_remove_proc_readentry(CAN_PROC_VERSION);
 

@@ -88,14 +88,15 @@ MODULE_PARM(debug, "1i");
 
 #define MASK_ALL 0
 
-/* A raw socket has a list of can_filters attached to it, each receiving
-   the CAN frames matching that filter.  If the filter list is empty,
-   no CAN frames will be received by the socket.  The default after
-   opening the socket, is to have one filter which receives all frames.
-   The filter list is allocated dynamically with the exception of the
-   list containing only one item.  This common case is optimized by
-   storing the single filter in dfilter, to avoid using dynamic memory.
-*/
+/*
+ * A raw socket has a list of can_filters attached to it, each receiving
+ * the CAN frames matching that filter.  If the filter list is empty,
+ * no CAN frames will be received by the socket.  The default after
+ * opening the socket, is to have one filter which receives all frames.
+ * The filter list is allocated dynamically with the exception of the
+ * list containing only one item.  This common case is optimized by
+ * storing the single filter in dfilter, to avoid using dynamic memory.
+ */
 
 /*  This struct is part of struct sock in the place of union tp_pinfo,
  *  which is initialized to zero for each newly allocated struct sock.
@@ -147,7 +148,8 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	DBG_SKB(skb);
 
 	if (!ro->recv_own_msgs) {
-		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
+		/* check the received tx sock reference */
+		if (*(struct sock **)skb->cb == sk) {
 			DBG("trashed own tx msg\n");
 			kfree_skb(skb);
 			return;
@@ -310,9 +312,11 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	ro->ifindex = addr->can_ifindex;
 
-	raw_add_filters(dev, sk); /* filters set by default/setsockopt */
+	/* filters set by default/setsockopt */
+	raw_add_filters(dev, sk);
 
-	if (ro->err_mask) /* error frame filter set by setsockopt */
+	/* error frame filter set by setsockopt */
+	if (ro->err_mask)
 		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
 				raw_rcv, sk, IDENT);
 
@@ -375,7 +379,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		count = optlen / sizeof(struct can_filter);
 
-		if (count > 1) { /* does not fit into dfilter */
+		if (count > 1) {
+			/* filter does not fit into dfilter => alloc space */
 			if (!(filter = kmalloc(optlen, GFP_KERNEL)))
 				return -ENOMEM;
 			if ((err = copy_from_user(filter, optval, optlen))) {
@@ -396,7 +401,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (ro->count > 1)
 			kfree(ro->filter);
 
-		if (count == 1) { /* copy data for single filter */
+		/* copy data for single filter */
+		if (count == 1) {
 			ro->dfilter = sfilter;
 			filter = &ro->dfilter;
 		}
