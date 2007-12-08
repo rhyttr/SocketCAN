@@ -97,9 +97,9 @@ static kmem_cache_t *rcv_cache;
 /* table of registered CAN protocols */
 static struct can_proto *proto_tab[CAN_NPROTO];
 
-extern struct timer_list can_stattimer; /* timer for statistics update */
-extern struct s_stats  can_stats;       /* packet statistics */
-extern struct s_pstats can_pstats;      /* receive list statistics */
+struct timer_list can_stattimer;   /* timer for statistics update */
+struct s_stats    can_stats;       /* packet statistics */
+struct s_pstats   can_pstats;      /* receive list statistics */
 
 /*
  * af_can socket functions

@@ -76,14 +76,6 @@ static struct proc_dir_entry *pde_rcvlist_sff;
 static struct proc_dir_entry *pde_rcvlist_eff;
 static struct proc_dir_entry *pde_rcvlist_err;
 
-struct timer_list can_stattimer; /* timer for statistics update */
-
-struct s_stats  can_stats; /* statistics */
-struct s_pstats can_pstats;
-
-extern struct dev_rcv_lists *rx_dev_list; /* rx dispatcher structures */
-extern int stats_timer;                   /* module parameter. default: on */
-
 static const char rx_list_name[][8] = {
 	[RX_ERR] = "rx_err",
 	[RX_ALL] = "rx_all",
