@@ -78,48 +78,15 @@ MODULE_PARM(debug, "1i");
 #define DBG_SKB(skb)
 #endif
 
-static int raw_init(struct sock *sk);
-static int raw_release(struct socket *sock);
-static int raw_bind   (struct socket *sock, struct sockaddr *uaddr, int len);
-static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
-		       int *len, int peer);
-static unsigned int raw_poll(struct file *file, struct socket *sock,
-			     poll_table *wait);
-static int raw_setsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int optlen);
-static int raw_getsockopt(struct socket *sock, int level, int optname,
-			  char *optval, int *optlen);
-static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
-		       struct scm_cookie *scm);
-static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
-		       int flags, struct scm_cookie *scm);
-static void raw_rcv(struct sk_buff *skb, void *data);
-static void raw_notifier(unsigned long msg, void *data);
+#undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
 
-static void raw_add_filters(struct net_device *dev, struct sock *sk);
-static void raw_remove_filters(struct net_device *dev, struct sock *sk);
+#ifdef CONFIG_CAN_RAW_USER
+#define RAW_CAP (-1)
+#else
+#define RAW_CAP CAP_NET_RAW
+#endif
 
-
-static struct proto_ops raw_ops = {
-	.family        = PF_CAN,
-	.release       = raw_release,
-	.bind          = raw_bind,
-	.connect       = sock_no_connect,
-	.socketpair    = sock_no_socketpair,
-	.accept        = sock_no_accept,
-	.getname       = raw_getname,
-	.poll          = raw_poll,
-	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-	.listen        = sock_no_listen,
-	.shutdown      = sock_no_shutdown,
-	.setsockopt    = raw_setsockopt,
-	.getsockopt    = raw_getsockopt,
-	.sendmsg       = raw_sendmsg,
-	.recvmsg       = raw_recvmsg,
-	.mmap          = sock_no_mmap,
-	.sendpage      = sock_no_sendpage,
-};
-
+#define MASK_ALL 0
 
 /* A raw socket has a list of can_filters attached to it, each receiving
    the CAN frames matching that filter.  If the filter list is empty,
@@ -147,38 +114,86 @@ struct canraw_opt {
 	can_err_mask_t err_mask;
 };
 
-#ifdef CONFIG_CAN_RAW_USER
-#define RAW_CAP (-1)
-#else
-#define RAW_CAP CAP_NET_RAW
-#endif
-
-#undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
-
 #define raw_sk(sk) ((struct canraw_opt *)&(sk)->tp_pinfo)
 
-static struct can_proto raw_can_proto = {
-	.type       = SOCK_RAW,
-	.protocol   = CAN_RAW,
-	.capability = RAW_CAP,
-	.ops        = &raw_ops,
-	.obj_size   = sizeof(struct canraw_opt),
-	.init       = raw_init,
-};
-
-#define MASK_ALL 0
-
-static __init int raw_module_init(void)
+static void raw_notifier(unsigned long msg, void *data)
 {
-	printk(banner);
+	struct sock *sk = (struct sock *)data;
+	struct canraw_opt *ro = raw_sk(sk);
 
-	can_proto_register(&raw_can_proto);
-	return 0;
+	DBG("called for sock %p\n", sk);
+
+	switch (msg) {
+	case NETDEV_UNREGISTER:
+		ro->ifindex = 0;
+		ro->bound   = 0;
+		/* fallthrough */
+	case NETDEV_DOWN:
+		sk->err = ENETDOWN;
+		if (!sk->dead)
+			sk->error_report(sk);
+		break;
+	}
 }
 
-static __exit void raw_module_exit(void)
+static void raw_rcv(struct sk_buff *skb, void *data)
 {
-	can_proto_unregister(&raw_can_proto);
+	struct sock *sk = (struct sock*)data;
+	struct canraw_opt *ro = raw_sk(sk);
+	struct sockaddr_can *addr;
+	int error;
+
+	DBG("received skbuff %p, sk %p\n", skb, sk);
+	DBG_SKB(skb);
+
+	if (!ro->recv_own_msgs) {
+		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
+			DBG("trashed own tx msg\n");
+			kfree_skb(skb);
+			return;
+		}
+	}
+
+	addr = (struct sockaddr_can *)skb->cb;
+	memset(addr, 0, sizeof(*addr));
+	addr->can_family  = AF_CAN;
+	addr->can_ifindex = skb->dev->ifindex;
+
+	if ((error = sock_queue_rcv_skb(sk, skb)) < 0) {
+		DBG("sock_queue_rcv_skb failed: %d\n", error);
+		DBG("freeing skbuff %p\n", skb);
+		kfree_skb(skb);
+	}
+}
+
+static void raw_add_filters(struct net_device *dev, struct sock *sk)
+{
+	struct canraw_opt *ro = raw_sk(sk);
+	struct can_filter *filter = ro->filter;
+	int i;
+
+	for (i = 0; i < ro->count; i++) {
+		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
+				raw_rcv, sk, IDENT);
+		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+		    filter[i].can_id, filter[i].can_mask,
+		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+	}
+}
+
+static void raw_remove_filters(struct net_device *dev, struct sock *sk)
+{
+	struct canraw_opt *ro = raw_sk(sk);
+	struct can_filter *filter = ro->filter;
+	int i;
+
+	for (i = 0; i < ro->count; i++) {
+		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
+				  raw_rcv, sk);
+		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+		    filter[i].can_id, filter[i].can_mask,
+		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+	}
 }
 
 static int raw_init(struct sock *sk)
@@ -537,36 +552,6 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 	return 0;
 }
 
-static void raw_add_filters(struct net_device *dev, struct sock *sk)
-{
-	struct canraw_opt *ro = raw_sk(sk);
-	struct can_filter *filter = ro->filter;
-	int i;
-
-	for (i = 0; i < ro->count; i++) {
-		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
-				raw_rcv, sk, IDENT);
-		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-		    filter[i].can_id, filter[i].can_mask,
-		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
-	}
-}
-
-static void raw_remove_filters(struct net_device *dev, struct sock *sk)
-{
-	struct canraw_opt *ro = raw_sk(sk);
-	struct can_filter *filter = ro->filter;
-	int i;
-
-	for (i = 0; i < ro->count; i++) {
-		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
-				  raw_rcv, sk);
-		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
-		    filter[i].can_id, filter[i].can_mask,
-		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
-	}
-}
-
 static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		       struct scm_cookie *scm)
 {
@@ -662,56 +647,47 @@ static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 	return size;
 }
 
-static void raw_rcv(struct sk_buff *skb, void *data)
+static struct proto_ops raw_ops = {
+	.family        = PF_CAN,
+	.release       = raw_release,
+	.bind          = raw_bind,
+	.connect       = sock_no_connect,
+	.socketpair    = sock_no_socketpair,
+	.accept        = sock_no_accept,
+	.getname       = raw_getname,
+	.poll          = raw_poll,
+	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
+	.listen        = sock_no_listen,
+	.shutdown      = sock_no_shutdown,
+	.setsockopt    = raw_setsockopt,
+	.getsockopt    = raw_getsockopt,
+	.sendmsg       = raw_sendmsg,
+	.recvmsg       = raw_recvmsg,
+	.mmap          = sock_no_mmap,
+	.sendpage      = sock_no_sendpage,
+};
+
+static struct can_proto raw_can_proto = {
+	.type       = SOCK_RAW,
+	.protocol   = CAN_RAW,
+	.capability = RAW_CAP,
+	.ops        = &raw_ops,
+	.obj_size   = sizeof(struct canraw_opt),
+	.init       = raw_init,
+};
+
+static __init int raw_module_init(void)
 {
-	struct sock *sk = (struct sock*)data;
-	struct canraw_opt *ro = raw_sk(sk);
-	struct sockaddr_can *addr;
-	int error;
+	printk(banner);
 
-	DBG("received skbuff %p, sk %p\n", skb, sk);
-	DBG_SKB(skb);
-
-	if (!ro->recv_own_msgs) {
-		if (*(struct sock **)skb->cb == sk) { /* tx sock reference */
-			DBG("trashed own tx msg\n");
-			kfree_skb(skb);
-			return;
-		}
-	}
-
-	addr = (struct sockaddr_can *)skb->cb;
-	memset(addr, 0, sizeof(*addr));
-	addr->can_family  = AF_CAN;
-	addr->can_ifindex = skb->dev->ifindex;
-
-	if ((error = sock_queue_rcv_skb(sk, skb)) < 0) {
-		DBG("sock_queue_rcv_skb failed: %d\n", error);
-		DBG("freeing skbuff %p\n", skb);
-		kfree_skb(skb);
-	}
+	can_proto_register(&raw_can_proto);
+	return 0;
 }
 
-static void raw_notifier(unsigned long msg, void *data)
+static __exit void raw_module_exit(void)
 {
-	struct sock *sk = (struct sock *)data;
-	struct canraw_opt *ro = raw_sk(sk);
-
-	DBG("called for sock %p\n", sk);
-
-	switch (msg) {
-	case NETDEV_UNREGISTER:
-		ro->ifindex = 0;
-		ro->bound   = 0;
-		/* fallthrough */
-	case NETDEV_DOWN:
-		sk->err = ENETDOWN;
-		if (!sk->dead)
-			sk->error_report(sk);
-		break;
-	}
+	can_proto_unregister(&raw_can_proto);
 }
-
 
 module_init(raw_module_init);
 module_exit(raw_module_exit);

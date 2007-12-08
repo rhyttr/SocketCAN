@@ -120,73 +120,6 @@ struct bcm_opt {
 
 static struct proc_dir_entry *proc_dir = NULL;
 
-static int  bcm_init(struct sock *sk);
-static void bcm_notifier(unsigned long msg, void *data);
-static int  bcm_release(struct socket *sock);
-static int  bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
-			int flags);
-
-static int  bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
-			struct scm_cookie *scm);
-static int  bcm_recvmsg(struct socket *sock, struct msghdr *msg, int size,
-			int flags, struct scm_cookie *scm);
-static unsigned int bcm_poll(struct file *file, struct socket *sock,
-			     poll_table *wait);
-
-static int  bcm_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data);
-
-static void bcm_tx_timeout_handler(unsigned long data);
-static int  bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk);
-static int  bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
-			 int ifindex, struct sock *sk);
-static void bcm_can_tx(struct bcm_op *op);
-
-static int  bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
-			 int ifindex, struct sock *sk);
-static void bcm_rx_handler(struct sk_buff *skb, void *op);
-static void bcm_rx_timeout_handler(unsigned long data);
-static void bcm_rx_thr_handler(unsigned long data);
-static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
-				struct can_frame *rxdata);
-static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data);
-static void bcm_rx_starttimer(struct bcm_op *op);
-static void bcm_rx_update_and_send(struct bcm_op *op,
-				   struct can_frame *lastdata,
-				   struct can_frame *rxdata);
-static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-			     struct can_frame *frames, struct timeval *tv);
-
-static int  bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex);
-static int  bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex);
-static void bcm_remove_op(struct bcm_op *op);
-static int  bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
-			int ifindex);
-static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id,
-				  int ifindex);
-static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op);
-
-
-static struct proto_ops bcm_ops = {
-	.family        = PF_CAN,
-	.release       = bcm_release,
-	.bind          = sock_no_bind,
-	.connect       = bcm_connect,
-	.socketpair    = sock_no_socketpair,
-	.accept        = sock_no_accept,
-	.getname       = sock_no_getname,
-	.poll          = bcm_poll,
-	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-	.listen        = sock_no_listen,
-	.shutdown      = sock_no_shutdown,
-	.setsockopt    = sock_no_setsockopt,
-	.getsockopt    = sock_no_getsockopt,
-	.sendmsg       = bcm_sendmsg,
-	.recvmsg       = bcm_recvmsg,
-	.mmap          = sock_no_mmap,
-	.sendpage      = sock_no_sendpage,
-};
-
 #ifdef CONFIG_CAN_BCM_USER
 #define BCM_CAP (-1)
 #else
@@ -195,339 +128,629 @@ static struct proto_ops bcm_ops = {
 
 #define bcm_sk(sk) ((struct bcm_opt *)&(sk)->tp_pinfo)
 
-static struct can_proto bcm_can_proto = {
-	.type       = SOCK_DGRAM,
-	.protocol   = CAN_BCM,
-	.capability = BCM_CAP,
-	.ops        = &bcm_ops,
-	.obj_size   = sizeof(struct bcm_opt),
-	.init       = bcm_init,
-};
-
 #define CFSIZ sizeof(struct can_frame)
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
 
-static int __init bcm_module_init(void)
+/**************************************************/
+/* procfs functions                               */
+/**************************************************/
+
+static char *bcm_proc_getifname(int ifindex)
 {
-	printk(banner);
+	struct net_device *dev;
 
-	can_proto_register(&bcm_can_proto);
+	if (!ifindex)
+		return "any";
 
-	/* create /proc/net/can/bcm directory */
-	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
+	dev = __dev_get_by_index(ifindex); /* no usage counting */
+	if (dev)
+		return dev->name;
 
-	if (proc_dir)
-		proc_dir->owner = THIS_MODULE;
-
-	return 0;
+	return "???";
 }
 
-static void __exit bcm_module_exit(void)
+static int bcm_read_proc(char *page, char **start, off_t off,
+			 int count, int *eof, void *data)
 {
-	can_proto_unregister(&bcm_can_proto);
-
-	if (proc_dir)
-		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
-
-}
-
-/**************************************************/
-/* initial settings at socket creation time       */
-/**************************************************/
-
-static int bcm_init(struct sock *sk)
-{
-	struct bcm_opt *bo = bcm_sk(sk);
-
-	bo->bound            = 0;
-	bo->ifindex          = 0;
-	bo->dropped_usr_msgs = 0;
-	bo->bcm_proc_read    = NULL;
-
-	bo->tx_ops = NULL;
-	bo->rx_ops = NULL;
-
-	return 0;
-}
-
-/**************************************************/
-/* handling of netdevice problems                 */
-/**************************************************/
-
-static void bcm_notifier(unsigned long msg, void *data)
-{
+	int len = 0;
 	struct sock *sk = (struct sock *)data;
 	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_op *op;
 
-	DBG("called for sock %p\n", sk);
+	MOD_INC_USE_COUNT;
 
-	switch (msg) {
-	case NETDEV_UNREGISTER:
-		bo->bound   = 0;
-		bo->ifindex = 0;
-		/* fallthrough */
-	case NETDEV_DOWN:
-		sk->err = ENETDOWN;
-		if (!sk->dead)
-			sk->error_report(sk);
+	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
+			sk->socket);
+	len += snprintf(page + len, PAGE_SIZE - len, " / sk %p", sk);
+	len += snprintf(page + len, PAGE_SIZE - len, " / bo %p", bo);
+	len += snprintf(page + len, PAGE_SIZE - len, " / dropped %lu",
+			bo->dropped_usr_msgs);
+	len += snprintf(page + len, PAGE_SIZE - len, " / bound %s",
+			bcm_proc_getifname(bo->ifindex));
+	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
+
+	for (op = bo->rx_ops; op; op = op->next) {
+
+		unsigned long reduction;
+
+		/* print only active entries & prevent division by zero */
+		if (!op->frames_abs)
+			continue;
+
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"rx_op: %03X %-5s ",
+				op->can_id, bcm_proc_getifname(op->ifindex));
+		len += snprintf(page + len, PAGE_SIZE - len, "[%d]%c ",
+				op->nframes,
+				(op->flags & RX_CHECK_DLC)?'d':' ');
+		if (op->j_ival1)
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"timeo=%ld ", op->j_ival1);
+
+		if (op->j_ival2)
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"thr=%ld ", op->j_ival2);
+
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"# recv %ld (%ld) => reduction: ",
+				op->frames_filtered, op->frames_abs);
+
+		reduction = 100 - (op->frames_filtered * 100) / op->frames_abs;
+
+		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
+				(reduction == 100)?"near ":"", reduction);
+
+		if (len > PAGE_SIZE - 200) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		}
+	}
+
+	for (op = bo->tx_ops; op; op = op->next) {
+
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"tx_op: %03X %s [%d] ",
+				op->can_id, bcm_proc_getifname(op->ifindex),
+				op->nframes);
+		if (op->j_ival1)
+			len += snprintf(page + len, PAGE_SIZE - len, "t1=%ld ",
+					op->j_ival1);
+
+		if (op->j_ival2)
+			len += snprintf(page + len, PAGE_SIZE - len, "t2=%ld ",
+					op->j_ival2);
+
+		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n",
+				op->frames_abs);
+
+		if (len > PAGE_SIZE - 100) {
+			/* mark output cut off */
+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
+			break;
+		}
+	}
+
+	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+
+	MOD_DEC_USE_COUNT;
+
+	*eof = 1;
+	return len;
+}
+
+static void bcm_can_tx(struct bcm_op *op)
+{
+	struct sk_buff *skb;
+	struct net_device *dev;
+	struct can_frame *cf = &op->frames[op->currframe];
+
+	DBG_FRAME("BCM: bcm_can_tx: sending frame", cf);
+
+	if (!op->ifindex)
+		return; /* no target device -> exit */
+
+	dev = dev_get_by_index(op->ifindex);
+
+	if (!dev)
+		return; /* should this bcm_op remove itself here? */
+
+	skb = alloc_skb(CFSIZ,
+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+
+	if (!skb)
+		goto out; /* no memory */
+
+	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
+
+	skb->dev = dev;
+	skb->sk = op->sk;
+	can_send(skb, 1); /* send with loopback */
+
+	op->currframe++;
+	op->frames_abs++; /* statistics */
+
+	/* reached last frame? */
+	if (op->currframe >= op->nframes)
+		op->currframe = 0;
+ out:
+	dev_put(dev);
+}
+
+static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
+			     struct can_frame *frames, struct timeval *tv)
+{
+	struct sk_buff *skb;
+	struct can_frame *firstframe;
+	struct sock *sk = op->sk;
+	int datalen = head->nframes * CFSIZ;
+	struct sockaddr_can *addr;
+	int err;
+
+	skb = alloc_skb(sizeof(*head) + datalen,
+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	if (!skb)
+		return;
+
+	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
+	/* can_frames starting here */
+	firstframe = (struct can_frame *) skb->tail;
+
+	if (tv)
+		skb->stamp = *tv; /* restore timestamp */
+
+	addr = (struct sockaddr_can *)skb->cb;
+	memset(addr, 0, sizeof(*addr));
+	addr->can_family  = AF_CAN;
+	/* restore originator for recvfrom() */
+	addr->can_ifindex = op->rx_ifindex;
+
+	if (head->nframes){
+		memcpy(skb_put(skb, datalen), frames, datalen);
+
+		/* the BCM uses the can_dlc-element of the can_frame */
+		/* structure for internal purposes. This is only     */
+		/* relevant for updates that are generated by the    */
+		/* BCM, where nframes is 1                           */
+		if (head->nframes == 1)
+			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
+	}
+	if ((err = sock_queue_rcv_skb(sk, skb)) < 0) {
+		struct bcm_opt *bo = bcm_sk(sk);
+		DBG("sock_queue_rcv_skb failed: %d\n", err);
+		kfree_skb(skb);
+		bo->dropped_usr_msgs++; /* don't care about overflows */
+	}
+}
+
+static void bcm_tx_timeout_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+
+	DBG("Called with bcm_op %p\n", op);
+
+	if (op->j_ival1 && (op->count > 0)) {
+
+		op->count--;
+
+		if (!op->count && (op->flags & TX_COUNTEVT)) {
+			/* create notification to user */
+
+			struct bcm_msg_head msg_head;
+
+			DBG("sending TX_EXPIRED for can_id %03X\n",
+			    op->can_id);
+
+			msg_head.opcode  = TX_EXPIRED;
+			msg_head.flags   = op->flags;
+			msg_head.count   = op->count;
+			msg_head.ival1   = op->ival1;
+			msg_head.ival2   = op->ival2;
+			msg_head.can_id  = op->can_id;
+			msg_head.nframes = 0;
+
+			bcm_send_to_user(op, &msg_head, NULL, NULL);
+		}
+	}
+
+	DBG("count=%d j_ival1=%ld j_ival2=%ld\n",
+	    op->count, op->j_ival1, op->j_ival2);
+
+	if (op->j_ival1 && (op->count > 0)) {
+
+		op->timer.expires = jiffies + op->j_ival1;
+		add_timer(&op->timer);
+
+		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
+		    op->timer.function,
+		    (char*) op->timer.data,
+		    (unsigned int) op->timer.expires);
+
+		bcm_can_tx(op); /* send (next) frame */
+	} else {
+		if (op->j_ival2) {
+			op->timer.expires = jiffies + op->j_ival2;
+			add_timer(&op->timer);
+
+			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
+			    op->timer.function,
+			    (char*) op->timer.data,
+			    (unsigned int) op->timer.expires);
+
+			bcm_can_tx(op); /* send (next) frame */
+		} else
+			DBG("no timer restart\n");
+	}
+
+	return;
+
+}
+
+static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
+{
+	struct bcm_msg_head head;
+
+	op->j_lastmsg = jiffies;
+	op->frames_filtered++; /* statistics */
+
+	if (op->frames_filtered > ULONG_MAX/100)
+		op->frames_filtered = op->frames_abs = 0; /* restart */
+
+	DBG("setting j_lastmsg to 0x%08X for rx_op %p\n",
+	    (unsigned int) op->j_lastmsg, op);
+	DBG("sending notification\n");
+
+	head.opcode  = RX_CHANGED;
+	head.flags   = op->flags;
+	head.count   = op->count;
+	head.ival1   = op->ival1;
+	head.ival2   = op->ival2;
+	head.can_id  = op->can_id;
+	head.nframes = 1;
+
+	bcm_send_to_user(op, &head, data, &op->rx_stamp);
+}
+
+static void bcm_rx_update_and_send(struct bcm_op *op,
+				   struct can_frame *lastdata,
+				   struct can_frame *rxdata)
+{
+	unsigned long nexttx = op->j_lastmsg + op->j_ival2;
+
+	memcpy(lastdata, rxdata, CFSIZ);
+	lastdata->can_dlc |= RX_RECV; /* mark as used */
+
+	/* throttle bcm_rx_changed ? */
+	if ((op->thrtimer.expires) || /* somebody else is already waiting OR */
+	    ((op->j_ival2) && (nexttx > jiffies))) {      /* we have to wait */
+
+		lastdata->can_dlc |= RX_THR; /* mark as 'throttled' */
+
+		if (!(op->thrtimer.expires)) { /* start only the first time */
+			op->thrtimer.expires = nexttx;
+			add_timer(&op->thrtimer);
+
+			DBG("adding thrtimer. func=%p data=%p exp=0x%08X\n",
+			    op->thrtimer.function,
+			    (char*) op->thrtimer.data,
+			    (unsigned int) op->thrtimer.expires);
+		}
+	} else
+		bcm_rx_changed(op, rxdata); /* send RX_CHANGED to the user */
+}
+
+static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
+				struct can_frame *rxdata)
+{
+	/* no one uses the MSBs of can_dlc for comparation, */
+	/* so we use it here to detect the first time of reception */
+
+	if (!(op->last_frames[index].can_dlc & RX_RECV)) { /* first time? */
+		DBG("first time :)\n");
+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
+		return;
+	}
+
+	/* do a real check in can_data */
+
+	DBG("op->frames[index].data = 0x%016llx\n",
+	    GET_U64(&op->frames[index]));
+	DBG("op->last_frames[index].data = 0x%016llx\n",
+	    GET_U64(&op->last_frames[index]));
+	DBG("rxdata->data = 0x%016llx\n", GET_U64(rxdata));
+
+	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
+	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
+		DBG("relevant data change :)\n");
+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
+		return;
+	}
+
+
+	if (op->flags & RX_CHECK_DLC) {
+
+		/* do a real check in dlc */
+
+		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
+					BCM_CAN_DLC_MASK)) {
+			DBG("dlc change :)\n");
+			bcm_rx_update_and_send(op, &op->last_frames[index],
+					       rxdata);
+			return;
+		}
+	}
+	DBG("no relevant change :(\n");
+}
+
+static void bcm_rx_starttimer(struct bcm_op *op)
+{
+	if (op->flags & RX_NO_AUTOTIMER)
+		return;
+
+	if (op->j_ival1) {
+
+		op->timer.expires = jiffies + op->j_ival1;
+
+		DBG("adding rx timeout timer ival1. func=%p data=%p "
+		    "exp=0x%08X\n",
+		    op->timer.function,
+		    (char*) op->timer.data,
+		    (unsigned int) op->timer.expires);
+
+		add_timer(&op->timer);
+	}
+}
+
+
+static void bcm_rx_timeout_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_msg_head msg_head;
+
+	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
+
+	msg_head.opcode  = RX_TIMEOUT;
+	msg_head.flags   = op->flags;
+	msg_head.count   = op->count;
+	msg_head.ival1   = op->ival1;
+	msg_head.ival2   = op->ival2;
+	msg_head.can_id  = op->can_id;
+	msg_head.nframes = 0;
+
+	bcm_send_to_user(op, &msg_head, NULL, NULL);
+
+	/* no restart of the timer is done here! */
+
+	/* if user wants to be informed, when cyclic CAN-Messages come back */
+	if ((op->flags & RX_ANNOUNCE_RESUME) && op->last_frames) {
+		/* clear received can_frames to indicate 'nothing received' */
+		memset(op->last_frames, 0, op->nframes * CFSIZ);
+		DBG("RX_ANNOUNCE_RESTART\n");
+	}
+
+}
+
+static void bcm_rx_thr_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	int i = 0;
+
+	op->thrtimer.expires = 0; /* mark disabled / consumed timer */
+
+	if (op->nframes > 1){
+
+		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
+		    op->can_id, op);
+		/* for MUX filter we start at index 1 */
+		for (i=1; i<op->nframes; i++){
+			if ((op->last_frames) &&
+			    (op->last_frames[i].can_dlc & RX_THR)){
+				op->last_frames[i].can_dlc &= ~RX_THR;
+				bcm_rx_changed(op, &op->last_frames[i]);
+			}
+		}
+	} else {
+
+		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
+		    op->can_id, op);
+		/* for RX_FILTER_ID and simple filter */
+		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)){
+			op->last_frames[0].can_dlc &= ~RX_THR;
+			bcm_rx_changed(op, &op->last_frames[0]);
+		}
+	}
+}
+
+static void bcm_rx_handler(struct sk_buff *skb, void *data)
+{
+	struct bcm_op *op = (struct bcm_op*)data;
+	struct can_frame rxframe;
+	int i;
+
+	del_timer(&op->timer); /* disable timeout */
+
+	DBG("Called with bcm_op %p\n", op);
+
+	if (skb->len == sizeof(rxframe)) {
+		memcpy(&rxframe, skb->data, sizeof(rxframe));
+		op->rx_stamp = skb->stamp; /* save rx timestamp */
+		/* save originator for recvfrom() */
+		op->rx_ifindex = skb->dev->ifindex;
+		op->frames_abs++; /* statistics */
+		kfree_skb(skb);
+		DBG("got can_frame with can_id %03X\n", rxframe.can_id);
+	} else {
+		DBG("Wrong skb->len = %d\n", skb->len);
+		kfree_skb(skb);
+		return;
+	}
+
+	DBG_FRAME("BCM: bcm_rx_handler: CAN frame", &rxframe);
+
+	if (op->can_id != rxframe.can_id) {
+		DBG("ERROR! Got wrong can_id %03X! Expected %03X.\n",
+		    rxframe.can_id, op->can_id);
+		return;
+	}
+
+	if (op->flags & RX_RTR_FRAME) { /* send reply for RTR-request */
+		DBG("RTR-request\n");
+		bcm_can_tx(op); /* send op->frames[0] to CAN device */
+		return;
+	}
+
+	if (op->flags & RX_FILTER_ID) { /* the easiest case */
+		DBG("Easy does it with RX_FILTER_ID\n");
+		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
+		bcm_rx_starttimer(op);
+		return;
+	}
+
+	if (op->nframes == 1) { /* simple compare with index 0 */
+		DBG("Simple compare\n");
+		bcm_rx_cmp_to_index(op, 0, &rxframe);
+		bcm_rx_starttimer(op);
+		return;
+	}
+
+	if (op->nframes > 1) { /* multiplex compare */
+
+		DBG("Multiplex compare\n");
+		/* find the first multiplex mask that fits */
+		/* MUX-mask is in index 0 */
+
+		for (i=1; i < op->nframes; i++) {
+
+			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
+			    (GET_U64(&op->frames[0]) &
+			     GET_U64(&op->frames[i]))) {
+				DBG("found MUX index %d\n", i);
+				bcm_rx_cmp_to_index(op, i, &rxframe);
+				break;
+			}
+		}
+		bcm_rx_starttimer(op);
 	}
 }
 
 /**************************************************/
-/* standard socket functions                      */
+/* bcm_op handling: find & delete bcm_op elements */
 /**************************************************/
 
-static int bcm_release(struct socket *sock)
+static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id,
+				  int ifindex)
 {
-	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
-	struct bcm_op *op, *next;
+	struct bcm_op *op;
 
-	DBG("socket %p, sk %p\n", sock, sk);
+	for (op = ops; op; op = op->next)
+		if ((op->can_id == can_id) && (op->ifindex == ifindex))
+			return op;
 
-	/* remove bcm_ops, timer, rx_unregister(), etc. */
+	return NULL;
+}
 
-	for (op = bo->tx_ops; op ; op = next) {
-		DBG("removing tx_op %p for can_id %03X\n", op, op->can_id);
-		next = op->next;
-		bcm_remove_op(op);
-	}
+static void bcm_remove_op(struct bcm_op *op)
+{
+	del_timer(&op->timer);
+	del_timer(&op->thrtimer);
+	if (op->frames)
+		kfree(op->frames);
+	if (op->last_frames)
+		kfree(op->last_frames);
+	kfree(op);
 
-	for (op = bo->rx_ops; op ; op = next) {
-		DBG("removing rx_op %p for can_id %03X\n", op, op->can_id);
-		next = op->next;
+	return;
+}
 
-		/* Don't care if we're bound or not (due to netdev problems) */
-		/* can_rx_unregister() is always a save thing to do here     */
-		if (op->ifindex) {
-			struct net_device *dev = dev_get_by_index(op->ifindex);
-			if (dev) {
-				can_rx_unregister(dev, op->can_id,
+static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op)
+{
+	op->next = *ops;
+	*ops = op;
+}
+
+static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
+{
+	struct bcm_op *op, **n;
+
+	for (n = ops; op = *n; n = &op->next) {
+		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
+			DBG("removing rx_op %p for can_id %03X\n",
+			    op, op->can_id);
+
+			/* Don't care if we're bound or not (due to netdev */
+			/* problems) can_rx_unregister() is always a save  */
+			/* thing to do here.                               */
+			if (op->ifindex) {
+				struct net_device *dev =
+					dev_get_by_index(op->ifindex);
+				if (dev) {
+					can_rx_unregister(dev, op->can_id,
+							  REGMASK(op->can_id),
+							  bcm_rx_handler, op);
+					dev_put(dev);
+				}
+			} else
+				can_rx_unregister(NULL, op->can_id,
 						  REGMASK(op->can_id),
 						  bcm_rx_handler, op);
-				dev_put(dev);
-			}
-		} else
-			can_rx_unregister(NULL, op->can_id,
-					  REGMASK(op->can_id),
-					  bcm_rx_handler, op);
 
-		bcm_remove_op(op);
-	}
-
-	/* remove procfs entry */
-	if ((proc_dir) && (bo->bcm_proc_read)) {
-		remove_proc_entry(bo->procname, proc_dir);
-	}
-
-	/* remove device notifier */
-	if (bo->ifindex) {
-		struct net_device *dev = dev_get_by_index(bo->ifindex);
-		if (dev) {
-			can_dev_unregister(dev, bcm_notifier, sk);
-			dev_put(dev);
+			*n = op->next;
+			bcm_remove_op(op);
+			return 1; /* done */
 		}
 	}
 
-	sock_put(sk);
-
-	return 0;
+	return 0; /* not found */
 }
 
-static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
-		       int flags)
+static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 {
-	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
-	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_op *op, **n;
 
-	if (bo->bound)
-		return -EISCONN;
-
-	/* bind a device to this socket */
-	if (addr->can_ifindex) {
-		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
-		if (!dev) {
-			DBG("could not find device index %d\n",
-			    addr->can_ifindex);
-			return -ENODEV;
+	for (n = ops; op = *n; n = &op->next) {
+		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
+			DBG("removing rx_op %p for can_id %03X\n",
+			    op, op->can_id);
+			*n = op->next;
+			bcm_remove_op(op);
+			return 1; /* done */
 		}
-		bo->ifindex = dev->ifindex;
-		can_dev_register(dev, bcm_notifier, sk); /* register notif. */
-		dev_put(dev);
+	}
 
-		DBG("socket %p bound to device %s (idx %d)\n",
-		    sock, dev->name, dev->ifindex);
+	return 0; /* not found */
+}
+
+static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
+		       int ifindex)
+{
+	struct bcm_op *op;
+	int ret;
+
+	if ((op = bcm_find_op(ops, msg_head->can_id, ifindex))) {
+
+		DBG("TRX_READ: sending status for can_id %03X\n",
+		    msg_head->can_id);
+		/* put current values into msg_head */
+		msg_head->flags   = op->flags;
+		msg_head->count   = op->count;
+		msg_head->ival1   = op->ival1;
+		msg_head->ival2   = op->ival2;
+		msg_head->nframes = op->nframes;
+
+		bcm_send_to_user(op, msg_head, op->frames, NULL);
+
+		ret = MHSIZ;
+
 	} else {
-		/* no notifier for ifindex = 0 ('any' CAN device) */
-		bo->ifindex = 0;
-	}
 
-	bo->bound = 1;
-
-	if (proc_dir) {
-		/* unique socket address as filename */
-		sprintf(bo->procname, "%p", sock);
-		bo->bcm_proc_read = create_proc_read_entry(bo->procname, 0644,
-							   proc_dir,
-							   bcm_read_proc, sk);
-	}
-
-	return 0;
-}
-
-static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
-		       struct scm_cookie *scm)
-{
-	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
-	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
-	struct bcm_msg_head msg_head;
-	int ret; /* read bytes or error codes as return value */
-
-	if (!bo->bound) {
-		DBG("sock %p not bound\n", sk);
-		return -ENOTCONN;
-	}
-
-	/* check for alternative ifindex for this bcm_op */
-
-	if (!ifindex && msg->msg_name) { /* no bound device as default */
-		struct sockaddr_can *addr = 
-			(struct sockaddr_can *)msg->msg_name;
-		if (addr->can_family != AF_CAN)
-			return -EINVAL;
-		ifindex = addr->can_ifindex; /* ifindex from sendto() */
-
-		if (ifindex && !dev_get_by_index(ifindex)) {
-			DBG("device %d not found\n", ifindex);
-			return -ENODEV;
-		}
-	}
-
-	/* read message head information */
-
-	if ((ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov,
-				    MHSIZ)) < 0)
-		return ret;
-
-	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
-
-	switch (msg_head.opcode) {
-
-	case TX_SETUP:
-
-		ret = bcm_tx_setup(&msg_head, msg, ifindex, sk);
-		break;
-
-	case RX_SETUP:
-
-		ret = bcm_rx_setup(&msg_head, msg, ifindex, sk);
-		break;
-
-	case TX_DELETE:
-
-		if (bcm_delete_tx_op(&bo->tx_ops, msg_head.can_id, ifindex))
-			ret = MHSIZ;
-		else
-			ret = -EINVAL;
-		break;
-		    
-	case RX_DELETE:
-
-		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
-			ret = MHSIZ;
-		else
-			ret = -EINVAL;
-		break;
-
-	case TX_READ:
-
-		/* reuse msg_head for the reply */
-		msg_head.opcode  = TX_STATUS; /* reply to TX_READ */
-		ret = bcm_read_op(bo->tx_ops, &msg_head, ifindex);
-		break;
-
-	case RX_READ:
-
-		/* reuse msg_head for the reply */
-		msg_head.opcode  = RX_STATUS; /* reply to RX_READ */
-		ret = bcm_read_op(bo->rx_ops, &msg_head, ifindex);
-		break;
-
-	case TX_SEND:
-
-		if (msg_head.nframes < 1) /* we need at least one can_frame */
-			return -EINVAL;
-
-		ret = bcm_tx_send(msg, ifindex, sk);
-		break;
-
-	default:
-
-		DBG("Unknown opcode %d\n", msg_head.opcode);
+		DBG("TRX_READ: did not find op for can_id %03X\n",
+		    msg_head->can_id);
 		ret = -EINVAL;
-		break;
 	}
 
 	return ret;
 }
-
-static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, int size,
-		       int flags, struct scm_cookie *scm)
-{
-	struct sock *sk = sock->sk;
-	struct sk_buff *skb;
-	int error = 0;
-	int noblock;
-	int err;
-
-	DBG("socket %p, sk %p\n", sock, sk);
-
-	noblock =  flags & MSG_DONTWAIT;
-	flags   &= ~MSG_DONTWAIT;
-	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error))) {
-		return error;
-	}
-
-	DBG("delivering skbuff %p\n", skb);
-	DBG_SKB(skb);
-
-	if (skb->len < size)
-		size = skb->len;
-	if ((err = memcpy_toiovec(msg->msg_iov, skb->data, size)) < 0) {
-		skb_free_datagram(sk, skb);
-		return err;
-	}
-
-	sock_recv_timestamp(msg, sk, skb);
-
-	if (msg->msg_name) {
-		msg->msg_namelen = sizeof(struct sockaddr_can);
-		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
-	}
-
-	DBG("freeing sock %p, skbuff %p\n", sk, skb);
-	skb_free_datagram(sk, skb);
-
-	return size;
-}
-
-static unsigned int bcm_poll(struct file *file, struct socket *sock,
-			     poll_table *wait)
-{
-	unsigned int mask = 0;
-
-	DBG("socket %p\n", sock);
-
-	mask = datagram_poll(file, sock, wait);
-	return mask;
-}
-
-/**************************************************/
-/* helper functions for bcm_sendmsg()             */
-/**************************************************/
 
 static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
@@ -967,633 +1190,350 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 	return CFSIZ + MHSIZ;
 }
 
-static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
-		       int ifindex)
+static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
+		       struct scm_cookie *scm)
 {
-	struct bcm_op *op;
-	int ret;
+	struct sock *sk = sock->sk;
+	struct bcm_opt *bo = bcm_sk(sk);
+	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
+	struct bcm_msg_head msg_head;
+	int ret; /* read bytes or error codes as return value */
 
-	if ((op = bcm_find_op(ops, msg_head->can_id, ifindex))) {
+	if (!bo->bound) {
+		DBG("sock %p not bound\n", sk);
+		return -ENOTCONN;
+	}
 
-		DBG("TRX_READ: sending status for can_id %03X\n",
-		    msg_head->can_id);
-		/* put current values into msg_head */
-		msg_head->flags   = op->flags;
-		msg_head->count   = op->count;
-		msg_head->ival1   = op->ival1;
-		msg_head->ival2   = op->ival2;
-		msg_head->nframes = op->nframes;
+	/* check for alternative ifindex for this bcm_op */
 
-		bcm_send_to_user(op, msg_head, op->frames, NULL);
+	if (!ifindex && msg->msg_name) { /* no bound device as default */
+		struct sockaddr_can *addr = 
+			(struct sockaddr_can *)msg->msg_name;
+		if (addr->can_family != AF_CAN)
+			return -EINVAL;
+		ifindex = addr->can_ifindex; /* ifindex from sendto() */
 
-		ret = MHSIZ;
+		if (ifindex && !dev_get_by_index(ifindex)) {
+			DBG("device %d not found\n", ifindex);
+			return -ENODEV;
+		}
+	}
 
-	} else {
+	/* read message head information */
 
-		DBG("TRX_READ: did not find op for can_id %03X\n",
-		    msg_head->can_id);
+	if ((ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov,
+				    MHSIZ)) < 0)
+		return ret;
+
+	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
+
+	switch (msg_head.opcode) {
+
+	case TX_SETUP:
+
+		ret = bcm_tx_setup(&msg_head, msg, ifindex, sk);
+		break;
+
+	case RX_SETUP:
+
+		ret = bcm_rx_setup(&msg_head, msg, ifindex, sk);
+		break;
+
+	case TX_DELETE:
+
+		if (bcm_delete_tx_op(&bo->tx_ops, msg_head.can_id, ifindex))
+			ret = MHSIZ;
+		else
+			ret = -EINVAL;
+		break;
+		    
+	case RX_DELETE:
+
+		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
+			ret = MHSIZ;
+		else
+			ret = -EINVAL;
+		break;
+
+	case TX_READ:
+
+		/* reuse msg_head for the reply */
+		msg_head.opcode  = TX_STATUS; /* reply to TX_READ */
+		ret = bcm_read_op(bo->tx_ops, &msg_head, ifindex);
+		break;
+
+	case RX_READ:
+
+		/* reuse msg_head for the reply */
+		msg_head.opcode  = RX_STATUS; /* reply to RX_READ */
+		ret = bcm_read_op(bo->rx_ops, &msg_head, ifindex);
+		break;
+
+	case TX_SEND:
+
+		if (msg_head.nframes < 1) /* we need at least one can_frame */
+			return -EINVAL;
+
+		ret = bcm_tx_send(msg, ifindex, sk);
+		break;
+
+	default:
+
+		DBG("Unknown opcode %d\n", msg_head.opcode);
 		ret = -EINVAL;
+		break;
 	}
 
 	return ret;
 }
 
 /**************************************************/
-/* procfs functions                               */
+/* initial settings at socket creation time       */
 /**************************************************/
 
-static char *bcm_proc_getifname(int ifindex)
+static int bcm_init(struct sock *sk)
 {
-	struct net_device *dev;
+	struct bcm_opt *bo = bcm_sk(sk);
 
-	if (!ifindex)
-		return "any";
+	bo->bound            = 0;
+	bo->ifindex          = 0;
+	bo->dropped_usr_msgs = 0;
+	bo->bcm_proc_read    = NULL;
 
-	dev = __dev_get_by_index(ifindex); /* no usage counting */
-	if (dev)
-		return dev->name;
+	bo->tx_ops = NULL;
+	bo->rx_ops = NULL;
 
-	return "???";
+	return 0;
 }
 
-static int bcm_read_proc(char *page, char **start, off_t off,
-			 int count, int *eof, void *data)
+/**************************************************/
+/* handling of netdevice problems                 */
+/**************************************************/
+
+static void bcm_notifier(unsigned long msg, void *data)
 {
-	int len = 0;
 	struct sock *sk = (struct sock *)data;
 	struct bcm_opt *bo = bcm_sk(sk);
-	struct bcm_op *op;
 
-	MOD_INC_USE_COUNT;
-
-	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
-			sk->socket);
-	len += snprintf(page + len, PAGE_SIZE - len, " / sk %p", sk);
-	len += snprintf(page + len, PAGE_SIZE - len, " / bo %p", bo);
-	len += snprintf(page + len, PAGE_SIZE - len, " / dropped %lu",
-			bo->dropped_usr_msgs);
-	len += snprintf(page + len, PAGE_SIZE - len, " / bound %s",
-			bcm_proc_getifname(bo->ifindex));
-	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
-
-	for (op = bo->rx_ops; op; op = op->next) {
-
-		unsigned long reduction;
-
-		/* print only active entries & prevent division by zero */
-		if (!op->frames_abs)
-			continue;
-
-		len += snprintf(page + len, PAGE_SIZE - len,
-				"rx_op: %03X %-5s ",
-				op->can_id, bcm_proc_getifname(op->ifindex));
-		len += snprintf(page + len, PAGE_SIZE - len, "[%d]%c ",
-				op->nframes,
-				(op->flags & RX_CHECK_DLC)?'d':' ');
-		if (op->j_ival1)
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"timeo=%ld ", op->j_ival1);
-
-		if (op->j_ival2)
-			len += snprintf(page + len, PAGE_SIZE - len,
-					"thr=%ld ", op->j_ival2);
-
-		len += snprintf(page + len, PAGE_SIZE - len,
-				"# recv %ld (%ld) => reduction: ",
-				op->frames_filtered, op->frames_abs);
-
-		reduction = 100 - (op->frames_filtered * 100) / op->frames_abs;
-
-		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
-				(reduction == 100)?"near ":"", reduction);
-
-		if (len > PAGE_SIZE - 200) {
-			/* mark output cut off */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
-			break;
-		}
-	}
-
-	for (op = bo->tx_ops; op; op = op->next) {
-
-		len += snprintf(page + len, PAGE_SIZE - len,
-				"tx_op: %03X %s [%d] ",
-				op->can_id, bcm_proc_getifname(op->ifindex),
-				op->nframes);
-		if (op->j_ival1)
-			len += snprintf(page + len, PAGE_SIZE - len, "t1=%ld ",
-					op->j_ival1);
-
-		if (op->j_ival2)
-			len += snprintf(page + len, PAGE_SIZE - len, "t2=%ld ",
-					op->j_ival2);
-
-		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n",
-				op->frames_abs);
-
-		if (len > PAGE_SIZE - 100) {
-			/* mark output cut off */
-			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
-			break;
-		}
-	}
-
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
-	MOD_DEC_USE_COUNT;
-
-	*eof = 1;
-	return len;
-}
-
-/**************************************************/
-/* bcm_op handling tx path                        */
-/**************************************************/
-
-static void bcm_can_tx(struct bcm_op *op)
-{
-	struct sk_buff *skb;
-	struct net_device *dev;
-	struct can_frame *cf = &op->frames[op->currframe];
-
-	DBG_FRAME("BCM: bcm_can_tx: sending frame", cf);
-
-	if (!op->ifindex)
-		return; /* no target device -> exit */
-
-	dev = dev_get_by_index(op->ifindex);
-
-	if (!dev)
-		return; /* should this bcm_op remove itself here? */
-
-	skb = alloc_skb(CFSIZ,
-			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-
-	if (!skb)
-		goto out; /* no memory */
-
-	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
-
-	skb->dev = dev;
-	skb->sk = op->sk;
-	can_send(skb, 1); /* send with loopback */
-
-	op->currframe++;
-	op->frames_abs++; /* statistics */
-
-	/* reached last frame? */
-	if (op->currframe >= op->nframes)
-		op->currframe = 0;
- out:
-	dev_put(dev);
-}
-
-static void bcm_tx_timeout_handler(unsigned long data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-
-	DBG("Called with bcm_op %p\n", op);
-
-	if (op->j_ival1 && (op->count > 0)) {
-
-		op->count--;
-
-		if (!op->count && (op->flags & TX_COUNTEVT)) {
-			/* create notification to user */
-
-			struct bcm_msg_head msg_head;
-
-			DBG("sending TX_EXPIRED for can_id %03X\n",
-			    op->can_id);
-
-			msg_head.opcode  = TX_EXPIRED;
-			msg_head.flags   = op->flags;
-			msg_head.count   = op->count;
-			msg_head.ival1   = op->ival1;
-			msg_head.ival2   = op->ival2;
-			msg_head.can_id  = op->can_id;
-			msg_head.nframes = 0;
-
-			bcm_send_to_user(op, &msg_head, NULL, NULL);
-		}
-	}
-
-	DBG("count=%d j_ival1=%ld j_ival2=%ld\n",
-	    op->count, op->j_ival1, op->j_ival2);
-
-	if (op->j_ival1 && (op->count > 0)) {
-
-		op->timer.expires = jiffies + op->j_ival1;
-		add_timer(&op->timer);
-
-		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
-		    op->timer.function,
-		    (char*) op->timer.data,
-		    (unsigned int) op->timer.expires);
-
-		bcm_can_tx(op); /* send (next) frame */
-	} else {
-		if (op->j_ival2) {
-			op->timer.expires = jiffies + op->j_ival2;
-			add_timer(&op->timer);
-
-			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
-			    op->timer.function,
-			    (char*) op->timer.data,
-			    (unsigned int) op->timer.expires);
-
-			bcm_can_tx(op); /* send (next) frame */
-		} else
-			DBG("no timer restart\n");
-	}
-
-	return;
-
-}
-
-/**************************************************/
-/* bcm_op handling rx path                        */
-/**************************************************/
-
-static void bcm_rx_handler(struct sk_buff *skb, void *data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	struct can_frame rxframe;
-	int i;
-
-	del_timer(&op->timer); /* disable timeout */
-
-	DBG("Called with bcm_op %p\n", op);
-
-	if (skb->len == sizeof(rxframe)) {
-		memcpy(&rxframe, skb->data, sizeof(rxframe));
-		op->rx_stamp = skb->stamp; /* save rx timestamp */
-		/* save originator for recvfrom() */
-		op->rx_ifindex = skb->dev->ifindex;
-		op->frames_abs++; /* statistics */
-		kfree_skb(skb);
-		DBG("got can_frame with can_id %03X\n", rxframe.can_id);
-	} else {
-		DBG("Wrong skb->len = %d\n", skb->len);
-		kfree_skb(skb);
-		return;
-	}
-
-	DBG_FRAME("BCM: bcm_rx_handler: CAN frame", &rxframe);
-
-	if (op->can_id != rxframe.can_id) {
-		DBG("ERROR! Got wrong can_id %03X! Expected %03X.\n",
-		    rxframe.can_id, op->can_id);
-		return;
-	}
-
-	if (op->flags & RX_RTR_FRAME) { /* send reply for RTR-request */
-		DBG("RTR-request\n");
-		bcm_can_tx(op); /* send op->frames[0] to CAN device */
-		return;
-	}
-
-	if (op->flags & RX_FILTER_ID) { /* the easiest case */
-		DBG("Easy does it with RX_FILTER_ID\n");
-		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
-		bcm_rx_starttimer(op);
-		return;
-	}
-
-	if (op->nframes == 1) { /* simple compare with index 0 */
-		DBG("Simple compare\n");
-		bcm_rx_cmp_to_index(op, 0, &rxframe);
-		bcm_rx_starttimer(op);
-		return;
-	}
-
-	if (op->nframes > 1) { /* multiplex compare */
-
-		DBG("Multiplex compare\n");
-		/* find the first multiplex mask that fits */
-		/* MUX-mask is in index 0 */
-
-		for (i=1; i < op->nframes; i++) {
-
-			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
-			    (GET_U64(&op->frames[0]) &
-			     GET_U64(&op->frames[i]))) {
-				DBG("found MUX index %d\n", i);
-				bcm_rx_cmp_to_index(op, i, &rxframe);
-				break;
-			}
-		}
-		bcm_rx_starttimer(op);
-	}
-}
-
-static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
-				struct can_frame *rxdata)
-{
-	/* no one uses the MSBs of can_dlc for comparation, */
-	/* so we use it here to detect the first time of reception */
-
-	if (!(op->last_frames[index].can_dlc & RX_RECV)) { /* first time? */
-		DBG("first time :)\n");
-		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-		return;
-	}
-
-	/* do a real check in can_data */
-
-	DBG("op->frames[index].data = 0x%016llx\n",
-	    GET_U64(&op->frames[index]));
-	DBG("op->last_frames[index].data = 0x%016llx\n",
-	    GET_U64(&op->last_frames[index]));
-	DBG("rxdata->data = 0x%016llx\n", GET_U64(rxdata));
-
-	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
-	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
-		DBG("relevant data change :)\n");
-		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-		return;
-	}
-
-
-	if (op->flags & RX_CHECK_DLC) {
-
-		/* do a real check in dlc */
-
-		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
-					BCM_CAN_DLC_MASK)) {
-			DBG("dlc change :)\n");
-			bcm_rx_update_and_send(op, &op->last_frames[index],
-					       rxdata);
-			return;
-		}
-	}
-	DBG("no relevant change :(\n");
-}
-
-static void bcm_rx_update_and_send(struct bcm_op *op,
-				   struct can_frame *lastdata,
-				   struct can_frame *rxdata)
-{
-	unsigned long nexttx = op->j_lastmsg + op->j_ival2;
-
-	memcpy(lastdata, rxdata, CFSIZ);
-	lastdata->can_dlc |= RX_RECV; /* mark as used */
-
-	/* throttle bcm_rx_changed ? */
-	if ((op->thrtimer.expires) || /* somebody else is already waiting OR */
-	    ((op->j_ival2) && (nexttx > jiffies))) {      /* we have to wait */
-
-		lastdata->can_dlc |= RX_THR; /* mark as 'throttled' */
-
-		if (!(op->thrtimer.expires)) { /* start only the first time */
-			op->thrtimer.expires = nexttx;
-			add_timer(&op->thrtimer);
-
-			DBG("adding thrtimer. func=%p data=%p exp=0x%08X\n",
-			    op->thrtimer.function,
-			    (char*) op->thrtimer.data,
-			    (unsigned int) op->thrtimer.expires);
-		}
-	} else
-		bcm_rx_changed(op, rxdata); /* send RX_CHANGED to the user */
-}
-
-static void bcm_rx_starttimer(struct bcm_op *op)
-{
-	if (op->flags & RX_NO_AUTOTIMER)
-		return;
-
-	if (op->j_ival1) {
-
-		op->timer.expires = jiffies + op->j_ival1;
-
-		DBG("adding rx timeout timer ival1. func=%p data=%p "
-		    "exp=0x%08X\n",
-		    op->timer.function,
-		    (char*) op->timer.data,
-		    (unsigned int) op->timer.expires);
-
-		add_timer(&op->timer);
-	}
-}
-
-
-static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
-{
-	struct bcm_msg_head head;
-
-	op->j_lastmsg = jiffies;
-	op->frames_filtered++; /* statistics */
-
-	if (op->frames_filtered > ULONG_MAX/100)
-		op->frames_filtered = op->frames_abs = 0; /* restart */
-
-	DBG("setting j_lastmsg to 0x%08X for rx_op %p\n",
-	    (unsigned int) op->j_lastmsg, op);
-	DBG("sending notification\n");
-
-	head.opcode  = RX_CHANGED;
-	head.flags   = op->flags;
-	head.count   = op->count;
-	head.ival1   = op->ival1;
-	head.ival2   = op->ival2;
-	head.can_id  = op->can_id;
-	head.nframes = 1;
-
-	bcm_send_to_user(op, &head, data, &op->rx_stamp);
-}
-
-
-static void bcm_rx_timeout_handler(unsigned long data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	struct bcm_msg_head msg_head;
-
-	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
-
-	msg_head.opcode  = RX_TIMEOUT;
-	msg_head.flags   = op->flags;
-	msg_head.count   = op->count;
-	msg_head.ival1   = op->ival1;
-	msg_head.ival2   = op->ival2;
-	msg_head.can_id  = op->can_id;
-	msg_head.nframes = 0;
-
-	bcm_send_to_user(op, &msg_head, NULL, NULL);
-
-	/* no restart of the timer is done here! */
-
-	/* if user wants to be informed, when cyclic CAN-Messages come back */
-	if ((op->flags & RX_ANNOUNCE_RESUME) && op->last_frames) {
-		/* clear received can_frames to indicate 'nothing received' */
-		memset(op->last_frames, 0, op->nframes * CFSIZ);
-		DBG("RX_ANNOUNCE_RESTART\n");
-	}
-
-}
-
-static void bcm_rx_thr_handler(unsigned long data)
-{
-	struct bcm_op *op = (struct bcm_op*)data;
-	int i = 0;
-
-	op->thrtimer.expires = 0; /* mark disabled / consumed timer */
-
-	if (op->nframes > 1){
-
-		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
-		    op->can_id, op);
-		/* for MUX filter we start at index 1 */
-		for (i=1; i<op->nframes; i++){
-			if ((op->last_frames) &&
-			    (op->last_frames[i].can_dlc & RX_THR)){
-				op->last_frames[i].can_dlc &= ~RX_THR;
-				bcm_rx_changed(op, &op->last_frames[i]);
-			}
-		}
-	} else {
-
-		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
-		    op->can_id, op);
-		/* for RX_FILTER_ID and simple filter */
-		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)){
-			op->last_frames[0].can_dlc &= ~RX_THR;
-			bcm_rx_changed(op, &op->last_frames[0]);
-		}
-	}
-}
-
-static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-			     struct can_frame *frames, struct timeval *tv)
-{
-	struct sk_buff *skb;
-	struct can_frame *firstframe;
-	struct sock *sk = op->sk;
-	int datalen = head->nframes * CFSIZ;
-	struct sockaddr_can *addr;
-	int err;
-
-	skb = alloc_skb(sizeof(*head) + datalen,
-			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-	if (!skb)
-		return;
-
-	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
-	/* can_frames starting here */
-	firstframe = (struct can_frame *) skb->tail;
-
-	if (tv)
-		skb->stamp = *tv; /* restore timestamp */
-
-	addr = (struct sockaddr_can *)skb->cb;
-	memset(addr, 0, sizeof(*addr));
-	addr->can_family  = AF_CAN;
-	/* restore originator for recvfrom() */
-	addr->can_ifindex = op->rx_ifindex;
-
-	if (head->nframes){
-		memcpy(skb_put(skb, datalen), frames, datalen);
-
-		/* the BCM uses the can_dlc-element of the can_frame */
-		/* structure for internal purposes. This is only     */
-		/* relevant for updates that are generated by the    */
-		/* BCM, where nframes is 1                           */
-		if (head->nframes == 1)
-			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
-	}
-	if ((err = sock_queue_rcv_skb(sk, skb)) < 0) {
-		struct bcm_opt *bo = bcm_sk(sk);
-		DBG("sock_queue_rcv_skb failed: %d\n", err);
-		kfree_skb(skb);
-		bo->dropped_usr_msgs++; /* don't care about overflows */
+	DBG("called for sock %p\n", sk);
+
+	switch (msg) {
+	case NETDEV_UNREGISTER:
+		bo->bound   = 0;
+		bo->ifindex = 0;
+		/* fallthrough */
+	case NETDEV_DOWN:
+		sk->err = ENETDOWN;
+		if (!sk->dead)
+			sk->error_report(sk);
 	}
 }
 
 /**************************************************/
-/* bcm_op handling: find & delete bcm_op elements */
+/* standard socket functions                      */
 /**************************************************/
 
-static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id,
-				  int ifindex)
+static int bcm_release(struct socket *sock)
 {
-	struct bcm_op *op;
+	struct sock *sk = sock->sk;
+	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_op *op, *next;
 
-	for (op = ops; op; op = op->next)
-		if ((op->can_id == can_id) && (op->ifindex == ifindex))
-			return op;
+	DBG("socket %p, sk %p\n", sock, sk);
 
-	return NULL;
-}
+	/* remove bcm_ops, timer, rx_unregister(), etc. */
 
-static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
-{
-	struct bcm_op *op, **n;
+	for (op = bo->tx_ops; op ; op = next) {
+		DBG("removing tx_op %p for can_id %03X\n", op, op->can_id);
+		next = op->next;
+		bcm_remove_op(op);
+	}
 
-	for (n = ops; op = *n; n = &op->next) {
-		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
-			DBG("removing rx_op %p for can_id %03X\n",
-			    op, op->can_id);
+	for (op = bo->rx_ops; op ; op = next) {
+		DBG("removing rx_op %p for can_id %03X\n", op, op->can_id);
+		next = op->next;
 
-			/* Don't care if we're bound or not (due to netdev */
-			/* problems) can_rx_unregister() is always a save  */
-			/* thing to do here.                               */
-			if (op->ifindex) {
-				struct net_device *dev =
-					dev_get_by_index(op->ifindex);
-				if (dev) {
-					can_rx_unregister(dev, op->can_id,
-							  REGMASK(op->can_id),
-							  bcm_rx_handler, op);
-					dev_put(dev);
-				}
-			} else
-				can_rx_unregister(NULL, op->can_id,
+		/* Don't care if we're bound or not (due to netdev problems) */
+		/* can_rx_unregister() is always a save thing to do here     */
+		if (op->ifindex) {
+			struct net_device *dev = dev_get_by_index(op->ifindex);
+			if (dev) {
+				can_rx_unregister(dev, op->can_id,
 						  REGMASK(op->can_id),
 						  bcm_rx_handler, op);
+				dev_put(dev);
+			}
+		} else
+			can_rx_unregister(NULL, op->can_id,
+					  REGMASK(op->can_id),
+					  bcm_rx_handler, op);
 
-			*n = op->next;
-			bcm_remove_op(op);
-			return 1; /* done */
+		bcm_remove_op(op);
+	}
+
+	/* remove procfs entry */
+	if ((proc_dir) && (bo->bcm_proc_read)) {
+		remove_proc_entry(bo->procname, proc_dir);
+	}
+
+	/* remove device notifier */
+	if (bo->ifindex) {
+		struct net_device *dev = dev_get_by_index(bo->ifindex);
+		if (dev) {
+			can_dev_unregister(dev, bcm_notifier, sk);
+			dev_put(dev);
 		}
 	}
 
-	return 0; /* not found */
+	sock_put(sk);
+
+	return 0;
 }
 
-static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
+static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+		       int flags)
 {
-	struct bcm_op *op, **n;
+	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
+	struct sock *sk = sock->sk;
+	struct bcm_opt *bo = bcm_sk(sk);
 
-	for (n = ops; op = *n; n = &op->next) {
-		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
-			DBG("removing rx_op %p for can_id %03X\n",
-			    op, op->can_id);
-			*n = op->next;
-			bcm_remove_op(op);
-			return 1; /* done */
+	if (bo->bound)
+		return -EISCONN;
+
+	/* bind a device to this socket */
+	if (addr->can_ifindex) {
+		struct net_device *dev = dev_get_by_index(addr->can_ifindex);
+		if (!dev) {
+			DBG("could not find device index %d\n",
+			    addr->can_ifindex);
+			return -ENODEV;
 		}
+		bo->ifindex = dev->ifindex;
+		can_dev_register(dev, bcm_notifier, sk); /* register notif. */
+		dev_put(dev);
+
+		DBG("socket %p bound to device %s (idx %d)\n",
+		    sock, dev->name, dev->ifindex);
+	} else {
+		/* no notifier for ifindex = 0 ('any' CAN device) */
+		bo->ifindex = 0;
 	}
 
-	return 0; /* not found */
+	bo->bound = 1;
+
+	if (proc_dir) {
+		/* unique socket address as filename */
+		sprintf(bo->procname, "%p", sock);
+		bo->bcm_proc_read = create_proc_read_entry(bo->procname, 0644,
+							   proc_dir,
+							   bcm_read_proc, sk);
+	}
+
+	return 0;
 }
 
-static void bcm_remove_op(struct bcm_op *op)
+static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, int size,
+		       int flags, struct scm_cookie *scm)
 {
-	del_timer(&op->timer);
-	del_timer(&op->thrtimer);
-	if (op->frames)
-		kfree(op->frames);
-	if (op->last_frames)
-		kfree(op->last_frames);
-	kfree(op);
+	struct sock *sk = sock->sk;
+	struct sk_buff *skb;
+	int error = 0;
+	int noblock;
+	int err;
 
-	return;
+	DBG("socket %p, sk %p\n", sock, sk);
+
+	noblock =  flags & MSG_DONTWAIT;
+	flags   &= ~MSG_DONTWAIT;
+	if (!(skb = skb_recv_datagram(sk, flags, noblock, &error))) {
+		return error;
+	}
+
+	DBG("delivering skbuff %p\n", skb);
+	DBG_SKB(skb);
+
+	if (skb->len < size)
+		size = skb->len;
+	if ((err = memcpy_toiovec(msg->msg_iov, skb->data, size)) < 0) {
+		skb_free_datagram(sk, skb);
+		return err;
+	}
+
+	sock_recv_timestamp(msg, sk, skb);
+
+	if (msg->msg_name) {
+		msg->msg_namelen = sizeof(struct sockaddr_can);
+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+	}
+
+	DBG("freeing sock %p, skbuff %p\n", sk, skb);
+	skb_free_datagram(sk, skb);
+
+	return size;
 }
 
-static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op)
+static unsigned int bcm_poll(struct file *file, struct socket *sock,
+			     poll_table *wait)
 {
-	op->next = *ops;
-	*ops = op;
+	unsigned int mask = 0;
+
+	DBG("socket %p\n", sock);
+
+	mask = datagram_poll(file, sock, wait);
+	return mask;
+}
+
+static struct proto_ops bcm_ops = {
+	.family        = PF_CAN,
+	.release       = bcm_release,
+	.bind          = sock_no_bind,
+	.connect       = bcm_connect,
+	.socketpair    = sock_no_socketpair,
+	.accept        = sock_no_accept,
+	.getname       = sock_no_getname,
+	.poll          = bcm_poll,
+	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
+	.listen        = sock_no_listen,
+	.shutdown      = sock_no_shutdown,
+	.setsockopt    = sock_no_setsockopt,
+	.getsockopt    = sock_no_getsockopt,
+	.sendmsg       = bcm_sendmsg,
+	.recvmsg       = bcm_recvmsg,
+	.mmap          = sock_no_mmap,
+	.sendpage      = sock_no_sendpage,
+};
+
+static struct can_proto bcm_can_proto = {
+	.type       = SOCK_DGRAM,
+	.protocol   = CAN_BCM,
+	.capability = BCM_CAP,
+	.ops        = &bcm_ops,
+	.obj_size   = sizeof(struct bcm_opt),
+	.init       = bcm_init,
+};
+
+static int __init bcm_module_init(void)
+{
+	printk(banner);
+
+	can_proto_register(&bcm_can_proto);
+
+	/* create /proc/net/can/bcm directory */
+	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
+
+	if (proc_dir)
+		proc_dir->owner = THIS_MODULE;
+
+	return 0;
+}
+
+static void __exit bcm_module_exit(void)
+{
+	can_proto_unregister(&bcm_can_proto);
+
+	if (proc_dir)
+		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
+
 }
 
 module_init(bcm_module_init);

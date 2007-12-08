@@ -63,34 +63,6 @@ RCSID("$Id$");
 #define CAN_PROC_RCVLIST_EFF "rcvlist_eff"
 #define CAN_PROC_RCVLIST_ERR "rcvlist_err"
 
-static void can_init_stats(int caller);
-static void can_stat_update(unsigned long data);
-
-static struct proc_dir_entry *can_create_proc_readentry(const char *name,
-	mode_t mode, read_proc_t* read_proc, void *data);
-static void can_remove_proc_readentry(const char *name);
-static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
-			       unsigned long count);
-
-static int can_proc_read_version(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_stats(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_reset_stats(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_all(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_fil(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_inv(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_eff(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
-				     int count, int *eof, void *data);
-
 static struct proc_dir_entry *can_dir         = NULL;
 static struct proc_dir_entry *pde_version     = NULL;
 static struct proc_dir_entry *pde_stats       = NULL;
@@ -111,86 +83,91 @@ extern struct dev_rcv_lists *rx_dev_list; /* rx dispatcher structures */
 extern int stats_timer;                   /* module parameter. default: on */
 
 /**************************************************/
-/* procfs init / remove                           */
+/* af_can statistics stuff                        */
 /**************************************************/
 
-void can_init_proc(void)
+static void can_init_stats(int caller)
 {
-
-	/* procfs init */
-
-	/* create /proc/can directory */
-	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
-
-	if (!can_dir) {
-		printk(KERN_INFO "CAN: failed to create CAN_PROC_DIR. "
-		       "CONFIG_PROC_FS missing?\n");
-		return;
-	}
-
-	can_dir->owner = THIS_MODULE;
-
-	/* own procfs entries from the AF_CAN core */
-	pde_version     = can_create_proc_readentry(
-		CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
-	pde_stats       = can_create_proc_readentry(
-		CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
-	pde_reset_stats = can_create_proc_readentry(
-		CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
-	pde_rcvlist_all = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
-	pde_rcvlist_fil = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
-	pde_rcvlist_inv = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
-	pde_rcvlist_sff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
-	pde_rcvlist_eff = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
-	pde_rcvlist_err = can_create_proc_readentry(
-		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
-
-	if (stats_timer) {
-		/* the statistics are updated every second (timer triggered) */
-		stattimer.function = can_stat_update;
-		stattimer.data = 0;
-		stattimer.expires = jiffies + HZ; /* every second */
-		add_timer(&stattimer); /* start statistics timer */
-	}
+	memset(&stats, 0, sizeof(stats));
+	stats.jiffies_init  = jiffies;
+	pstats.stats_reset++;
 }
 
-void can_remove_proc(void)
+static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
+			       unsigned long count)
 {
-	/* procfs remove */
-	if (pde_version)
-		can_remove_proc_readentry(CAN_PROC_VERSION);
+	unsigned long ret = 0;
 
-	if (pde_stats)
-		can_remove_proc_readentry(CAN_PROC_STATS);
+	if (oldjif == newjif)
+		return 0;
 
-	if (pde_reset_stats)
-		can_remove_proc_readentry(CAN_PROC_RESET_STATS);
+	/* see can_rcv() - this should NEVER happen! */
+	if (count > (ULONG_MAX / HZ)) {
+		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
+		       count);
+		return 99999999;
+	}
 
-	if (pde_rcvlist_all)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
+	ret = (count * HZ) / (newjif - oldjif);
 
-	if (pde_rcvlist_fil)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_FIL);
+	return ret;
+}
 
-	if (pde_rcvlist_inv)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
+static void can_stat_update(unsigned long data)
+{
+	unsigned long j = jiffies; /* snapshot */
 
-	if (pde_rcvlist_sff)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
+	//DBG("CAN: can_stat_update() jiffies = %ld\n", j);
 
-	if (pde_rcvlist_eff)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
+	if (j < stats.jiffies_init) /* jiffies overflow */
+		can_init_stats(2);
 
-	if (pde_rcvlist_err)
-		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
+	/* stats.rx_frames is the definitively max. statistic value */
 
-	if (can_dir)
-		remove_proc_entry(CAN_PROC_DIR, NULL);
+	/* prevent overflow in calc_rate() */
+	if (stats.rx_frames > (ULONG_MAX / HZ))
+		can_init_stats(3); /* restart */
+
+	/* matches overflow - very improbable */
+	if (stats.matches > (ULONG_MAX / 100))
+		can_init_stats(4);
+
+	/* calc total values */
+	if (stats.rx_frames)
+		stats.total_rx_match_ratio = (stats.matches * 100) / 
+						stats.rx_frames;
+
+	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
+					stats.tx_frames);
+	stats.total_rx_rate = calc_rate(stats.jiffies_init, j,
+					stats.rx_frames);
+
+	/* calc current values */
+	if (stats.rx_frames_delta)
+		stats.current_rx_match_ratio =
+			(stats.matches_delta * 100) / stats.rx_frames_delta;
+
+	stats.current_tx_rate = calc_rate(0, HZ, stats.tx_frames_delta);
+	stats.current_rx_rate = calc_rate(0, HZ, stats.rx_frames_delta);
+
+	/* check / update maximum values */
+	if (stats.max_tx_rate < stats.current_tx_rate)
+		stats.max_tx_rate = stats.current_tx_rate;
+
+	if (stats.max_rx_rate < stats.current_rx_rate)
+		stats.max_rx_rate = stats.current_rx_rate;
+
+	if (stats.max_rx_match_ratio < stats.current_rx_match_ratio)
+		stats.max_rx_match_ratio = stats.current_rx_match_ratio;
+
+	/* clear values for 'current rate' calculation */
+	stats.tx_frames_delta = 0;
+	stats.rx_frames_delta = 0;
+	stats.matches_delta   = 0;
+
+	/* restart timer */
+	stattimer.expires = jiffies + HZ; /* every second */
+	add_timer(&stattimer);
 }
 
 /**************************************************/
@@ -586,90 +563,85 @@ static void can_remove_proc_readentry(const char *name)
 		remove_proc_entry(name, can_dir);
 }
 
-static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
-			       unsigned long count)
+/**************************************************/
+/* procfs init / remove                           */
+/**************************************************/
+
+void can_init_proc(void)
 {
-	unsigned long ret = 0;
 
-	if (oldjif == newjif)
-		return 0;
+	/* procfs init */
 
-	/* see can_rcv() - this should NEVER happen! */
-	if (count > (ULONG_MAX / HZ)) {
-		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
-		       count);
-		return 99999999;
+	/* create /proc/can directory */
+	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
+
+	if (!can_dir) {
+		printk(KERN_INFO "CAN: failed to create CAN_PROC_DIR. "
+		       "CONFIG_PROC_FS missing?\n");
+		return;
 	}
 
-	ret = (count * HZ) / (newjif - oldjif);
+	can_dir->owner = THIS_MODULE;
 
-	return ret;
+	/* own procfs entries from the AF_CAN core */
+	pde_version     = can_create_proc_readentry(
+		CAN_PROC_VERSION, 0644, can_proc_read_version, NULL);
+	pde_stats       = can_create_proc_readentry(
+		CAN_PROC_STATS, 0644, can_proc_read_stats, NULL);
+	pde_reset_stats = can_create_proc_readentry(
+		CAN_PROC_RESET_STATS, 0644, can_proc_read_reset_stats, NULL);
+	pde_rcvlist_all = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_ALL, 0644, can_proc_read_rcvlist_all, NULL);
+	pde_rcvlist_fil = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_FIL, 0644, can_proc_read_rcvlist_fil, NULL);
+	pde_rcvlist_inv = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_INV, 0644, can_proc_read_rcvlist_inv, NULL);
+	pde_rcvlist_sff = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_SFF, 0644, can_proc_read_rcvlist_sff, NULL);
+	pde_rcvlist_eff = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_EFF, 0644, can_proc_read_rcvlist_eff, NULL);
+	pde_rcvlist_err = can_create_proc_readentry(
+		CAN_PROC_RCVLIST_ERR, 0644, can_proc_read_rcvlist_err, NULL);
+
+	if (stats_timer) {
+		/* the statistics are updated every second (timer triggered) */
+		stattimer.function = can_stat_update;
+		stattimer.data = 0;
+		stattimer.expires = jiffies + HZ; /* every second */
+		add_timer(&stattimer); /* start statistics timer */
+	}
 }
 
-/**************************************************/
-/* af_can statistics stuff                        */
-/**************************************************/
-
-static void can_init_stats(int caller)
+void can_remove_proc(void)
 {
-	memset(&stats, 0, sizeof(stats));
-	stats.jiffies_init  = jiffies;
-	pstats.stats_reset++;
-}
+	/* procfs remove */
+	if (pde_version)
+		can_remove_proc_readentry(CAN_PROC_VERSION);
 
-static void can_stat_update(unsigned long data)
-{
-	unsigned long j = jiffies; /* snapshot */
+	if (pde_stats)
+		can_remove_proc_readentry(CAN_PROC_STATS);
 
-	//DBG("CAN: can_stat_update() jiffies = %ld\n", j);
+	if (pde_reset_stats)
+		can_remove_proc_readentry(CAN_PROC_RESET_STATS);
 
-	if (j < stats.jiffies_init) /* jiffies overflow */
-		can_init_stats(2);
+	if (pde_rcvlist_all)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ALL);
 
-	/* stats.rx_frames is the definitively max. statistic value */
+	if (pde_rcvlist_fil)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_FIL);
 
-	/* prevent overflow in calc_rate() */
-	if (stats.rx_frames > (ULONG_MAX / HZ))
-		can_init_stats(3); /* restart */
+	if (pde_rcvlist_inv)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_INV);
 
-	/* matches overflow - very improbable */
-	if (stats.matches > (ULONG_MAX / 100))
-		can_init_stats(4);
+	if (pde_rcvlist_sff)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
-	/* calc total values */
-	if (stats.rx_frames)
-		stats.total_rx_match_ratio = (stats.matches * 100) / 
-						stats.rx_frames;
+	if (pde_rcvlist_eff)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_EFF);
 
-	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
-					stats.tx_frames);
-	stats.total_rx_rate = calc_rate(stats.jiffies_init, j,
-					stats.rx_frames);
+	if (pde_rcvlist_err)
+		can_remove_proc_readentry(CAN_PROC_RCVLIST_ERR);
 
-	/* calc current values */
-	if (stats.rx_frames_delta)
-		stats.current_rx_match_ratio =
-			(stats.matches_delta * 100) / stats.rx_frames_delta;
-
-	stats.current_tx_rate = calc_rate(0, HZ, stats.tx_frames_delta);
-	stats.current_rx_rate = calc_rate(0, HZ, stats.rx_frames_delta);
-
-	/* check / update maximum values */
-	if (stats.max_tx_rate < stats.current_tx_rate)
-		stats.max_tx_rate = stats.current_tx_rate;
-
-	if (stats.max_rx_rate < stats.current_rx_rate)
-		stats.max_rx_rate = stats.current_rx_rate;
-
-	if (stats.max_rx_match_ratio < stats.current_rx_match_ratio)
-		stats.max_rx_match_ratio = stats.current_rx_match_ratio;
-
-	/* clear values for 'current rate' calculation */
-	stats.tx_frames_delta = 0;
-	stats.rx_frames_delta = 0;
-	stats.matches_delta   = 0;
-
-	/* restart timer */
-	stattimer.expires = jiffies + HZ; /* every second */
-	add_timer(&stattimer);
+	if (can_dir)
+		remove_proc_entry(CAN_PROC_DIR, NULL);
 }
