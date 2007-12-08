@@ -181,7 +181,7 @@ static int can_create(struct socket *sock, int protocol)
 
 	sk = sk_alloc(PF_CAN, GFP_KERNEL, 1);
 	if (!sk)
-		goto oom;
+		return -ENOMEM;
 
 	sock_init_data(sock, sk);
 	sk->destruct = can_sock_destruct;
@@ -199,9 +199,6 @@ static int can_create(struct socket *sock, int protocol)
 	}
 
 	return 0;
-
- oom:
-	return -ENOMEM;
 }
 
 /*
@@ -355,42 +352,37 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 	    dev, can_id, mask, func, data, ident);
 
 	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
-	if (!r) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (!r)
+		return -ENOMEM;
 
 	write_lock_bh(&rcv_lists_lock);
 
 	d = find_dev_rcv_lists(dev);
-	if (!d) {
+	if (d) {
+		rl = find_rcv_list(&can_id, &mask, d);
+
+		r->can_id  = can_id;
+		r->mask    = mask;
+		r->matches = 0;
+		r->func    = func;
+		r->data    = data;
+		r->ident   = ident;
+
+		r->next = *rl;
+		*rl = r;
+		d->entries++;
+
+		pstats.rcv_entries++;
+		if (pstats.rcv_entries_max < pstats.rcv_entries)
+			pstats.rcv_entries_max = pstats.rcv_entries;
+	} else {
 		DBG("receive list not found for dev %s, id %03X, mask %03X\n",
 		    DNAME(dev), can_id, mask);
 		kmem_cache_free(rcv_cache, r);
 		ret = -ENODEV;
-		goto out_unlock;
 	}
-
-	rl = find_rcv_list(&can_id, &mask, d);
-
-	r->can_id  = can_id;
-	r->mask    = mask;
-	r->matches = 0;
-	r->func    = func;
-	r->data    = data;
-	r->ident   = ident;
-
-	r->next = *rl;
-	*rl = r;
-	d->entries++;
-
-	pstats.rcv_entries++;
-	if (pstats.rcv_entries_max < pstats.rcv_entries)
-		pstats.rcv_entries_max = pstats.rcv_entries;
-
- out_unlock:
 	write_unlock_bh(&rcv_lists_lock);
- out:
+
 	return ret;
 }
 
@@ -509,7 +501,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 				matches++;
 			}
 		}
-		goto out;
+		return matches;
 	}
 
 	/* check for unfiltered entries */
@@ -554,7 +546,6 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 		}
 	}
 
- out:
 	return matches;
 }
 
