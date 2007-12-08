@@ -81,7 +81,7 @@ static int debug = 0;
 
 #define IDENT "bcm"
 static __initdata const char banner[] = KERN_INFO
-	"CAN: broadcast manager (bcm) socket protocol " VERSION "\n"; 
+	"CAN: broadcast manager (bcm) socket protocol " VERSION "\n";
 
 MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -306,7 +306,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	/* restore originator for recvfrom() */
 	addr->can_ifindex = op->rx_ifindex;
 
-	if (head->nframes){
+	if (head->nframes) {
 		memcpy(skb_put(skb, datalen), frames, datalen);
 
 		/* the BCM uses the can_dlc-element of the can_frame */
@@ -538,14 +538,14 @@ static void bcm_rx_thr_handler(unsigned long data)
 
 	op->thrtimer.expires = 0; /* mark disabled / consumed timer */
 
-	if (op->nframes > 1){
+	if (op->nframes > 1) {
 
 		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
 		    op->can_id, op);
 		/* for MUX filter we start at index 1 */
-		for (i=1; i<op->nframes; i++){
+		for (i=1; i<op->nframes; i++) {
 			if ((op->last_frames) &&
-			    (op->last_frames[i].can_dlc & RX_THR)){
+			    (op->last_frames[i].can_dlc & RX_THR)) {
 				op->last_frames[i].can_dlc &= ~RX_THR;
 				bcm_rx_changed(op, &op->last_frames[i]);
 			}
@@ -555,7 +555,7 @@ static void bcm_rx_thr_handler(unsigned long data)
 		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
 		    op->can_id, op);
 		/* for RX_FILTER_ID and simple filter */
-		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)){
+		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)) {
 			op->last_frames[0].can_dlc &= ~RX_THR;
 			bcm_rx_changed(op, &op->last_frames[0]);
 		}
@@ -864,7 +864,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 	if (op->flags & TX_RESET_MULTI_IDX) {
 		/* start multiple frame transmission with index 0 */
-		op->currframe = 0; 
+		op->currframe = 0;
 	}
 
 	if (op->flags & SETTIMER) {
@@ -895,7 +895,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		/* spec: send can_frame when starting timer */
 		op->flags |= TX_ANNOUNCE;
 
-		if (op->j_ival1 && (op->count > 0)){
+		if (op->j_ival1 && (op->count > 0)) {
 			op->timer.expires = jiffies + op->j_ival1;
 			/* op->count-- is done in bcm_tx_timeout_handler */
 			DBG("TX_SETUP: adding timer ival1. func=%p data=%p "
@@ -903,7 +903,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			    op->timer.function,
 			    (char*) op->timer.data,
 			    (unsigned int) op->timer.expires);
-		} else{
+		} else {
 			op->timer.expires = jiffies + op->j_ival2;
 			DBG("TX_SETUP: adding timer ival2. func=%p data=%p "
 			    "exp=0x%08X\n",
@@ -1037,7 +1037,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kmalloc) structure */
-		init_timer(&op->timer); 
+		init_timer(&op->timer);
 
 		/* init throttle timer for RX_CHANGED */
 		init_timer(&op->thrtimer);
@@ -1143,7 +1143,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 						bcm_rx_handler, op, IDENT);
 				dev_put(dev);
 			}
-		} else 
+		} else
 			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
 					bcm_rx_handler, op, IDENT);
 	}
@@ -1207,7 +1207,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	/* check for alternative ifindex for this bcm_op */
 
 	if (!ifindex && msg->msg_name) { /* no bound device as default */
-		struct sockaddr_can *addr = 
+		struct sockaddr_can *addr =
 			(struct sockaddr_can *)msg->msg_name;
 		if (addr->can_family != AF_CAN)
 			return -EINVAL;
@@ -1246,7 +1246,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		else
 			ret = -EINVAL;
 		break;
-		    
+
 	case RX_DELETE:
 
 		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))

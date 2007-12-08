@@ -89,7 +89,7 @@ extern int stats_timer;                   /* module parameter. default: on */
 static void can_init_stats(int caller)
 {
 	memset(&stats, 0, sizeof(stats));
-	stats.jiffies_init  = jiffies;
+	stats.jiffies_init = jiffies;
 	pstats.stats_reset++;
 }
 
@@ -134,7 +134,7 @@ static void can_stat_update(unsigned long data)
 
 	/* calc total values */
 	if (stats.rx_frames)
-		stats.total_rx_match_ratio = (stats.matches * 100) / 
+		stats.total_rx_match_ratio = (stats.matches * 100) /
 						stats.rx_frames;
 
 	stats.total_tx_rate = calc_rate(stats.jiffies_init, j,
@@ -190,6 +190,7 @@ static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
 				r->matches, r->ident);
 
 		/* does a typical line fit into the current buffer? */
+
 		/* 100 Bytes before end of buffer */
 		if (len > PAGE_SIZE - 100) {
 			/* mark output cut off */
@@ -547,7 +548,7 @@ static int can_proc_read_rcvlist_err(char *page, char **start, off_t off,
 
 static struct proc_dir_entry *can_create_proc_readentry(const char *name,
 							mode_t mode,
-							read_proc_t* read_proc,
+							read_proc_t *read_proc,
 							void *data)
 {
 	if (can_dir)

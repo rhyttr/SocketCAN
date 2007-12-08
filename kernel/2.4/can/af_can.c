@@ -68,7 +68,7 @@ RCSID("$Id$");
 
 #define IDENT "af_can"
 static __initdata const char banner[] = KERN_INFO "CAN: Controller Area "
-					"Network PF_CAN core " VERSION "\n"; 
+					"Network PF_CAN core " VERSION "\n";
 
 MODULE_DESCRIPTION("Controller Area Network PF_CAN core");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -114,7 +114,6 @@ static struct can_proto *proto_tab[CAN_NPROTO];
 extern struct timer_list stattimer; /* timer for statistics update */
 extern struct s_stats  stats;       /* packet statistics */
 extern struct s_pstats pstats;      /* receive list statistics */
-
 
 /**************************************************/
 /* af_can socket functions                        */
@@ -214,15 +213,15 @@ int can_send(struct sk_buff *skb, int loop)
 	if (loop) { /* local loopback (default) */
 		*(struct sock **)skb->cb = skb->sk; /* tx sock reference */
 
-                /* interface not capabable to do the loopback itself? */
-                if (!(skb->dev->flags & IFF_LOOPBACK)) {
+		/* interface not capabable to do the loopback itself? */
+		if (!(skb->dev->flags & IFF_LOOPBACK)) {
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 			newskb->protocol  = htons(ETH_P_CAN);
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			netif_rx(newskb); /* perform local loopback here */
 		}
 	} else
-                *(struct sock **)skb->cb = NULL; /* no loopback required */
+		*(struct sock **)skb->cb = NULL; /* no loopback required */
 
 	if (!(skb->dev->flags & IFF_UP))
 		err = -ENETDOWN;
@@ -790,7 +789,7 @@ static __init int can_init(void)
 		return -ENOMEM;
 
 	/* Insert struct dev_rcv_lists for reception on all devices.
-	   This struct is zero initialized which is correct for the 
+	   This struct is zero initialized which is correct for the
 	   embedded receiver list head pointer, the dev pointer,
 	   and the entries counter.
 	*/
