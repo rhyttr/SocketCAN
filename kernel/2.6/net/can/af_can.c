@@ -69,6 +69,9 @@
 #include <net/sock.h>
 
 #include "af_can.h"
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
+#include "compat.h"
+#endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -104,16 +107,6 @@ static DEFINE_SPINLOCK(proto_tab_lock);
 struct timer_list can_stattimer;   /* timer for statistics update */
 struct s_stats    can_stats;       /* packet statistics */
 struct s_pstats   can_pstats;      /* receive list statistics */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
-static void *kzalloc(size_t size, unsigned int __nocast flags)
-{
-	void *ret = kmalloc(size, flags);
-	if (ret)
-		memset(ret, 0, size);
-	return ret;
-}
-#endif
 
 /*
  * af_can socket functions
@@ -914,11 +907,7 @@ static __init int can_init(void)
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
 		setup_timer(&can_stattimer, can_stat_update, 0);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 		mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
-#else
-		mod_timer(&can_stattimer, jiffies + HZ);
-#endif
 	} else
 		can_stattimer.function = NULL;
 

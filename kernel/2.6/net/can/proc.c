@@ -48,6 +48,9 @@
 #include <linux/can/core.h>
 
 #include "af_can.h"
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
+#include "compat.h"
+#endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -188,11 +191,7 @@ void can_stat_update(unsigned long data)
 	can_stats.matches_delta   = 0;
 
 	/* restart timer (one second) */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 	mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
-#else
-	mod_timer(&can_stattimer, jiffies + HZ);
-#endif
 }
 
 /*
