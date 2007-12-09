@@ -281,9 +281,10 @@ static struct receiver **find_rcv_list(canid_t *can_id, canid_t *mask,
 
 	/* use extra filterset for the subscription of exactly *ONE* can_id */
 	if (*can_id & CAN_EFF_FLAG) {
-		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG))
+		if (*mask == (CAN_EFF_MASK | CAN_EFF_FLAG)) {
 			/* RFC: a use-case for hash-tables in the future? */
 			return &d->rx[RX_EFF];
+		}
 	} else {
 		if (*mask == CAN_SFF_MASK)
 			return &d->rx_sff[*can_id];
