@@ -69,7 +69,7 @@ RCSID("$Id$");
 static __initdata const char banner[] = KERN_INFO
 	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
 
-MODULE_DESCRIPTION("PF_CAN bcm sockets");
+MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
@@ -98,6 +98,8 @@ struct bcm_op {
 	struct sock *sk;
 };
 
+static struct proc_dir_entry *proc_dir;
+
 struct bcm_opt {
 	int bound;
 	int ifindex;
@@ -107,8 +109,6 @@ struct bcm_opt {
 	struct proc_dir_entry *bcm_proc_read;
 	char procname [9]; /* pointer printed in ASCII with \0 */
 };
-
-static struct proc_dir_entry *proc_dir = NULL;
 
 #define bcm_sk(sk) ((struct bcm_opt *)&(sk)->tp_pinfo)
 
@@ -126,7 +126,8 @@ static char *bcm_proc_getifname(int ifindex)
 	if (!ifindex)
 		return "any";
 
-	dev = __dev_get_by_index(ifindex); /* no usage counting */
+	/* no usage counting */
+	dev = __dev_get_by_index(ifindex);
 	if (dev)
 		return dev->name;
 
@@ -233,28 +234,32 @@ static void bcm_can_tx(struct bcm_op *op)
 	struct net_device *dev;
 	struct can_frame *cf = &op->frames[op->currframe];
 
+	/* no target device? => exit */
 	if (!op->ifindex)
-		return; /* no target device -> exit */
+		return;
 
 	dev = dev_get_by_index(op->ifindex);
-
-	if (!dev)
-		return; /* should this bcm_op remove itself here? */
+	if (!dev) {
+		/* RFC: should this bcm_op remove itself here? */
+		return;
+	}
 
 	skb = alloc_skb(CFSIZ,
 			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 
 	if (!skb)
-		goto out; /* no memory */
+		goto out;
 
 	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
 
+	/* send with loopback */
 	skb->dev = dev;
 	skb->sk = op->sk;
-	can_send(skb, 1); /* send with loopback */
+	can_send(skb, 1);
 
+	/* update statistics */
 	op->currframe++;
-	op->frames_abs++; /* statistics */
+	op->frames_abs++;
 
 	/* reached last frame? */
 	if (op->currframe >= op->nframes)
@@ -272,9 +277,9 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 {
 	struct sk_buff *skb;
 	struct can_frame *firstframe;
+	struct sockaddr_can *addr;
 	struct sock *sk = op->sk;
 	int datalen = head->nframes * CFSIZ;
-	struct sockaddr_can *addr;
 	int err;
 
 	skb = alloc_skb(sizeof(*head) + datalen,
@@ -317,17 +322,15 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
  */
 static void bcm_tx_timeout_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 
 	if (op->j_ival1 && (op->count > 0)) {
 
 		op->count--;
-
 		if (!op->count && (op->flags & TX_COUNTEVT)) {
-			/* create notification to user */
-
 			struct bcm_msg_head msg_head;
 
+			/* create notification to user */
 			msg_head.opcode  = TX_EXPIRED;
 			msg_head.flags   = op->flags;
 			msg_head.count   = op->count;
@@ -356,7 +359,6 @@ static void bcm_tx_timeout_handler(unsigned long data)
 	}
 
 	return;
-
 }
 
 /*
@@ -464,13 +466,12 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 	}
 }
 
-
 /*
  * bcm_rx_timeout_handler - when the (cyclic) CAN frame receiption timed out
  */
 static void bcm_rx_timeout_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	struct bcm_msg_head msg_head;
 
 	msg_head.opcode  = RX_TIMEOUT;
@@ -490,7 +491,6 @@ static void bcm_rx_timeout_handler(unsigned long data)
 		/* clear received can_frames to indicate 'nothing received' */
 		memset(op->last_frames, 0, op->nframes * CFSIZ);
 	}
-
 }
 
 /*
@@ -499,7 +499,7 @@ static void bcm_rx_timeout_handler(unsigned long data)
  */
 static void bcm_rx_thr_handler(unsigned long data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	int i = 0;
 
 	op->thrtimer.expires = 0; /* mark disabled / consumed timer */
@@ -529,7 +529,7 @@ static void bcm_rx_thr_handler(unsigned long data)
  */
 static void bcm_rx_handler(struct sk_buff *skb, void *data)
 {
-	struct bcm_op *op = (struct bcm_op*)data;
+	struct bcm_op *op = (struct bcm_op *)data;
 	struct can_frame rxframe;
 	int i;
 
