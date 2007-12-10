@@ -51,26 +51,12 @@
 
 RCSID("$Id$");
 
-static __initdata const char banner[] = KERN_INFO "CAN: virtual CAN "
-					"interface " VERSION "\n";
+static __initdata const char banner[] =
+	KERN_INFO "vcan: Virtual CAN interface driver\n";
 
 MODULE_DESCRIPTION("virtual CAN interface");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
-
-#ifdef DEBUG
-static int debug = 0;
-MODULE_PARM(debug, "1i");
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "VCAN %s: ", __func__), \
-				printk(args)) : 0)
-#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-#else
-#define DBG(args...)
-#define DBG_FRAME(args...)
-#define DBG_SKB(skb)
-#endif
 
 /* Indicate if this VCAN driver should do a real loopback, or if this */
 /* should be done in af_can.c */
@@ -89,16 +75,12 @@ static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
 static int vcan_open(struct net_device *dev)
 {
-	DBG("%s: interface up\n", dev->name);
-
 	netif_start_queue(dev);
 	return 0;
 }
 
 static int vcan_stop(struct net_device *dev)
 {
-	DBG("%s: interface down\n", dev->name);
-
 	netif_stop_queue(dev);
 	return 0;
 }
@@ -115,9 +97,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	skb->dev       = dev;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	DBG("received skbuff on interface %d\n", dev->ifindex);
-	DBG_SKB(skb);
-
 	netif_rx(skb);
 }
 
@@ -127,10 +106,6 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = netdev_priv(dev);
 	int loop;
-
-	DBG("sending skbuff on interface %s\n", dev->name);
-	DBG_SKB(skb);
-	DBG_FRAME("VCAN: transmit CAN frame", (struct can_frame *)skb->data);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
@@ -174,8 +149,6 @@ static int vcan_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 static int vcan_rebuild_header(struct sk_buff *skb)
 {
-	DBG("skbuff %p\n", skb);
-	DBG_SKB(skb);
 	return 0;
 }
 
@@ -183,8 +156,6 @@ static int vcan_header(struct sk_buff *skb, struct net_device *dev,
 		       unsigned short type, void *daddr, void *saddr,
 		       unsigned int len)
 {
-	DBG("skbuff %p device %p\n", skb, dev);
-	DBG_SKB(skb);
 	return 0;
 }
 
@@ -197,8 +168,6 @@ static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 
 static int vcan_init(struct net_device *dev)
 {
-	DBG("dev %s\n", dev->name);
-
 	ether_setup(dev);
 
 	dev->priv              = kmalloc(STATSIZE, GFP_KERNEL);
@@ -266,11 +235,8 @@ static __init int vcan_init_module(void)
 			printk(KERN_ERR "vcan: error %d registering "
 			       "interface %s\n", result, vcan_devs[i]->name);
 			goto out;
-		} else {
-			DBG("successfully registered interface %s\n",
-			    vcan_devs[i]->name);
+		} else
 			ndev++;
-		}
 	}
 
 	if (ndev)
