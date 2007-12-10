@@ -106,12 +106,6 @@ struct bcm_opt {
 
 static struct proc_dir_entry *proc_dir = NULL;
 
-#ifdef CONFIG_CAN_BCM_USER
-#define BCM_CAP (-1)
-#else
-#define BCM_CAP CAP_NET_RAW
-#endif
-
 #define bcm_sk(sk) ((struct bcm_opt *)&(sk)->tp_pinfo)
 
 #define CFSIZ sizeof(struct can_frame)
@@ -1349,7 +1343,7 @@ static struct proto_ops bcm_ops = {
 static struct can_proto bcm_can_proto = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
-	.capability = BCM_CAP,
+	.capability = -1,
 	.ops        = &bcm_ops,
 	.obj_size   = sizeof(struct bcm_opt),
 	.init       = bcm_init,

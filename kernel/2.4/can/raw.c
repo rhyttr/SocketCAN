@@ -67,12 +67,6 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 
 #undef CAN_RAW_SUPPORT_REBIND /* use bind on already bound socket */
 
-#ifdef CONFIG_CAN_RAW_USER
-#define RAW_CAP (-1)
-#else
-#define RAW_CAP CAP_NET_RAW
-#endif
-
 #define MASK_ALL 0
 
 /*
@@ -626,7 +620,7 @@ static struct proto_ops raw_ops = {
 static struct can_proto raw_can_proto = {
 	.type       = SOCK_RAW,
 	.protocol   = CAN_RAW,
-	.capability = RAW_CAP,
+	.capability = -1,
 	.ops        = &raw_ops,
 	.obj_size   = sizeof(struct canraw_opt),
 	.init       = raw_init,

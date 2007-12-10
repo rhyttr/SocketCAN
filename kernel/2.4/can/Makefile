@@ -42,7 +42,7 @@
 
 
 CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
-		$(RAWCAP) $(BCMCAP) -I$(KERNELDIR)/include -fno-strict-aliasing
+		-I$(KERNELDIR)/include -fno-strict-aliasing
 KERNELDIR = /usr/src/linux
 
 VERSION       = $(shell awk '/^VERSION/     {print $$3}' $(KERNELDIR)/Makefile)
