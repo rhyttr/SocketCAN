@@ -355,6 +355,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		kmem_cache_free(rcv_cache, r);
 		err = -ENODEV;
 	}
+
 	write_unlock_bh(&can_rcvlists_lock);
 
 	return err;
@@ -381,11 +382,6 @@ static void can_rx_delete_all(struct receiver **rl)
  *
  * Description:
  *  Removes subscription entry depending on given (subscription) values.
- *
- * Return:
- *  0 on success
- *  -EINVAL on missing subscription entry
- *  -ENODEV unknown device
  */
 void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		       void (*func)(struct sk_buff *, void *), void *data)
@@ -443,6 +439,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
 	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+
 	if (clone) {
 		r->func(clone, r->data);
 		r->matches++;
@@ -453,7 +450,7 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 {
 	struct receiver *r;
 	int matches = 0;
-	struct can_frame *cf = (struct can_frame*)skb->data;
+	struct can_frame *cf = (struct can_frame *)skb->data;
 	canid_t can_id = cf->can_id;
 
 	if (d->entries == 0)
