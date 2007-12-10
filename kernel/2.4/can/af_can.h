@@ -112,11 +112,12 @@ struct s_pstats {
 /* function prototypes for the CAN networklayer procfs (proc.c) */
 extern void can_init_proc(void);
 extern void can_remove_proc(void);
+extern void can_stat_update(unsigned long data);
 
 /* structures and variables from af_can.c needed in proc.c for reading */
-extern struct timer_list can_stattimer;    /* timer for statistics update */
-extern struct s_stats    can_stats;        /* packet statistics */
-extern struct s_pstats   can_pstats;       /* receive list statistics */
-extern struct hlist_head can_rx_dev_list;  /* rx dispatcher structures */
+extern struct timer_list can_stattimer;       /* timer for statistics update */
+extern struct s_stats    can_stats;           /* packet statistics */
+extern struct s_pstats   can_pstats;          /* receive list statistics */
+extern struct dev_rcv_lists *can_rx_dev_list; /* rx dispatcher structures */
 
 #endif /* AF_CAN_H */

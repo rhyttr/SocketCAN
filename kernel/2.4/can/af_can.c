@@ -692,11 +692,11 @@ static int can_notifier(struct notifier_block *nb,
 		d->next->pprev = d->pprev;
 
 		/* remove all receivers hooked at this netdevice */
-		can_rx_delete_all(&d->rx_err);
-		can_rx_delete_all(&d->rx_all);
-		can_rx_delete_all(&d->rx_fil);
-		can_rx_delete_all(&d->rx_inv);
-		can_rx_delete_all(&d->rx_eff);
+		can_rx_delete_all(&d->rx[RX_ERR]);
+		can_rx_delete_all(&d->rx[RX_ALL]);
+		can_rx_delete_all(&d->rx[RX_FIL]);
+		can_rx_delete_all(&d->rx[RX_INV]);
+		can_rx_delete_all(&d->rx[RX_EFF]);
 		for (i = 0; i < 2048; i++)
 			can_rx_delete_all(&d->rx_sff[i]);
 		kfree(d);

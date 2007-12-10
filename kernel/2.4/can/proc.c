@@ -115,7 +115,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 	return rate;
 }
 
-static void can_stat_update(unsigned long data)
+void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
@@ -346,7 +346,7 @@ static int can_proc_read_rcvlist(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"\nreceive list '%s':\n", rx_list_name[idx]);
 
-	for (d = rx_dev_list; d; d = d->next) {
+	for (d = can_rx_dev_list; d; d = d->next) {
 
 		if (d->rx[idx]) {
 			len = can_print_recv_banner(page, len);
@@ -380,7 +380,7 @@ static int can_proc_read_rcvlist_sff(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len,
 			"\nreceive list 'rx_sff':\n");
 
-	for (d = rx_dev_list; d; d = d->next) {
+	for (d = can_rx_dev_list; d; d = d->next) {
 		int i, all_empty = 1;
 		/* check wether at least one list is non-empty */
 		for (i = 0; i < 0x800; i++)
