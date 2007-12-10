@@ -73,7 +73,11 @@ MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
-#define GET_U64(p) (*(u64*)(p)->data) /* easy access */
+/* easy access to can_frame payload */
+static inline u64 GET_U64(const struct can_frame *cp)
+{
+	return *(u64 *)cp->data;
+}
 
 struct bcm_op {
 	struct bcm_op *next;
@@ -112,10 +116,9 @@ static struct proc_dir_entry *proc_dir = NULL;
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
 
-/**************************************************/
-/* procfs functions                               */
-/**************************************************/
-
+/*
+ * procfs functions
+ */
 static char *bcm_proc_getifname(int ifindex)
 {
 	struct net_device *dev;
@@ -220,6 +223,10 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
+/*
+ * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
+ *              of the given bcm tx op
+ */
 static void bcm_can_tx(struct bcm_op *op)
 {
 	struct sk_buff *skb;
@@ -256,6 +263,10 @@ static void bcm_can_tx(struct bcm_op *op)
 	dev_put(dev);
 }
 
+/*
+ * bcm_send_to_user - send a BCM message to the userspace
+ *                    (consisting of bcm_msg_head + x CAN frames)
+ */
 static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 			     struct can_frame *frames, struct timeval *tv)
 {
@@ -301,6 +312,9 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	}
 }
 
+/*
+ * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
+ */
 static void bcm_tx_timeout_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op*)data;
@@ -345,6 +359,9 @@ static void bcm_tx_timeout_handler(unsigned long data)
 
 }
 
+/*
+ * bcm_rx_changed - create a RX_CHANGED notification due to changed content
+ */
 static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 {
 	struct bcm_msg_head head;
@@ -366,6 +383,11 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 	bcm_send_to_user(op, &head, data, &op->rx_stamp);
 }
 
+/*
+ * bcm_rx_update_and_send - process a detected relevant receive content change
+ *                          1. update the last received data
+ *                          2. send a notification to the user (if possible)
+ */
 static void bcm_rx_update_and_send(struct bcm_op *op,
 				   struct can_frame *lastdata,
 				   struct can_frame *rxdata)
@@ -389,6 +411,10 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 		bcm_rx_changed(op, rxdata); /* send RX_CHANGED to the user */
 }
 
+/*
+ * bcm_rx_cmp_to_index - (bit)compares the currently received data to formerly
+ *                       received data stored in op->last_frames[]
+ */
 static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
 				struct can_frame *rxdata)
 {
@@ -422,6 +448,9 @@ static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
 	}
 }
 
+/*
+ * bcm_rx_starttimer - enable timeout monitoring for CAN frame receiption
+ */
 static void bcm_rx_starttimer(struct bcm_op *op)
 {
 	if (op->flags & RX_NO_AUTOTIMER)
@@ -436,6 +465,9 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 }
 
 
+/*
+ * bcm_rx_timeout_handler - when the (cyclic) CAN frame receiption timed out
+ */
 static void bcm_rx_timeout_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op*)data;
@@ -461,6 +493,10 @@ static void bcm_rx_timeout_handler(unsigned long data)
 
 }
 
+/*
+ * bcm_rx_thr_handler - the time for blocked content updates is over now:
+ *                      Check for throttled data and send it to the userspace
+ */
 static void bcm_rx_thr_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op*)data;
@@ -488,6 +524,9 @@ static void bcm_rx_thr_handler(unsigned long data)
 	}
 }
 
+/*
+ * bcm_rx_handler - handle a CAN frame receiption
+ */
 static void bcm_rx_handler(struct sk_buff *skb, void *data)
 {
 	struct bcm_op *op = (struct bcm_op*)data;
@@ -547,10 +586,9 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 	}
 }
 
-/**************************************************/
-/* bcm_op handling: find & delete bcm_op elements */
-/**************************************************/
-
+/*
+ * helpers for bcm_op handling: find & delete bcm [rx|tx] op elements
+ */
 static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id,
 				  int ifindex)
 {
@@ -582,6 +620,9 @@ static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op)
 	*ops = op;
 }
 
+/*
+ * bcm_delete_rx_op - find and remove a rx op (returns number of removed ops)
+ */
 static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 {
 	struct bcm_op *op, **n;
@@ -615,6 +656,9 @@ static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 	return 0; /* not found */
 }
 
+/*
+ * bcm_delete_tx_op - find and remove a tx op (returns number of removed ops)
+ */
 static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 {
 	struct bcm_op *op, **n;
@@ -630,6 +674,9 @@ static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 	return 0; /* not found */
 }
 
+/*
+ * bcm_read_op - read out a bcm_op and send it to the user (for bcm_sendmsg)
+ */
 static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
 		       int ifindex)
 {
@@ -656,6 +703,9 @@ static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
 	return ret;
 }
 
+/*
+ * bcm_tx_setup - create or update a bcm tx op (for bcm_sendmsg)
+ */
 static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
@@ -805,6 +855,9 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	return msg_head->nframes * CFSIZ + MHSIZ;
 }
 
+/*
+ * bcm_rx_setup - create or update a bcm rx op (for bcm_sendmsg)
+ */
 static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
@@ -1013,6 +1066,9 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	return msg_head->nframes * CFSIZ + MHSIZ;
 }
 
+/*
+ * bcm_tx_send - send a single CAN frame to the CAN interface (for bcm_sendmsg)
+ */
 static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 {
 	struct sk_buff *skb;
@@ -1050,6 +1106,9 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 	return CFSIZ + MHSIZ;
 }
 
+/*
+ * bcm_sendmsg - process BCM commands (opcodes) from the userspace
+ */
 static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		       struct scm_cookie *scm)
 {
@@ -1142,10 +1201,9 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	return ret;
 }
 
-/**************************************************/
-/* initial settings at socket creation time       */
-/**************************************************/
-
+/*
+ * initial settings for all BCM sockets to be set at socket creation time
+ */
 static int bcm_init(struct sock *sk)
 {
 	struct bcm_opt *bo = bcm_sk(sk);
@@ -1161,10 +1219,9 @@ static int bcm_init(struct sock *sk)
 	return 0;
 }
 
-/**************************************************/
-/* handling of netdevice problems                 */
-/**************************************************/
-
+/*
+ * notification handler for netdevice status changes
+ */
 static void bcm_notifier(unsigned long msg, void *data)
 {
 	struct sock *sk = (struct sock *)data;
@@ -1182,10 +1239,9 @@ static void bcm_notifier(unsigned long msg, void *data)
 	}
 }
 
-/**************************************************/
-/* standard socket functions                      */
-/**************************************************/
-
+/*
+ * standard socket functions
+ */
 static int bcm_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
