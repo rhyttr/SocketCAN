@@ -57,10 +57,9 @@
 
 RCSID("$Id$");
 
-
-#define IDENT "raw"
-static __initdata const char banner[] = KERN_INFO "CAN: raw socket protocol"
-					" " VERSION "\n"; 
+#define CAN_RAW_VERSION CAN_VERSION
+static __initdata const char banner[] =
+	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
 
 MODULE_DESCRIPTION("PF_CAN raw sockets");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -155,7 +154,7 @@ static void raw_add_filters(struct net_device *dev, struct sock *sk)
 
 	for (i = 0; i < ro->count; i++) {
 		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
-				raw_rcv, sk, IDENT);
+				raw_rcv, sk, "raw");
 	}
 }
 
@@ -283,7 +282,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	/* error frame filter set by setsockopt */
 	if (ro->err_mask)
 		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-				raw_rcv, sk, IDENT);
+				raw_rcv, sk, "raw");
 
 	ro->bound = 1;
 
@@ -401,7 +400,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		ro->err_mask = err_mask;
 		if (ro->err_mask && ro->bound)
 			can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
-					raw_rcv, sk, IDENT);
+					raw_rcv, sk, "raw");
 
 		if (dev)
 			dev_put(dev);

@@ -54,6 +54,13 @@ RCSID("$Id$");
 
 #include "can.h"
 
+#define CAN_VERSION "20071116-backport-preview-1"
+
+/* increment this number each time you change some user-space interface */
+#define CAN_ABI_VERSION "8"
+
+#define CAN_VERSION_STRING "rev " CAN_VERSION " abi " CAN_ABI_VERSION
+
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
 #define CAN_PROC_DIR "net/can" /* /proc/... */

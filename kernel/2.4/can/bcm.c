@@ -65,9 +65,9 @@ RCSID("$Id$");
 #define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
 			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
 
-#define IDENT "bcm"
+#define CAN_BCM_VERSION CAN_VERSION
 static __initdata const char banner[] = KERN_INFO
-	"CAN: broadcast manager (bcm) socket protocol " VERSION "\n";
+	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
 
 MODULE_DESCRIPTION("PF_CAN bcm sockets");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -1008,12 +1008,12 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			if (dev) {
 				can_rx_register(dev, op->can_id,
 						REGMASK(op->can_id),
-						bcm_rx_handler, op, IDENT);
+						bcm_rx_handler, op, "bcm");
 				dev_put(dev);
 			}
 		} else
 			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
-					bcm_rx_handler, op, IDENT);
+					bcm_rx_handler, op, "bcm");
 	}
 
 	return msg_head->nframes * CFSIZ + MHSIZ;
@@ -1362,7 +1362,7 @@ static int __init bcm_module_init(void)
 	can_proto_register(&bcm_can_proto);
 
 	/* create /proc/net/can/bcm directory */
-	proc_dir = proc_mkdir(CAN_PROC_DIR"/"IDENT, NULL);
+	proc_dir = proc_mkdir(CAN_PROC_DIR"/bcm", NULL);
 
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
@@ -1375,7 +1375,7 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
-		remove_proc_entry(CAN_PROC_DIR"/"IDENT, NULL);
+		remove_proc_entry(CAN_PROC_DIR"/bcm", NULL);
 
 }
 
