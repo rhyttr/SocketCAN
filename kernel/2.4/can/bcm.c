@@ -1202,24 +1202,6 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 }
 
 /*
- * initial settings for all BCM sockets to be set at socket creation time
- */
-static int bcm_init(struct sock *sk)
-{
-	struct bcm_opt *bo = bcm_sk(sk);
-
-	bo->bound            = 0;
-	bo->ifindex          = 0;
-	bo->dropped_usr_msgs = 0;
-	bo->bcm_proc_read    = NULL;
-
-	bo->tx_ops = NULL;
-	bo->rx_ops = NULL;
-
-	return 0;
-}
-
-/*
  * notification handler for netdevice status changes
  */
 static void bcm_notifier(unsigned long msg, void *data)
@@ -1237,6 +1219,24 @@ static void bcm_notifier(unsigned long msg, void *data)
 		if (!sk->dead)
 			sk->error_report(sk);
 	}
+}
+
+/*
+ * initial settings for all BCM sockets to be set at socket creation time
+ */
+static int bcm_init(struct sock *sk)
+{
+	struct bcm_opt *bo = bcm_sk(sk);
+
+	bo->bound            = 0;
+	bo->ifindex          = 0;
+	bo->dropped_usr_msgs = 0;
+	bo->bcm_proc_read    = NULL;
+
+	bo->tx_ops = NULL;
+	bo->rx_ops = NULL;
+
+	return 0;
 }
 
 /*
