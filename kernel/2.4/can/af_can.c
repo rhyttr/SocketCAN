@@ -548,25 +548,33 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 /**
  * can_proto_register - register CAN transport protocol
  * @cp: pointer to CAN protocol structure
+ *
+ * Return:
+ *  0 on success
+ *  -EINVAL invalid (out of range) protocol number
+ *  -EBUSY  protocol already in use
  */
-void can_proto_register(struct can_proto *cp)
+int can_proto_register(struct can_proto *cp)
 {
 	int proto = cp->protocol;
+
 	if (proto < 0 || proto >= CAN_NPROTO) {
-		printk(KERN_ERR "CAN: protocol number %d out "
-		       "of range\n", proto);
-		return;
+		printk(KERN_ERR "can: protocol number %d out of range\n",
+		       proto);
+		return -EINVAL;
 	}
 	if (proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d already "
-		       "registered\n", proto);
-		return;
+		printk(KERN_ERR "can: protocol %d already registered\n",
+		       proto);
+		return -EBUSY;
 	}
 	proto_tab[proto] = cp;
 
 	/* use generic ioctl function if the module doesn't bring its own */
 	if (!cp->ops->ioctl)
 		cp->ops->ioctl = can_ioctl;
+
+	return 0;
 }
 
 /**
@@ -576,8 +584,10 @@ void can_proto_register(struct can_proto *cp)
 void can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
+
 	if (!proto_tab[proto]) {
-		printk(KERN_ERR "CAN: protocol %d is not registered\n", proto);
+		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
+		       proto);
 		return;
 	}
 	proto_tab[proto] = NULL;
