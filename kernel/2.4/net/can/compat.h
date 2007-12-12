@@ -5,7 +5,7 @@
 #ifndef CAN_COMPAT_H
 #define CAN_COMPAT_H
 
-static inline void *kzalloc(size_t size, unsigned int __nocast flags)
+static inline void *kzalloc(size_t size, unsigned int flags)
 {
 	void *ret = kmalloc(size, flags);
 	if (ret)
