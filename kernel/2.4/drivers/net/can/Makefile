@@ -1,5 +1,5 @@
 #
-#  $Id$
+#  $Id: Makefile 602 2007-12-12 11:42:10Z hartkopp $
 #
 #  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
 #  All rights reserved.
@@ -44,7 +44,7 @@
 KERNELDIR = /usr/src/linux
 
 CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
-		-I$(KERNELDIR)/include -I../../include -fno-strict-aliasing \
+		-I$(KERNELDIR)/include -I../../../include -fno-strict-aliasing \
 		-DETH_P_CAN=0x000C \
 		-DARPHRD_CAN=280 \
 		-DPF_CAN=29 \
@@ -60,7 +60,7 @@ KERNELRELEASE = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
 MODLIB := $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)/llcf
 
-MOD = can.o can-bcm.o can-raw.o
+MOD = vcan.o
 
 all: $(MOD)
 
@@ -78,11 +78,3 @@ install: $(MOD)
 clean:
 	rm -f *.o
 
-can.o: af_can.o proc.o
-	$(LD) -r -o $@ $^
-
-can-bcm.o: bcm.o
-	$(LD) -r -o $@ $^
-
-can-raw.o: raw.o
-	$(LD) -r -o $@ $^
