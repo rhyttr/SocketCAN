@@ -21,7 +21,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
-#define CAN_VERSION "20071116"
+#define CAN_VERSION "20071116-backport-pre2"
 
 /* increment this number each time you change some user-space interface */
 #define CAN_ABI_VERSION "8"
@@ -36,26 +36,26 @@
  * @protocol:   protocol number in socket() syscall.
  * @capability: capability needed to open the socket, or -1 for no restriction.
  * @ops:        pointer to struct proto_ops for sock->ops.
- * @prot:       pointer to struct proto structure.
  */
 struct can_proto {
 	int              type;
 	int              protocol;
 	int              capability;
 	struct proto_ops *ops;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	struct proto     *prot;
-#else
-	struct module    *owner;
 	int              (*init)(struct sock *sk);
 	size_t           obj_size;
-#endif
 };
 
 /* function prototypes for the CAN networklayer core (af_can.c) */
 
 extern int  can_proto_register(struct can_proto *cp);
 extern void can_proto_unregister(struct can_proto *cp);
+
+/* FIX ME: "can_dev_(un)register() to be removed after notifier rework! */
+extern void can_dev_register(struct net_device *dev,
+			     void (*func)(unsigned long msg, void *), void *data);
+extern void can_dev_unregister(struct net_device *dev,
+			       void (*func)(unsigned long msg, void *), void *data);
 
 extern int  can_rx_register(struct net_device *dev, canid_t can_id,
 			    canid_t mask,

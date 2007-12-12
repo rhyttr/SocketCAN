@@ -41,9 +41,16 @@
 #  Send feedback to <socketcan-users@lists.berlios.de>
 
 
-CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
-		-I$(KERNELDIR)/include -fno-strict-aliasing
 KERNELDIR = /usr/src/linux
+
+CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
+		-I$(KERNELDIR)/include -I../include -fno-strict-aliasing \
+		-DETH_P_CAN=0x000C \
+		-DARPHRD_CAN=280 \
+		-DPF_CAN=29 \
+		-DAF_CAN=PF_CAN
+
+
 
 VERSION       = $(shell awk '/^VERSION/     {print $$3}' $(KERNELDIR)/Makefile)
 PATCHLEVEL    = $(shell awk '/^PATCHLEVEL/  {print $$3}' $(KERNELDIR)/Makefile)

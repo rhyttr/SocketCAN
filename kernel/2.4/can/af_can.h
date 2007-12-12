@@ -44,13 +44,13 @@
 #ifndef AF_CAN_H
 #define AF_CAN_H
 
-#include "version.h"
+#include <linux/can/version.h>
 RCSID("$Id$");
 
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
-#include "can.h"
+#include <linux/can.h>
 
 /* af_can rx dispatcher structures */
 

@@ -49,11 +49,11 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include "can.h"
-#include "can_core.h"
-#include "can_error.h"
-#include "version.h"
-#include "raw.h"
+#include <linux/can.h>
+#include <linux/can/core.h>
+#include <linux/can/error.h>
+#include <linux/can/version.h>
+#include <linux/can/raw.h>
 
 RCSID("$Id$");
 

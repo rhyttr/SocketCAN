@@ -59,9 +59,9 @@
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include "can.h"
-#include "can_core.h"
-#include "version.h"
+#include <linux/can.h>
+#include <linux/can/core.h>
+#include <linux/can/version.h>
 #include "af_can.h"
 
 RCSID("$Id$");
@@ -819,32 +819,6 @@ static __exit void can_exit(void)
 	kmem_cache_destroy(rcv_cache);
 }
 
-/*
- * af_can utility stuff
- */
-
-unsigned long timeval2jiffies(struct timeval *tv, int round_up)
-{
-	unsigned long jif;
-	unsigned long sec  = tv->tv_sec;
-	unsigned long usec = tv->tv_usec;
-
-	if (sec > ULONG_MAX / HZ)          /* check for overflow */
-		return ULONG_MAX;
-
-	if (round_up)                      /* any usec below one HZ? */
-		usec += 1000000 / HZ - 1;  /* pump it up */
-
-	jif = usec / (1000000 / HZ);
-
-	if (sec * HZ > ULONG_MAX - jif)    /* check for overflow */
-		return ULONG_MAX;
-	else
-		return jif + sec * HZ;
-}
-
-
-
 module_init(can_init);
 module_exit(can_exit);
 
@@ -859,5 +833,4 @@ EXPORT_SYMBOL(can_rx_unregister);
 EXPORT_SYMBOL(can_dev_register);
 EXPORT_SYMBOL(can_dev_unregister);
 EXPORT_SYMBOL(can_send);
-EXPORT_SYMBOL(timeval2jiffies);
 #endif

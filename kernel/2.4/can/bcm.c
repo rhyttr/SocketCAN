@@ -49,10 +49,10 @@
 #include <linux/poll.h>
 #include <net/sock.h>
 
-#include "can.h"
-#include "can_core.h"
-#include "version.h"
-#include "bcm.h"
+#include <linux/can.h>
+#include <linux/can/core.h>
+#include <linux/can/version.h>
+#include <linux/can/bcm.h>
 
 RCSID("$Id$");
 
@@ -115,6 +115,39 @@ struct bcm_opt {
 #define CFSIZ sizeof(struct can_frame)
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
+
+/*
+ * rounded_tv2jif - calculate jiffies from timeval including optional up
+ * @tv: pointer to timeval
+ *
+ * Description:
+ * Unlike timeval_to_jiffies() provided in include/linux/jiffies.h, this
+ * function is intentionally more relaxed on precise timer ticks to get
+ * exact one jiffy for requested 1000us on a 1000HZ machine.
+ * This code is to be removed when upgrading to kernel hrtimer.
+ *
+ * Return:
+ *  calculated jiffies (max: ULONG_MAX)
+ */
+static unsigned long rounded_tv2jif(const struct timeval *tv)
+{
+	unsigned long sec  = tv->tv_sec;
+	unsigned long usec = tv->tv_usec;
+	unsigned long jif;
+
+	if (sec > ULONG_MAX / HZ)
+		return ULONG_MAX;
+
+	/* round up to get at least the requested time */
+	usec += 1000000 / HZ - 1;
+
+	jif  = usec / (1000000 / HZ);
+
+	if (sec * HZ > ULONG_MAX - jif)
+		return ULONG_MAX;
+
+	return jif + sec * HZ;
+}
 
 /*
  * procfs functions
@@ -822,8 +855,8 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->count   = msg_head->count;
 		op->ival1   = msg_head->ival1;
 		op->ival2   = msg_head->ival2;
-		op->j_ival1 = timeval2jiffies(&msg_head->ival1, 1);
-		op->j_ival2 = timeval2jiffies(&msg_head->ival2, 1);
+		op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
+		op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
 
 		/* disable an active timer due to zero values? */
 		if (!op->j_ival1 && !op->j_ival2) {
@@ -1016,9 +1049,9 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			/* set timer value */
 
 			op->ival1   = msg_head->ival1;
-			op->j_ival1 = timeval2jiffies(&msg_head->ival1, 1);
+			op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
 			op->ival2   = msg_head->ival2;
-			op->j_ival2 = timeval2jiffies(&msg_head->ival2, 1);
+			op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
 
 			/* disable an active timer due to zero value? */
 			if (!op->j_ival1) {
@@ -1412,7 +1445,7 @@ static int __init bcm_module_init(void)
 	can_proto_register(&bcm_can_proto);
 
 	/* create /proc/net/can/bcm directory */
-	proc_dir = proc_mkdir(CAN_PROC_DIR"/bcm", NULL);
+	proc_dir = proc_mkdir("net/can-bcm", NULL);
 
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
@@ -1425,7 +1458,7 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
-		remove_proc_entry(CAN_PROC_DIR"/bcm", NULL);
+		remove_proc_entry("net/can-bcm", NULL);
 
 }
 

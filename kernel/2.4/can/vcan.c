@@ -46,8 +46,8 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 
-#include "af_can.h"
-#include "version.h"
+#include <linux/can.h>
+#include <linux/can/version.h>
 
 RCSID("$Id$");
 

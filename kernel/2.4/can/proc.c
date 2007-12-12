@@ -44,9 +44,9 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 
-#include "can.h"
-#include "can_core.h"
-#include "version.h"
+#include <linux/can.h>
+#include <linux/can/core.h>
+#include <linux/can/version.h>
 #include "af_can.h"
 
 RCSID("$Id$");
@@ -323,9 +323,8 @@ static int can_proc_read_version(char *page, char **start, off_t off,
 
 	MOD_INC_USE_COUNT;
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"%06X [ Volkswagen Group - Low Level CAN Framework"
-			" (LLCF) v%s ]\n", LLCF_VERSION_CODE, VERSION);
+	len += snprintf(page + len, PAGE_SIZE - len, "%s\n",
+			CAN_VERSION_STRING);
 
 	MOD_DEC_USE_COUNT;
 
@@ -442,10 +441,10 @@ static void can_remove_proc_readentry(const char *name)
 void can_init_proc(void)
 {
 	/* create /proc/net/can directory */
-	can_dir = proc_mkdir(CAN_PROC_DIR, NULL);
+	can_dir = proc_mkdir("net/can", NULL);
 
 	if (!can_dir) {
-		printk(KERN_INFO "CAN: failed to create CAN_PROC_DIR. "
+		printk(KERN_INFO "CAN: failed to create /proc/net/can. "
 		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
@@ -506,5 +505,5 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
-		remove_proc_entry(CAN_PROC_DIR, NULL);
+		remove_proc_entry("net/can", NULL);
 }
