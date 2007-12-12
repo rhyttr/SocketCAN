@@ -54,8 +54,8 @@
 #include <linux/skbuff.h>
 #include <asm/io.h>
 
-#include "can.h"
-#include "can_ioctl.h"
+#include <linux/can.h>
+#include <linux/can/ioctl.h>
 #include "sja1000.h"
 
 #define DEBUG

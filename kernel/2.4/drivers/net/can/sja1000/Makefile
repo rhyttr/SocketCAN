@@ -40,11 +40,15 @@
 #
 #  Send feedback to <socketcan-users@lists.berlios.de>
 
-CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -I../../can \
-		-DMODULE -I$(KERNELDIR)/include \
-		-fno-strict-aliasing
-
 KERNELDIR = /usr/src/linux
+
+CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -I../../../../include \
+		-DMODULE -I$(KERNELDIR)/include \
+		-fno-strict-aliasing \
+		-DETH_P_CAN=0x000C \
+		-DARPHRD_CAN=280 \
+		-DPF_CAN=29 \
+		-DAF_CAN=PF_CAN
 
 ISATARGET = sja1000-isa.o
 ISASRC = isa.c sja1000.c proc.c

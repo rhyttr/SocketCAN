@@ -53,7 +53,8 @@
 #include <linux/netdevice.h>
 #include <asm/mpc5xxx.h>
 #include <asm/ppcboot.h>
-#include "can_ioctl.h" /* for struct can_device_stats */
+#include <linux/can.h>
+#include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include "mscan.h"
 
 #define PROCBASE      "net/drivers" /* /proc/ ... */

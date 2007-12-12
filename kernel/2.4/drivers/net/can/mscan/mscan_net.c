@@ -62,13 +62,12 @@
 #include <linux/errno.h>
 #include <linux/proc_fs.h>
 #include <asm/io.h>
-#include "af_can.h"
 
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 
-#include "can.h"
-#include "can_ioctl.h" /* for struct can_device_stats */
+#include <linux/can.h>
+#include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include <asm/mpc5xxx.h>
 #include <asm/ppcboot.h>
 #include "mscan.h"

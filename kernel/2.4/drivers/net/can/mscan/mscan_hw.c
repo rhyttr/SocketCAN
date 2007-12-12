@@ -57,8 +57,8 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 
-#include "can.h"
-#include "can_ioctl.h"
+#include <linux/can.h>
+#include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include <asm/mpc5xxx.h>
 #include <asm/ppcboot.h>
 #include "mscan.h"

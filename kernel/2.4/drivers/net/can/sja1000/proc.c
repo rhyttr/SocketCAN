@@ -49,8 +49,8 @@
 #include <linux/proc_fs.h>
 #include <linux/netdevice.h>
 
-#include "can.h"
-#include "can_ioctl.h"
+#include <linux/can.h>
+#include <linux/can/ioctl.h> /* for struct can_device_stats */
 #include "sja1000.h"
 
 static struct proc_dir_entry *pde       = NULL;
