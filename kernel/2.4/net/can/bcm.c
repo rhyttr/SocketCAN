@@ -53,6 +53,7 @@
 #include <linux/can/core.h>
 #include <linux/can/version.h>
 #include <linux/can/bcm.h>
+#include "compat.h"
 
 RCSID("$Id$");
 
@@ -378,16 +379,16 @@ static void bcm_tx_timeout_handler(unsigned long data)
 
 	if (op->j_ival1 && (op->count > 0)) {
 
-		op->timer.expires = jiffies + op->j_ival1;
-		add_timer(&op->timer);
+		/* send (next) frame */
+		bcm_can_tx(op);
+		mod_timer(&op->timer, jiffies + op->j_ival1);
 
-		bcm_can_tx(op); /* send (next) frame */
 	} else {
 		if (op->j_ival2) {
-			op->timer.expires = jiffies + op->j_ival2;
-			add_timer(&op->timer);
 
-			bcm_can_tx(op); /* send (next) frame */
+			/* send (next) frame */
+			bcm_can_tx(op);
+			mod_timer(&op->timer, jiffies + op->j_ival2);
 		}
 	}
 
@@ -438,9 +439,9 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 
 		lastdata->can_dlc |= RX_THR; /* mark as 'throttled' */
 
-		if (!(op->thrtimer.expires)) { /* start only the first time */
-			op->thrtimer.expires = nexttx;
-			add_timer(&op->thrtimer);
+		if (!(op->thrtimer.expires)) {
+			/* start only the first time */
+			mod_timer(&op->thrtimer, nexttx);
 		}
 	} else
 		bcm_rx_changed(op, rxdata); /* send RX_CHANGED to the user */
@@ -491,12 +492,8 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 	if (op->flags & RX_NO_AUTOTIMER)
 		return;
 
-	if (op->j_ival1) {
-
-		op->timer.expires = jiffies + op->j_ival1;
-
-		add_timer(&op->timer);
-	}
+	if (op->j_ival1)
+		mod_timer(&op->timer, jiffies + op->j_ival1);
 }
 
 /*
@@ -817,16 +814,11 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kmalloc) structure */
-		init_timer(&op->timer);
+		setup_timer(&op->timer, bcm_tx_timeout_handler,
+			    (unsigned long)op);
 
 		/* currently unused in tx_ops */
 		init_timer(&op->thrtimer);
-
-		/* handler for tx_ops */
-		op->timer.function = bcm_tx_timeout_handler;
-
-		/* timer.data points to this op-structure */
-		op->timer.data = (unsigned long)op;
 
 		/* add this bcm_op to the list of the tx_ops */
 		bcm_insert_op(&bo->tx_ops, op);
@@ -867,19 +859,14 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	if ((op->flags & STARTTIMER) &&
 	    ((op->j_ival1 && op->count) || op->j_ival2)) {
 
-		del_timer(&op->timer);
-
 		/* spec: send can_frame when starting timer */
 		op->flags |= TX_ANNOUNCE;
 
 		if (op->j_ival1 && (op->count > 0)) {
-			op->timer.expires = jiffies + op->j_ival1;
 			/* op->count-- is done in bcm_tx_timeout_handler */
-		} else {
-			op->timer.expires = jiffies + op->j_ival2;
-		}
-
-		add_timer(&op->timer);
+			mod_timer(&op->timer, jiffies + op->j_ival1);
+		} else
+			mod_timer(&op->timer, jiffies + op->j_ival2);
 	}
 
 	if (op->flags & TX_ANNOUNCE)
@@ -999,22 +986,12 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kmalloc) structure */
-		init_timer(&op->timer);
+		setup_timer(&op->timer, bcm_rx_timeout_handler,
+			    (unsigned long)op);
 
 		/* init throttle timer for RX_CHANGED */
-		init_timer(&op->thrtimer);
-
-		/* handler for rx timeouts */
-		op->timer.function = bcm_rx_timeout_handler;
-
-		/* timer.data points to this op-structure */
-		op->timer.data = (unsigned long)op;
-
-		/* handler for RX_CHANGED throttle timeouts */
-		op->thrtimer.function = bcm_rx_thr_handler;
-
-		/* timer.data points to this op-structure */
-		op->thrtimer.data = (unsigned long)op;
+		setup_timer(&op->thrtimer, bcm_rx_thr_handler,
+			    (unsigned long)op);
 
 		op->thrtimer.expires = 0; /* mark disabled timer */
 
@@ -1054,30 +1031,22 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
 
 			/* disable an active timer due to zero value? */
-			if (!op->j_ival1) {
+			if (!op->j_ival1)
 				del_timer(&op->timer);
-			}
 
 			/* free currently blocked msgs ? */
-			if (op->thrtimer.expires) { /* blocked by timer? */
-				del_timer(&op->thrtimer);
+			if (op->thrtimer.expires) {
 				/* send blocked msgs hereafter */
-				op->thrtimer.expires = jiffies + 2;
-				add_timer(&op->thrtimer);
+				mod_timer(&op->thrtimer, jiffies + 2);
 			}
+
 			/* if (op->j_ival2) is zero, no (new) throttling     */
 			/* will happen. For details see functions            */
 			/* bcm_rx_update_and_send() and bcm_rx_thr_handler() */
 		}
 
-		if ((op->flags & STARTTIMER) && op->j_ival1) {
-
-			del_timer(&op->timer);
-
-			op->timer.expires = jiffies + op->j_ival1;
-
-			add_timer(&op->timer);
-		}
+		if ((op->flags & STARTTIMER) && op->j_ival1)
+			mod_timer(&op->timer, jiffies + op->j_ival1);
 	}
 
 	/* now we can register for can_ids, if we added a new bcm_op */
