@@ -1,5 +1,5 @@
 #
-#  $Id: Makefile 602 2007-12-12 11:42:10Z hartkopp $
+#  $Id$
 #
 #  Copyright (c) 2002-2005 Volkswagen Group Electronic Research
 #  All rights reserved.
