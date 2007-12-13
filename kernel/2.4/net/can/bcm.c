@@ -658,10 +658,10 @@ static void bcm_remove_op(struct bcm_op *op)
 	del_timer(&op->timer);
 	del_timer(&op->thrtimer);
 
-	if (op->frames)
+	if (op->frames	&& op->frames != &op->sframe)
 		kfree(op->frames);
 
-	if (op->last_frames)
+	if (op->last_frames && op->last_frames != &op->last_sframe)
 		kfree(op->last_frames);
 
 	kfree(op);
