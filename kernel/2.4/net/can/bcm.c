@@ -658,10 +658,10 @@ static void bcm_remove_op(struct bcm_op *op)
 	del_timer(&op->timer);
 	del_timer(&op->thrtimer);
 
-	if (op->frames	&& op->frames != &op->sframe)
+	if (op->frames	&& (op->frames != &op->sframe))
 		kfree(op->frames);
 
-	if (op->last_frames && op->last_frames != &op->last_sframe)
+	if (op->last_frames && (op->last_frames != &op->last_sframe))
 		kfree(op->last_frames);
 
 	kfree(op);
@@ -788,7 +788,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		/* update can_frames content */
 		for (i = 0; i < msg_head->nframes; i++) {
-			err = memcpy_fromiovec((u8*)&op->frames[i],
+			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
 			if (err < 0)
 				return err;
@@ -1165,7 +1165,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	/* read message head information */
 
-	ret = memcpy_fromiovec((u8*)&msg_head, msg->msg_iov, MHSIZ);
+	ret = memcpy_fromiovec((u8 *)&msg_head, msg->msg_iov, MHSIZ);
 	if (ret < 0)
 		return ret;
 
