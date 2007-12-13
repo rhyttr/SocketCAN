@@ -97,6 +97,8 @@ struct bcm_op {
 	int currframe;
 	struct can_frame *frames;
 	struct can_frame *last_frames;
+	struct can_frame sframe;
+	struct can_frame last_sframe;
 	struct sock *sk;
 };
 
@@ -477,6 +479,7 @@ static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
 	}
 
 	/* do a real check in can_frame data section */
+
 	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
 	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
 		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
@@ -485,7 +488,6 @@ static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
 
 	if (op->flags & RX_CHECK_DLC) {
 		/* do a real check in can_frame dlc */
-
 		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
 					BCM_CAN_DLC_MASK)) {
 			bcm_rx_update_and_send(op, &op->last_frames[index],
@@ -807,17 +809,22 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->can_id    = msg_head->can_id;
 
 		/* create array for can_frames and copy the data */
-		op->frames = kmalloc(msg_head->nframes * CFSIZ, GFP_KERNEL);
-		if(!op->frames) {
-			kfree(op);
-			return -ENOMEM;
-		}
+		if (msg_head->nframes > 1) {
+			op->frames = kmalloc(msg_head->nframes * CFSIZ,
+					     GFP_KERNEL);
+			if (!op->frames) {
+				kfree(op);
+				return -ENOMEM;
+			}
+		} else
+			op->frames = &op->sframe;
 
 		for (i = 0; i < msg_head->nframes; i++) {
-			err = memcpy_fromiovec((u8*)&op->frames[i],
+			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
 			if (err < 0) {
-				kfree(op->frames);
+				if (op->frames != &op->sframe)
+					kfree(op->frames);
 				kfree(op);
 				return err;
 			}
@@ -932,7 +939,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		if (msg_head->nframes) {
 			/* update can_frames content */
-			err = memcpy_fromiovec((u8*)op->frames,
+			err = memcpy_fromiovec((u8 *)op->frames,
 					       msg->msg_iov,
 					       msg_head->nframes * CFSIZ);
 			if (err < 0)
@@ -956,8 +963,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->can_id    = msg_head->can_id;
 		op->nframes   = msg_head->nframes;
 
-		if (msg_head->nframes) {
-
+		if (msg_head->nframes > 1) {
 			/* create array for can_frames and copy the data */
 			op->frames = kmalloc(msg_head->nframes * CFSIZ,
 					     GFP_KERNEL);
@@ -966,15 +972,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 				return -ENOMEM;
 			}
 
-			err = memcpy_fromiovec((u8*)op->frames, msg->msg_iov,
-					       msg_head->nframes * CFSIZ);
-			if (err < 0) {
-				kfree(op->frames);
-				kfree(op);
-				return err;
-			}
-
-			/* create array for received can_frames */
+			/* create and init array for received can_frames */
 			op->last_frames = kzalloc(msg_head->nframes * CFSIZ,
 						  GFP_KERNEL);
 			if (!op->last_frames) {
@@ -984,16 +982,20 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			}
 
 		} else {
-			/* op->frames = NULL due to memset */
+			op->frames = &op->sframe;
+			op->last_frames = &op->last_sframe;
+		}
 
-			/* even when we have the RX_FILTER_ID case, we need */
-			/* to store the last frame for the throttle feature */
-
-			/* create array for received can_frames */
-			op->last_frames = kzalloc(CFSIZ, GFP_KERNEL);
-			if (!op->last_frames) {
+		if (msg_head->nframes) {
+			err = memcpy_fromiovec((u8 *)op->frames, msg->msg_iov,
+					       msg_head->nframes * CFSIZ);
+			if (err < 0) {
+				if (op->frames != &op->sframe)
+					kfree(op->frames);
+				if (op->last_frames != &op->last_sframe)
+					kfree(op->last_frames);
 				kfree(op);
-				return -ENOMEM;
+				return err;
 			}
 		}
 
