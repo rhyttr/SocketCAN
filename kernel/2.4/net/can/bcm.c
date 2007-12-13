@@ -1170,8 +1170,19 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		/* ifindex from sendto() */
 		ifindex = addr->can_ifindex;
 
-		if (ifindex && !dev_get_by_index(ifindex)) {
-			return -ENODEV;
+		if (ifindex) {
+			struct net_device *dev;
+
+			dev = dev_get_by_index(ifindex);
+			if (!dev)
+				return -ENODEV;
+
+			if (dev->type != ARPHRD_CAN) {
+				dev_put(dev);
+				return -ENODEV;
+			}
+
+			dev_put(dev);
 		}
 	}
 
@@ -1442,9 +1453,15 @@ static struct can_proto bcm_can_proto = {
 
 static int __init bcm_module_init(void)
 {
+	int err;
+
 	printk(banner);
 
-	can_proto_register(&bcm_can_proto);
+	err = can_proto_register(&bcm_can_proto);
+	if (err < 0) {
+		printk(KERN_ERR "can: registration of bcm protocol failed\n");
+		return err;
+	}
 
 	/* create /proc/net/can-bcm directory */
 	proc_dir = proc_mkdir("net/can-bcm", NULL);
