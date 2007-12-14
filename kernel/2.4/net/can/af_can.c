@@ -85,9 +85,6 @@ struct notifier {
 	void *data;
 };
 
-static LIST_HEAD(notifier_list);
-static rwlock_t notifier_lock = RW_LOCK_UNLOCKED;
-
 static struct dev_rcv_lists can_rx_alldev_list;
 struct dev_rcv_lists *can_rx_dev_list;
 rwlock_t can_rcvlists_lock = RW_LOCK_UNLOCKED;
@@ -593,64 +590,10 @@ void can_proto_unregister(struct can_proto *cp)
 	proto_tab[proto] = NULL;
 }
 
-/**
- * can_dev_register - subscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
- * @func: callback function on status change
- * @data: returned parameter for callback function
- *
- * Description:
- *  Invokes the callback function with the status 'msg' and the given
- *  parameter 'data' on a status change of the given CAN network device.
- */
-void can_dev_register(struct net_device *dev,
-		      void (*func)(unsigned long msg, void *), void *data)
-{
-	struct notifier *n;
-
-	n = kmalloc(sizeof(*n), GFP_KERNEL);
-	if (!n)
-		return;
-
-	n->dev  = dev;
-	n->func = func;
-	n->data = data;
-
-	write_lock(&notifier_lock);
-	list_add(&n->list, &notifier_list);
-	write_unlock(&notifier_lock);
-}
-
-/**
- * can_dev_unregister - unsubscribe notifier for CAN device status changes
- * @dev: pointer to netdevice
- * @func: callback function on filter match
- * @data: returned parameter for callback function
- *
- * Description:
- *  Removes subscription entry depending on given (subscription) values.
- */
-void can_dev_unregister(struct net_device *dev,
-			void (*func)(unsigned long msg, void *), void *data)
-{
-	struct notifier *n, *next;
-
-	write_lock(&notifier_lock);
-	list_for_each_entry_safe(n, next, &notifier_list, list) {
-		if (n->dev == dev && n->func == func && n->data == data) {
-			list_del(&n->list);
-			kfree(n);
-			break;
-		}
-	}
-	write_unlock(&notifier_lock);
-}
-
 static int can_notifier(struct notifier_block *nb,
 			unsigned long msg, void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
-	struct notifier *n;
 
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
@@ -713,13 +656,6 @@ static int can_notifier(struct notifier_block *nb,
 
 		break;
 	}
-
-	read_lock(&notifier_lock);
-	list_for_each_entry(n, &notifier_list, list) {
-		if (n->dev == dev)
-			n->func(msg, n->data);
-	}
-	read_unlock(&notifier_lock);
 
 	return NOTIFY_DONE;
 }
@@ -831,7 +767,5 @@ EXPORT_SYMBOL(can_proto_register);
 EXPORT_SYMBOL(can_proto_unregister);
 EXPORT_SYMBOL(can_rx_register);
 EXPORT_SYMBOL(can_rx_unregister);
-EXPORT_SYMBOL(can_dev_register);
-EXPORT_SYMBOL(can_dev_unregister);
 EXPORT_SYMBOL(can_send);
 #endif
