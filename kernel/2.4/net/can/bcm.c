@@ -46,6 +46,7 @@
 #include <linux/list.h>
 #include <linux/proc_fs.h>
 #include <linux/net.h>
+#include <linux/uio.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
 #include <linux/if_arp.h>

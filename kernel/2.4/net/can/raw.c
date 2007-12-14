@@ -43,6 +43,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/uio.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
@@ -52,6 +53,7 @@
 #include <linux/can/core.h>
 #include <linux/can/raw.h>
 #include <net/sock.h>
+#include <asm/uaccess.h>
 #include "compat.h"
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
