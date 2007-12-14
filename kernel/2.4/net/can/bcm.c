@@ -1498,7 +1498,7 @@ static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 	return size;
 }
 
-static struct proto_ops bcm_ops = {
+static struct proto_ops bcm_ops __read_mostly = {
 	.family        = PF_CAN,
 	.release       = bcm_release,
 	.bind          = sock_no_bind,
