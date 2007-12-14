@@ -45,6 +45,7 @@ KERNELDIR = /usr/src/linux
 
 CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
 		-I$(KERNELDIR)/include -I../../include -fno-strict-aliasing \
+		-DEXPORT_SYMTAB \
 		-DETH_P_CAN=0x000C \
 		-DARPHRD_CAN=280 \
 		-DPF_CAN=29 \
@@ -59,6 +60,9 @@ EXTRAVERSION  = $(shell awk '/^EXTRAVERSION/{print $$3}' $(KERNELDIR)/Makefile)
 KERNELRELEASE = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
 MODLIB := $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)/llcf
+
+export-objs :=  af_can.o
+
 
 MOD = can.o can-bcm.o can-raw.o
 

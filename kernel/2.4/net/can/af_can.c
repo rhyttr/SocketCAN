@@ -42,8 +42,6 @@
  *
  */
 
-#define EXPORT_SYMTAB
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kmod.h>
