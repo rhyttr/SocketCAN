@@ -45,26 +45,26 @@
 #define EXPORT_SYMTAB
 
 #include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/kmod.h>
 #include <linux/init.h>
+#include <linux/kmod.h>
+#include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/net.h>
+#include <linux/netdevice.h>
 #include <linux/socket.h>
 #include <linux/if_ether.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
-#include <linux/net.h>
-#include <linux/netdevice.h>
+#include <linux/can.h>
+#include <linux/can/core.h>
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include <linux/can.h>
-#include <linux/can/core.h>
-#include <linux/can/version.h>
 #include "af_can.h"
 #include "compat.h"
 
+#include <linux/can/version.h>
 RCSID("$Id$");
 
 static __initdata const char banner[] = KERN_INFO
@@ -226,6 +226,7 @@ int can_send(struct sk_buff *skb, int loop)
 
 	return err;
 }
+EXPORT_SYMBOL(can_send);
 
 /*
  * af_can rx path
@@ -357,6 +358,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	return err;
 }
+EXPORT_SYMBOL(can_rx_register);
 
 static void can_rx_delete_all(struct receiver **rl)
 {
@@ -432,6 +434,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
  out:
 	write_unlock_bh(&can_rcvlists_lock);
 }
+EXPORT_SYMBOL(can_rx_unregister);
 
 static inline void deliver(struct sk_buff *skb, struct receiver *r)
 {
@@ -573,6 +576,7 @@ int can_proto_register(struct can_proto *cp)
 
 	return 0;
 }
+EXPORT_SYMBOL(can_proto_register);
 
 /**
  * can_proto_unregister - unregister CAN transport protocol
@@ -589,6 +593,7 @@ void can_proto_unregister(struct can_proto *cp)
 	}
 	proto_tab[proto] = NULL;
 }
+EXPORT_SYMBOL(can_proto_unregister);
 
 static int can_notifier(struct notifier_block *nb,
 			unsigned long msg, void *data)
@@ -758,14 +763,3 @@ static __exit void can_exit(void)
 
 module_init(can_init);
 module_exit(can_exit);
-
-/*
- * Exported symbols
- */
-#ifdef EXPORT_SYMTAB
-EXPORT_SYMBOL(can_proto_register);
-EXPORT_SYMBOL(can_proto_unregister);
-EXPORT_SYMBOL(can_rx_register);
-EXPORT_SYMBOL(can_rx_unregister);
-EXPORT_SYMBOL(can_send);
-#endif
