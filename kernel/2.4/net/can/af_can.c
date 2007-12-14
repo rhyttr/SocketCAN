@@ -48,6 +48,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <asm/uaccess.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/socket.h>
@@ -57,12 +58,11 @@
 #include <linux/can.h>
 #include <linux/can/core.h>
 #include <net/sock.h>
-#include <asm/uaccess.h>
 
 #include "af_can.h"
 #include "compat.h"
 
-#include <linux/can/version.h>
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 static __initdata const char banner[] = KERN_INFO
@@ -75,13 +75,6 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 
 int stats_timer = 1; /* default: on */
 MODULE_PARM(stats_timer, "1i");
-
-struct notifier {
-	struct list_head list;
-	struct net_device *dev;
-	void (*func)(unsigned long msg, void *data);
-	void *data;
-};
 
 static struct dev_rcv_lists can_rx_alldev_list;
 struct dev_rcv_lists *can_rx_dev_list;
