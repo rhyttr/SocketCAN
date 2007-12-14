@@ -1518,7 +1518,7 @@ static struct proto_ops bcm_ops = {
 	.sendpage      = sock_no_sendpage,
 };
 
-static struct can_proto bcm_can_proto = {
+static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
 	.capability = -1,

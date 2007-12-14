@@ -24,6 +24,8 @@ static inline void setup_timer(struct timer_list * timer,
 
 #define round_jiffies(j) (j)
 
+#define __read_mostly
+
 #define   dev_get_by_index(ns, ifindex)   dev_get_by_index(ifindex)
 #define __dev_get_by_index(ns, ifindex) __dev_get_by_index(ifindex)
 
