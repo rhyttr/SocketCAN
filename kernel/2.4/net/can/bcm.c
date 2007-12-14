@@ -43,6 +43,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/list.h>
 #include <linux/proc_fs.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
@@ -53,10 +54,9 @@
 #include <linux/can/core.h>
 #include <linux/can/bcm.h>
 #include <net/sock.h>
-
 #include "compat.h"
 
-#include <linux/can/version.h>
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 /* use of last_frames[index].can_dlc */
@@ -83,7 +83,7 @@ static inline u64 GET_U64(const struct can_frame *cp)
 }
 
 struct bcm_op {
-	struct bcm_op *next;
+	struct list_head list;
 	int ifindex;
 	canid_t can_id;
 	int flags;
@@ -101,21 +101,27 @@ struct bcm_op {
 	struct can_frame sframe;
 	struct can_frame last_sframe;
 	struct sock *sk;
+	struct net_device *rx_reg_dev;
 };
 
 static struct proc_dir_entry *proc_dir;
 
-struct bcm_opt {
+struct bcm_sock {
+	struct sock *sk;
 	int bound;
 	int ifindex;
-	struct bcm_op *rx_ops;
-	struct bcm_op *tx_ops;
+	struct notifier_block notifier;
+	struct list_head rx_ops;
+	struct list_head tx_ops;
 	unsigned long dropped_usr_msgs;
 	struct proc_dir_entry *bcm_proc_read;
 	char procname [9]; /* pointer printed in ASCII with \0 */
 };
 
-#define bcm_sk(sk) ((struct bcm_opt *)&(sk)->tp_pinfo)
+static inline struct bcm_sock *bcm_sk(const struct sock *sk)
+{
+	return (struct bcm_sock *)&(sk)->tp_pinfo;
+}
 
 #define CFSIZ sizeof(struct can_frame)
 #define OPSIZ sizeof(struct bcm_op)
@@ -165,7 +171,7 @@ static char *bcm_proc_getifname(int ifindex)
 		return "any";
 
 	/* no usage counting */
-	dev = __dev_get_by_index(ifindex);
+	dev = __dev_get_by_index(&init_net, ifindex);
 	if (dev)
 		return dev->name;
 
@@ -177,13 +183,13 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 {
 	int len = 0;
 	struct sock *sk = (struct sock *)data;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 
 	MOD_INC_USE_COUNT;
 
 	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
-			sk->socket);
+			sk->sk_socket);
 	len += snprintf(page + len, PAGE_SIZE - len, " / sk %p", sk);
 	len += snprintf(page + len, PAGE_SIZE - len, " / bo %p", bo);
 	len += snprintf(page + len, PAGE_SIZE - len, " / dropped %lu",
@@ -192,7 +198,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 			bcm_proc_getifname(bo->ifindex));
 	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
 
-	for (op = bo->rx_ops; op; op = op->next) {
+	list_for_each_entry(op, &bo->rx_ops, list) {
 
 		unsigned long reduction;
 
@@ -230,7 +236,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		}
 	}
 
-	for (op = bo->tx_ops; op; op = op->next) {
+	list_for_each_entry(op, &bo->tx_ops, list) {
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"tx_op: %03X %s [%d] ",
@@ -276,7 +282,7 @@ static void bcm_can_tx(struct bcm_op *op)
 	if (!op->ifindex)
 		return;
 
-	dev = dev_get_by_index(op->ifindex);
+	dev = dev_get_by_index(&init_net, op->ifindex);
 	if (!dev) {
 		/* RFC: should this bcm_op remove itself here? */
 		return;
@@ -323,6 +329,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 		return;
 
 	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
+
 	if (head->nframes) {
 		/* can_frames starting here */
 		firstframe = (struct can_frame *) skb->tail;
@@ -351,6 +358,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	 *  containing the interface index.
 	 */
 
+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 	addr = (struct sockaddr_can *)skb->cb;
 	memset(addr, 0, sizeof(*addr));
 	addr->can_family  = AF_CAN;
@@ -358,7 +366,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 
 	err = sock_queue_rcv_skb(sk, skb);
 	if (err < 0) {
-		struct bcm_opt *bo = bcm_sk(sk);
+		struct bcm_sock *bo = bcm_sk(sk);
 
 		kfree_skb(skb);
 		/* don't care about overflows in this statistic */
@@ -595,6 +603,7 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 		memcpy(&rxframe, skb->data, sizeof(rxframe));
 		/* save rx timestamp */
 		op->rx_stamp = skb->stamp;
+
 		/* save originator for recvfrom() */
 		op->rx_ifindex = skb->dev->ifindex;
 		/* update statistics */
@@ -652,12 +661,12 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 /*
  * helpers for bcm_op handling: find & delete bcm [rx|tx] op elements
  */
-static struct bcm_op *bcm_find_op(struct bcm_op *ops, canid_t can_id,
+static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id,
 				  int ifindex)
 {
 	struct bcm_op *op;
 
-	for (op = ops; op; op = op->next) {
+	list_for_each_entry(op, ops, list) {
 		if ((op->can_id == can_id) && (op->ifindex == ifindex))
 			return op;
 	}
@@ -670,10 +679,10 @@ static void bcm_remove_op(struct bcm_op *op)
 	del_timer(&op->timer);
 	del_timer(&op->thrtimer);
 
-	if (op->frames	&& (op->frames != &op->sframe))
+	if ((op->frames) && (op->frames != &op->sframe))
 		kfree(op->frames);
 
-	if (op->last_frames && (op->last_frames != &op->last_sframe))
+	if ((op->last_frames) && (op->last_frames != &op->last_sframe))
 		kfree(op->last_frames);
 
 	kfree(op);
@@ -681,20 +690,27 @@ static void bcm_remove_op(struct bcm_op *op)
 	return;
 }
 
-static void bcm_insert_op(struct bcm_op **ops, struct bcm_op *op)
+static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
 {
-	op->next = *ops;
-	*ops = op;
+	if (op->rx_reg_dev == dev) {
+		can_rx_unregister(dev, op->can_id, REGMASK(op->can_id),
+				  bcm_rx_handler, op);
+
+		/* mark as removed subscription */
+		op->rx_reg_dev = NULL;
+	} else
+		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
+		       "mismatch %p %p\n", op->rx_reg_dev, dev);
 }
 
 /*
  * bcm_delete_rx_op - find and remove a rx op (returns number of removed ops)
  */
-static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
+static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
 {
-	struct bcm_op *op, **n;
+	struct bcm_op *op, *n;
 
-	for (n = ops; op = *n; n = &op->next) {
+	list_for_each_entry_safe(op, n, ops, list) {
 		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
 
 			/*
@@ -703,20 +719,27 @@ static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 			 * thing to do here.
 			 */
 			if (op->ifindex) {
-				struct net_device *dev =
-					dev_get_by_index(op->ifindex);
-				if (dev) {
-					can_rx_unregister(dev, op->can_id,
-							  REGMASK(op->can_id),
-							  bcm_rx_handler, op);
-					dev_put(dev);
+				/*
+				 * Only remove subscriptions that had not
+				 * been removed due to NETDEV_UNREGISTER
+				 * in bcm_notifier()
+				 */
+				if (op->rx_reg_dev) {
+					struct net_device *dev;
+
+					dev = dev_get_by_index(&init_net,
+							       op->ifindex);
+					if (dev) {
+						bcm_rx_unreg(dev, op);
+						dev_put(dev);
+					}
 				}
 			} else
 				can_rx_unregister(NULL, op->can_id,
 						  REGMASK(op->can_id),
 						  bcm_rx_handler, op);
 
-			*n = op->next;
+			list_del(&op->list);
 			bcm_remove_op(op);
 			return 1; /* done */
 		}
@@ -728,13 +751,13 @@ static int bcm_delete_rx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 /*
  * bcm_delete_tx_op - find and remove a tx op (returns number of removed ops)
  */
-static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
+static int bcm_delete_tx_op(struct list_head *ops, canid_t can_id, int ifindex)
 {
-	struct bcm_op *op, **n;
+	struct bcm_op *op, *n;
 
-	for (n = ops; op = *n; n = &op->next) {
+	list_for_each_entry_safe(op, n, ops, list) {
 		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
-			*n = op->next;
+			list_del(&op->list);
 			bcm_remove_op(op);
 			return 1; /* done */
 		}
@@ -746,7 +769,7 @@ static int bcm_delete_tx_op(struct bcm_op **ops, canid_t can_id, int ifindex)
 /*
  * bcm_read_op - read out a bcm_op and send it to the user (for bcm_sendmsg)
  */
-static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
+static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
 		       int ifindex)
 {
 	struct bcm_op *op = bcm_find_op(ops, msg_head->can_id, ifindex);
@@ -772,7 +795,7 @@ static int bcm_read_op(struct bcm_op *ops, struct bcm_msg_head *msg_head,
 static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 	int i, err;
 
@@ -785,7 +808,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		return -EINVAL;
 
 	/* check the given can_id */
-	op = bcm_find_op(bo->tx_ops, msg_head->can_id, ifindex);
+	op = bcm_find_op(&bo->tx_ops, msg_head->can_id, ifindex);
 
 	if (op) {
 		/* update existing BCM operation */
@@ -862,7 +885,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		init_timer(&op->thrtimer);
 
 		/* add this bcm_op to the list of the tx_ops */
-		bcm_insert_op(&bo->tx_ops, op);
+		list_add(&op->list, &bo->tx_ops);
 
 	} /* if ((op = bcm_find_op(&bo->tx_ops, msg_head->can_id, ifindex))) */
 
@@ -919,10 +942,10 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			int ifindex, struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 	int do_rx_register;
-	int err;
+	int err = 0;
 
 	if ((msg_head->flags & RX_FILTER_ID) || (!(msg_head->nframes))) {
 		/* be robust against wrong usage ... */
@@ -937,7 +960,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		return -EINVAL;
 
 	/* check the given can_id */
-	op = bcm_find_op(bo->rx_ops, msg_head->can_id, ifindex);
+	op = bcm_find_op(&bo->rx_ops, msg_head->can_id, ifindex);
 	if (op) {
 		/* update existing BCM operation */
 
@@ -1027,7 +1050,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->thrtimer.expires = 0;
 
 		/* add this bcm_op to the list of the rx_ops */
-		bcm_insert_op(&bo->rx_ops, op);
+		list_add(&op->list, &bo->rx_ops);
 
 		/* call can_rx_register() */
 		do_rx_register = 1;
@@ -1087,17 +1110,27 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		if (ifindex) {
 			struct net_device *dev;
 
-			dev = dev_get_by_index(ifindex);
+			dev = dev_get_by_index(&init_net, ifindex);
 			if (dev) {
-				can_rx_register(dev, op->can_id,
-						REGMASK(op->can_id),
-						bcm_rx_handler, op, "bcm");
+				err = can_rx_register(dev, op->can_id,
+						      REGMASK(op->can_id),
+						      bcm_rx_handler, op,
+						      "bcm");
+
+				op->rx_reg_dev = dev;
 				dev_put(dev);
 			}
 
 		} else
-			can_rx_register(NULL, op->can_id, REGMASK(op->can_id),
-					bcm_rx_handler, op, "bcm");
+			err = can_rx_register(NULL, op->can_id,
+					      REGMASK(op->can_id),
+					      bcm_rx_handler, op, "bcm");
+		if (err) {
+			/* this bcm rx op is broken -> remove it */
+			list_del(&op->list);
+			bcm_remove_op(op);
+			return err;
+		}
 	}
 
 	return msg_head->nframes * CFSIZ + MHSIZ;
@@ -1127,8 +1160,7 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 		return err;
 	}
 
-	dev = dev_get_by_index(ifindex);
-
+	dev = dev_get_by_index(&init_net, ifindex);
 	if (!dev) {
 		kfree_skb(skb);
 		return -ENODEV;
@@ -1149,7 +1181,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		       struct scm_cookie *scm)
 {
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
 	struct bcm_msg_head msg_head;
 	int ret; /* read bytes or error codes as return value */
@@ -1173,7 +1205,7 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		if (ifindex) {
 			struct net_device *dev;
 
-			dev = dev_get_by_index(ifindex);
+			dev = dev_get_by_index(&init_net, ifindex);
 			if (!dev)
 				return -ENODEV;
 
@@ -1191,6 +1223,8 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	ret = memcpy_fromiovec((u8 *)&msg_head, msg->msg_iov, MHSIZ);
 	if (ret < 0)
 		return ret;
+
+	lock_sock(sk);
 
 	switch (msg_head.opcode) {
 
@@ -1219,13 +1253,13 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	case TX_READ:
 		/* reuse msg_head for the reply to TX_READ */
 		msg_head.opcode  = TX_STATUS;
-		ret = bcm_read_op(bo->tx_ops, &msg_head, ifindex);
+		ret = bcm_read_op(&bo->tx_ops, &msg_head, ifindex);
 		break;
 
 	case RX_READ:
 		/* reuse msg_head for the reply to RX_READ */
 		msg_head.opcode  = RX_STATUS;
-		ret = bcm_read_op(bo->rx_ops, &msg_head, ifindex);
+		ret = bcm_read_op(&bo->rx_ops, &msg_head, ifindex);
 		break;
 
 	case TX_SEND:
@@ -1241,29 +1275,61 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		break;
 	}
 
+	release_sock(sk);
+
 	return ret;
 }
 
 /*
  * notification handler for netdevice status changes
  */
-static void bcm_notifier(unsigned long msg, void *data)
+static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
+			void *data)
 {
-	struct sock *sk = (struct sock *)data;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct net_device *dev = (struct net_device *)data;
+	struct bcm_sock *bo = container_of(nb, struct bcm_sock, notifier);
+	struct sock *sk = bo->sk;
+	struct bcm_op *op;
+	int notify_enodev = 0;
+
+	if (dev->type != ARPHRD_CAN)
+		return NOTIFY_DONE;
 
 	switch (msg) {
 
 	case NETDEV_UNREGISTER:
-		bo->bound   = 0;
-		bo->ifindex = 0;
-		/* fallthrough */
+		lock_sock(sk);
+
+		/* remove device specific receive entries */
+		list_for_each_entry(op, &bo->rx_ops, list)
+			if (op->rx_reg_dev == dev)
+				bcm_rx_unreg(dev, op);
+
+		/* remove device reference, if this is our bound device */
+		if (bo->bound && bo->ifindex == dev->ifindex) {
+			bo->bound   = 0;
+			bo->ifindex = 0;
+			notify_enodev = 1;
+		}
+
+		release_sock(sk);
+
+		if (notify_enodev) {
+			sk->sk_err = ENODEV;
+			if (!sk->dead)
+				sk->sk_error_report(sk);
+		}
+		break;
 
 	case NETDEV_DOWN:
-		sk->err = ENETDOWN;
-		if (!sk->dead)
-			sk->error_report(sk);
+		if (bo->bound && bo->ifindex == dev->ifindex) {
+			sk->sk_err = ENETDOWN;
+			if (!sk->dead)
+				sk->sk_error_report(sk);
+		}
 	}
+
+	return NOTIFY_DONE;
 }
 
 /*
@@ -1271,15 +1337,21 @@ static void bcm_notifier(unsigned long msg, void *data)
  */
 static int bcm_init(struct sock *sk)
 {
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 
+	bo->sk               = sk;
 	bo->bound            = 0;
 	bo->ifindex          = 0;
 	bo->dropped_usr_msgs = 0;
 	bo->bcm_proc_read    = NULL;
 
-	bo->tx_ops = NULL;
-	bo->rx_ops = NULL;
+	INIT_LIST_HEAD(&bo->tx_ops);
+	INIT_LIST_HEAD(&bo->rx_ops);
+
+	/* set notifier */
+	bo->notifier.notifier_call = bcm_notifier;
+
+	register_netdevice_notifier(&bo->notifier);
 
 	return 0;
 }
@@ -1290,30 +1362,37 @@ static int bcm_init(struct sock *sk)
 static int bcm_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op, *next;
 
 	/* remove bcm_ops, timer, rx_unregister(), etc. */
 
-	for (op = bo->tx_ops; op ; op = next) {
-		next = op->next;
+	unregister_netdevice_notifier(&bo->notifier);
+
+	lock_sock(sk);
+
+	list_for_each_entry_safe(op, next, &bo->tx_ops, list)
 		bcm_remove_op(op);
-	}
 
-	for (op = bo->rx_ops; op ; op = next) {
-		next = op->next;
-
+	list_for_each_entry_safe(op, next, &bo->rx_ops, list) {
 		/*
 		 * Don't care if we're bound or not (due to netdev problems)
-		 * can_rx_unregister() is always a save thing to do here
+		 * can_rx_unregister() is always a save thing to do here.
 		 */
 		if (op->ifindex) {
-			struct net_device *dev = dev_get_by_index(op->ifindex);
-			if (dev) {
-				can_rx_unregister(dev, op->can_id,
-						  REGMASK(op->can_id),
-						  bcm_rx_handler, op);
-				dev_put(dev);
+			/*
+			 * Only remove subscriptions that had not
+			 * been removed due to NETDEV_UNREGISTER
+			 * in bcm_notifier()
+			 */
+			if (op->rx_reg_dev) {
+				struct net_device *dev;
+
+				dev = dev_get_by_index(&init_net, op->ifindex);
+				if (dev) {
+					bcm_rx_unreg(dev, op);
+					dev_put(dev);
+				}
 			}
 		} else
 			can_rx_unregister(NULL, op->can_id,
@@ -1324,18 +1403,16 @@ static int bcm_release(struct socket *sock)
 	}
 
 	/* remove procfs entry */
-	if ((proc_dir) && (bo->bcm_proc_read))
+	if (proc_dir && bo->bcm_proc_read)
 		remove_proc_entry(bo->procname, proc_dir);
 
-	/* remove device notifier */
-	if (bo->ifindex) {
-		struct net_device *dev = dev_get_by_index(bo->ifindex);
-		if (dev) {
-			can_dev_unregister(dev, bcm_notifier, sk);
-			dev_put(dev);
-		}
+	/* remove device reference */
+	if (bo->bound) {
+		bo->bound   = 0;
+		bo->ifindex = 0;
 	}
 
+	release_sock(sk);
 	sock_put(sk);
 
 	return 0;
@@ -1346,7 +1423,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 {
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
-	struct bcm_opt *bo = bcm_sk(sk);
+	struct bcm_sock *bo = bcm_sk(sk);
 
 	if (bo->bound)
 		return -EISCONN;
@@ -1355,7 +1432,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	if (addr->can_ifindex) {
 		struct net_device *dev;
 
-		dev = dev_get_by_index(addr->can_ifindex);
+		dev = dev_get_by_index(&init_net, addr->can_ifindex);
 		if (!dev)
 			return -ENODEV;
 
@@ -1365,11 +1442,10 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 		}
 
 		bo->ifindex = dev->ifindex;
-		can_dev_register(dev, bcm_notifier, sk); /* register notif. */
 		dev_put(dev);
 
 	} else {
-		/* no notifier for ifindex = 0 ('any' CAN device) */
+		/* no interface reference for ifindex = 0 ('any' CAN device) */
 		bo->ifindex = 0;
 	}
 
@@ -1447,7 +1523,7 @@ static struct can_proto bcm_can_proto = {
 	.protocol   = CAN_BCM,
 	.capability = -1,
 	.ops        = &bcm_ops,
-	.obj_size   = sizeof(struct bcm_opt),
+	.obj_size   = sizeof(struct bcm_sock),
 	.init       = bcm_init,
 };
 
@@ -1464,7 +1540,7 @@ static int __init bcm_module_init(void)
 	}
 
 	/* create /proc/net/can-bcm directory */
-	proc_dir = proc_mkdir("net/can-bcm", NULL);
+	proc_dir = proc_mkdir("can-bcm", proc_net);
 
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
@@ -1477,7 +1553,7 @@ static void __exit bcm_module_exit(void)
 	can_proto_unregister(&bcm_can_proto);
 
 	if (proc_dir)
-		remove_proc_entry("net/can-bcm", NULL);
+		proc_net_remove("can-bcm");
 }
 
 module_init(bcm_module_init);

@@ -63,6 +63,7 @@
 #include <linux/can/core.h>
 #include <linux/can/version.h>
 #include "af_can.h"
+#include "compat.h"
 
 RCSID("$Id$");
 
