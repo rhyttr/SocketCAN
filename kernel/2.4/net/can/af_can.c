@@ -355,7 +355,8 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 		    void (*func)(struct sk_buff *, void *), void *data,
 		    char *ident)
 {
-	struct receiver *r, **rl;
+	struct receiver *r;
+	struct receiver **rl;
 	struct dev_rcv_lists *d;
 	int err = 0;
 
@@ -410,7 +411,8 @@ EXPORT_SYMBOL(can_rx_register);
 void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 		       void (*func)(struct sk_buff *, void *), void *data)
 {
-	struct receiver *r, **rl;
+	struct receiver *r = NULL;
+	struct receiver **rl;
 	struct dev_rcv_lists *d;
 
 	write_lock_bh(&can_rcvlists_lock);
@@ -650,7 +652,12 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 
 	case NETDEV_REGISTER:
 
-		/* create new dev_rcv_lists for this device */
+		/*
+		 * create new dev_rcv_lists for this device
+		 *
+		 * N.B. zeroing the struct is the correct initialization
+		 * for the embedded structs.
+		 */
 
 		d = kzalloc(sizeof(*d), gfp_any());
 		if (!d) {
@@ -728,7 +735,7 @@ static __init int can_init(void)
 		return -ENOMEM;
 
 	/*
-	 * Insert struct dev_rcv_lists for reception on all devices.
+	 * Insert can_rx_alldev_list for reception on all devices.
 	 * This struct is zero initialized which is correct for the
 	 * embedded receiver list head pointer, the dev pointer,
 	 * and the entries counter.
@@ -781,9 +788,10 @@ static __exit void can_exit(void)
 
 	/* remove can_rx_dev_list */
 	write_lock_bh(&can_rcvlists_lock);
-	for (d = can_rx_dev_list; d; d = d->next)
+	for (d = can_rx_dev_list; d; d = d->next) {
 		if (d != &can_rx_alldev_list)
 			kfree(d);
+	}
 	can_rx_dev_list = NULL;
 	write_unlock_bh(&can_rcvlists_lock);
 
