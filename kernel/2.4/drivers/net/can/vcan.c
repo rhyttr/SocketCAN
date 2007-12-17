@@ -94,6 +94,7 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 	stats->rx_bytes += skb->len;
 
 	skb->protocol  = htons(ETH_P_CAN);
+	skb->pkt_type  = PACKET_BROADCAST;
 	skb->dev       = dev;
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
@@ -110,19 +111,21 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
-	loop = *(struct sock **)skb->cb != NULL;   /* loopback required */
+	loop = skb->pkt_type == PACKET_LOOPBACK;
 
 #ifdef DO_LOOPBACK
 	if (loop) {
 		if (atomic_read(&skb->users) != 1) {
 			struct sk_buff *old_skb = skb;
+			struct sock *srcsk = skb->sk;
+
 			skb = skb_clone(old_skb, GFP_ATOMIC);
 			DBG("  freeing old skbuff %p, using new skbuff %p\n",
 			    old_skb, skb);
 			kfree_skb(old_skb);
-			if (!skb) {
+			if (!skb)
 				return 0;
-			}
+			skb->sk = srcsk;
 		} else
 			skb_orphan(skb);
 
@@ -178,8 +181,11 @@ static int vcan_init(struct net_device *dev)
 	dev->type              = ARPHRD_CAN;
 	dev->mtu               = sizeof(struct can_frame);
 	dev->flags             = IFF_NOARP;
+
+#define IFF_ECHO IFF_LOOPBACK
+
 #ifdef DO_LOOPBACK
-	dev->flags            |= IFF_LOOPBACK;
+	dev->flags            |= IFF_ECHO;
 #endif
 
 	dev->open              = vcan_open;

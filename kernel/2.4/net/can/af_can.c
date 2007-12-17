@@ -73,17 +73,17 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 	      "Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
-int stats_timer = 1; /* default: on */
+static int stats_timer __read_mostly = 1;
 MODULE_PARM(stats_timer, "1i");
 
-static struct dev_rcv_lists can_rx_alldev_list;
 struct dev_rcv_lists *can_rx_dev_list;
+static struct dev_rcv_lists can_rx_alldev_list;
 rwlock_t can_rcvlists_lock = RW_LOCK_UNLOCKED;
 
 static kmem_cache_t *rcv_cache;
 
 /* table of registered CAN protocols */
-static struct can_proto *proto_tab[CAN_NPROTO];
+static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
 
 struct timer_list can_stattimer;   /* timer for statistics update */
 struct s_stats    can_stats;       /* packet statistics */
@@ -95,33 +95,33 @@ struct s_pstats   can_pstats;      /* receive list statistics */
 
 static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
-	int err;
 	struct sock *sk = sock->sk;
 
 	switch (cmd) {
+
 	case SIOCGSTAMP:
 		if (sk->stamp.tv_sec == 0)
 			return -ENOENT;
-		if (err = copy_to_user((void *)arg, &sk->stamp,
-				       sizeof(sk->stamp)))
-			return err;
+
+		return copy_to_user((void *)arg, &sk->stamp,
+				    sizeof(sk->stamp)) ? -EFAULT : 0;
 		break;
 	default:
 		return dev_ioctl(cmd, (void *)arg);
 	}
-	return 0;
 }
 
 static void can_sock_destruct(struct sock *sk)
 {
-	skb_queue_purge(&sk->receive_queue);
+	skb_queue_purge(&sk->sk_receive_queue);
 }
 
 static int can_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
 	struct can_proto *cp;
-	int err;
+	char module_name[sizeof("can-proto-000")];
+	int err = 0;
 
 	sock->state = SS_UNCONNECTED;
 
@@ -130,16 +130,30 @@ static int can_create(struct socket *sock, int protocol)
 
 	/* try to load protocol module, when CONFIG_KMOD is defined */
 	if (!proto_tab[protocol]) {
-		char module_name[30];
 		sprintf(module_name, "can-proto-%d", protocol);
-		if (request_module(module_name) == -ENOSYS)
-			printk(KERN_INFO "CAN: request_module(%s) not"
-			       " implemented.\n", module_name);
+		err = request_module(module_name);
+
+		/*
+		 * In case of error we only print a message but don't
+		 * return the error code immediately.  Below we will
+		 * return -EPROTONOSUPPORT
+		 */
+		if (err == -ENOSYS)
+			printk(KERN_INFO "can: request_module(%s)"
+			       " not implemented.\n", module_name);
+		else if (err)
+			printk(KERN_ERR "can: request_module(%s)"
+			       " failed.\n", module_name);
 	}
 
-	/* check for success and correct type */
 	cp = proto_tab[protocol];
-	if (!cp || cp->type != sock->type)
+
+	/* check for available protocol and correct usage */
+
+	if (!cp)
+		return -EPROTONOSUPPORT;
+
+	if (cp->type != sock->type)
 		return -EPROTONOSUPPORT;
 
 	if (cp->capability >= 0 && !capable(cp->capability))
@@ -152,19 +166,18 @@ static int can_create(struct socket *sock, int protocol)
 		return -ENOMEM;
 
 	sock_init_data(sock, sk);
-	sk->destruct = can_sock_destruct;
+	sk->sk_destruct = can_sock_destruct;
 
-	err = 0;
 	if (cp->init)
 		err = cp->init(sk);
+
 	if (err) {
 		/* release sk on errors */
 		sock_orphan(sk);
 		sock_put(sk);
-		return err;
 	}
 
-	return 0;
+	return err;
 }
 
 /*
@@ -180,31 +193,65 @@ static int can_create(struct socket *sock, int protocol)
  *  0 on success
  *  -ENETDOWN when the selected interface is down
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
+ *  -ENOMEM when local loopback failed at calling skb_clone()
+ *  -EPERM when trying to send on a non-CAN interface
  */
 int can_send(struct sk_buff *skb, int loop)
 {
 	int err;
 
+	if (skb->dev->type != ARPHRD_CAN) {
+		kfree_skb(skb);
+		return -EPERM;
+	}
+
+	if (!(skb->dev->flags & IFF_UP)) {
+		kfree_skb(skb);
+		return -ENETDOWN;
+	}
+
+	skb->protocol = htons(ETH_P_CAN);
+	skb->nh.raw = skb->data;
+	skb->h.raw  = skb->data;
+
 	if (loop) {
 		/* local loopback of sent CAN frames */
 
 		/* indication for the CAN driver: do loopback */
-		*(struct sock **)skb->cb = skb->sk;
+		skb->pkt_type = PACKET_LOOPBACK;
 
-		/* interface not capabable to do the loopback itself? */
-		if (!(skb->dev->flags & IFF_LOOPBACK)) {
+		/*
+		 * The reference to the originating sock may be required
+		 * by the receiving socket to check whether the frame is
+		 * its own. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
+		 * Therefore we have to ensure that skb->sk remains the
+		 * reference to the originating sock by restoring skb->sk
+		 * after each skb_clone() or skb_orphan() usage.
+		 */
+
+#define IFF_ECHO IFF_LOOPBACK
+
+		if (!(skb->dev->flags & IFF_ECHO)) {
+			/*
+			 * If the interface is not capable to do loopback
+			 * itself, we do it here.
+			 */
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
-			newskb->protocol  = htons(ETH_P_CAN);
+
+			if (!newskb) {
+				kfree_skb(skb);
+				return -ENOMEM;
+			}
+
+			newskb->sk = skb->sk;
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
+			newskb->pkt_type = PACKET_BROADCAST;
 			netif_rx(newskb);
 		}
 	} else {
 		/* indication for the CAN driver: no loopback required */
-		*(struct sock **)skb->cb = NULL;
+		skb->pkt_type = PACKET_HOST;
 	}
-
-	if (!(skb->dev->flags & IFF_UP))
-		return -ENETDOWN;
 
 	/* send to netdevice */
 	err = dev_queue_xmit(skb);
@@ -432,6 +479,7 @@ static inline void deliver(struct sk_buff *skb, struct receiver *r)
 	struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
 
 	if (clone) {
+		clone->sk = skb->sk;
 		r->func(clone, r->data);
 		r->matches++;
 	}
@@ -489,7 +537,8 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
 			}
 		}
 	} else {
-		for (r = d->rx_sff[can_id & CAN_SFF_MASK]; r; r = r->next) {
+		can_id &= CAN_SFF_MASK;
+		for (r = d->rx_sff[can_id]; r; r = r->next) {
 			deliver(skb, r);
 			matches++;
 		}
@@ -503,6 +552,11 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 {
 	struct dev_rcv_lists *d;
 	int matches;
+
+	if (dev->type != ARPHRD_CAN) {
+		kfree_skb(skb);
+		return 0;
+	}
 
 	/* update statistics */
 	can_stats.rx_frames++;
@@ -530,7 +584,6 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	return 0;
 }
-
 
 /*
  * af_can protocol functions
@@ -586,6 +639,9 @@ void can_proto_unregister(struct can_proto *cp)
 }
 EXPORT_SYMBOL(can_proto_unregister);
 
+/*
+ * af_can notifier to create/remove CAN netdevice specific structs
+ */
 static int can_notifier(struct notifier_block *nb,
 			unsigned long msg, void *data)
 {
@@ -660,19 +716,19 @@ static int can_notifier(struct notifier_block *nb,
  * af_can module init/exit functions
  */
 
-static struct packet_type can_packet = {
+static struct packet_type can_packet __read_mostly = {
 	.type = __constant_htons(ETH_P_CAN),
 	.dev  = NULL,
 	.func = can_rcv,
 };
 
-static struct net_proto_family can_family_ops = {
+static struct net_proto_family can_family_ops __read_mostly = {
 	.family = PF_CAN,
 	.create = can_create,
 };
 
 /* notifier block for netdevice event */
-static struct notifier_block can_netdev_notifier = {
+static struct notifier_block can_netdev_notifier __read_mostly = {
 	.notifier_call = can_notifier,
 };
 

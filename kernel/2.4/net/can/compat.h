@@ -30,9 +30,11 @@ static inline void setup_timer(struct timer_list * timer,
 #define   dev_get_by_index(ns, ifindex)   dev_get_by_index(ifindex)
 #define __dev_get_by_index(ns, ifindex) __dev_get_by_index(ifindex)
 
-#define sk_socket	socket
-#define sk_err		err
-#define sk_error_report	error_report
+#define sk_socket		socket
+#define sk_err			err
+#define sk_error_report		error_report
+#define sk_receive_queue	receive_queue
+#define sk_destruct		destruct
 
 /* Force a compilation error if condition is true */
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
