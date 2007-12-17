@@ -105,6 +105,7 @@ struct s_stats {
 /* persistent statistics */
 struct s_pstats {
 	unsigned long stats_reset;
+	unsigned long user_reset;
 	unsigned long rcv_entries;
 	unsigned long rcv_entries_max;
 };

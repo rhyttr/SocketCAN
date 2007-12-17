@@ -701,12 +701,10 @@ static __init int can_init(void)
 
 	if (stats_timer) {
 		/* the statistics are updated every second (timer triggered) */
-		init_timer(&can_stattimer);
-		can_stattimer.function = can_stat_update;
-		can_stattimer.data = 0;
-		can_stattimer.expires = jiffies + HZ; /* every second */
-		add_timer(&can_stattimer); /* start statistics timer */
-	}
+		setup_timer(&can_stattimer, can_stat_update, 0);
+		mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
+	} else
+		can_stattimer.function = NULL;
 
 	can_init_proc();
 

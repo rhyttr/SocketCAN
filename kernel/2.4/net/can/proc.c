@@ -43,12 +43,11 @@
 
 #include <linux/module.h>
 #include <linux/proc_fs.h>
-
-#include <linux/can.h>
 #include <linux/can/core.h>
-#include <linux/can/version.h>
 #include "af_can.h"
+#include "compat.h"
 
+#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 /*
@@ -76,6 +75,8 @@ static struct proc_dir_entry *pde_rcvlist_sff;
 static struct proc_dir_entry *pde_rcvlist_eff;
 static struct proc_dir_entry *pde_rcvlist_err;
 
+static int user_reset;
+
 static const char rx_list_name[][8] = {
 	[RX_ERR] = "rx_err",
 	[RX_ALL] = "rx_all",
@@ -90,9 +91,20 @@ static const char rx_list_name[][8] = {
 
 static void can_init_stats(void)
 {
+	/*
+	 * This memset function is called from a timer context (when
+	 * can_stattimer is active which is the default) OR in a process
+	 * context (reading the proc_fs when can_stattimer is disabled).
+	 */
 	memset(&can_stats, 0, sizeof(can_stats));
 	can_stats.jiffies_init = jiffies;
+
 	can_pstats.stats_reset++;
+
+	if (user_reset) {
+		user_reset = 0;
+		can_pstats.user_reset++;
+	}
 }
 
 static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
@@ -105,7 +117,7 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
 
 	/* see can_stat_update() - this should NEVER happen! */
 	if (count > (ULONG_MAX / HZ)) {
-		printk(KERN_ERR "CAN: calc_rate: count exceeded! %ld\n",
+		printk(KERN_ERR "can: calc_rate: count exceeded! %ld\n",
 		       count);
 		return 99999999;
 	}
@@ -119,12 +131,20 @@ void can_stat_update(unsigned long data)
 {
 	unsigned long j = jiffies; /* snapshot */
 
+	/* restart counting in timer context on user request */
+	if (user_reset)
+		can_init_stats();
+
 	/* restart counting on jiffies overflow */
 	if (j < can_stats.jiffies_init)
 		can_init_stats();
 
 	/* prevent overflow in calc_rate() */
 	if (can_stats.rx_frames > (ULONG_MAX / HZ))
+		can_init_stats();
+
+	/* prevent overflow in calc_rate() */
+	if (can_stats.tx_frames > (ULONG_MAX / HZ))
 		can_init_stats();
 
 	/* matches overflow - very improbable */
@@ -166,8 +186,7 @@ void can_stat_update(unsigned long data)
 	can_stats.matches_delta   = 0;
 
 	/* restart timer (one second) */
-	can_stattimer.expires = jiffies + HZ;
-	add_timer(&can_stattimer);
+	mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
 }
 
 /*
@@ -186,11 +205,11 @@ static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
 	for (r = rx_list; r; r = r->next) {
 		char *fmt = r->can_id & CAN_EFF_FLAG ? /* EFF & CAN_ID_ALL */
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
-			"   %-5s     %03X    %08x  %08x  %08x  %8ld  %s\n";
+			"   %-5s     %03X    %08x  %08lx  %08lx  %8ld  %s\n";
 
 		len += snprintf(page + len, PAGE_SIZE - len, fmt,
 				DNAME(dev), r->can_id, r->mask,
-				(unsigned int)r->func, (unsigned int)r->data,
+				(unsigned long)r->func, (unsigned long)r->data,
 				r->matches, r->ident);
 
 		/* does a typical line fit into the current buffer? */
@@ -238,45 +257,46 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% total match ratio (RXMR)\n",
-			can_stats.total_rx_match_ratio);
+	if (can_stattimer.function == can_stat_update) {
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% total match ratio (RXMR)\n",
+				can_stats.total_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s total tx rate (TXR)\n",
-			can_stats.total_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s total rx rate (RXR)\n",
-			can_stats.total_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s total tx rate (TXR)\n",
+				can_stats.total_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s total rx rate (RXR)\n",
+				can_stats.total_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% current match ratio (CRXMR)\n",
-			can_stats.current_rx_match_ratio);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% current match ratio (CRXMR)\n",
+				can_stats.current_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s current tx rate (CTXR)\n",
-			can_stats.current_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s current rx rate (CRXR)\n",
-			can_stats.current_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s current tx rate (CTXR)\n",
+				can_stats.current_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s current rx rate (CRXR)\n",
+				can_stats.current_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld %% max match ratio (MRXMR)\n",
-			can_stats.max_rx_match_ratio);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld %% max match ratio (MRXMR)\n",
+				can_stats.max_rx_match_ratio);
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s max tx rate (MTXR)\n",
-			can_stats.max_tx_rate);
-	len += snprintf(page + len, PAGE_SIZE - len,
-			" %8ld frames/s max rx rate (MRXR)\n",
-			can_stats.max_rx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s max tx rate (MTXR)\n",
+				can_stats.max_tx_rate);
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld frames/s max rx rate (MRXR)\n",
+				can_stats.max_rx_rate);
 
-	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-
+		len += snprintf(page + len, PAGE_SIZE - len, "\n");
+	}
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld current receive list entries (CRCV)\n",
 			can_pstats.rcv_entries);
@@ -288,6 +308,11 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"\n %8ld statistic resets (STR)\n",
 				can_pstats.stats_reset);
+
+	if (can_pstats.user_reset)
+		len += snprintf(page + len, PAGE_SIZE - len,
+				" %8ld user statistic resets (USTR)\n",
+				can_pstats.user_reset);
 
 	len += snprintf(page + len, PAGE_SIZE - len, "\n");
 
@@ -304,11 +329,21 @@ static int can_proc_read_reset_stats(char *page, char **start, off_t off,
 
 	MOD_INC_USE_COUNT;
 
-	can_init_stats();
+	user_reset = 1;
 
-	len += snprintf(page + len, PAGE_SIZE - len,
-			"CAN statistic reset #%ld done.\n",
-			can_pstats.stats_reset);
+	if (can_stattimer.function == can_stat_update) {
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"Scheduled statistic reset #%ld.\n",
+				can_pstats.stats_reset + 1);
+
+	} else {
+		if (can_stats.jiffies_init != jiffies)
+			can_init_stats();
+
+		len += snprintf(page + len, PAGE_SIZE - len,
+				"Performed statistic reset #%ld.\n",
+				can_pstats.stats_reset);
+	}
 
 	MOD_DEC_USE_COUNT;
 
@@ -441,10 +476,10 @@ static void can_remove_proc_readentry(const char *name)
 void can_init_proc(void)
 {
 	/* create /proc/net/can directory */
-	can_dir = proc_mkdir("net/can", NULL);
+	can_dir = proc_mkdir("can", proc_net);
 
 	if (!can_dir) {
-		printk(KERN_INFO "CAN: failed to create /proc/net/can. "
+		printk(KERN_INFO "can: failed to create /proc/net/can. "
 		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
@@ -505,5 +540,5 @@ void can_remove_proc(void)
 		can_remove_proc_readentry(CAN_PROC_RCVLIST_SFF);
 
 	if (can_dir)
-		remove_proc_entry("net/can", NULL);
+		proc_net_remove("can");
 }
