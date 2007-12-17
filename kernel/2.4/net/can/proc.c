@@ -44,6 +44,7 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/can/core.h>
+
 #include "af_can.h"
 #include "compat.h"
 
@@ -203,7 +204,7 @@ static int can_print_rcvlist(char *page, int len, struct receiver *rx_list,
 	struct receiver *r;
 
 	for (r = rx_list; r; r = r->next) {
-		char *fmt = r->can_id & CAN_EFF_FLAG ? /* EFF & CAN_ID_ALL */
+		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
 			"   %-5s     %03X    %08x  %08lx  %08lx  %8ld  %s\n";
 
@@ -297,6 +298,7 @@ static int can_proc_read_stats(char *page, char **start, off_t off,
 
 		len += snprintf(page + len, PAGE_SIZE - len, "\n");
 	}
+
 	len += snprintf(page + len, PAGE_SIZE - len,
 			" %8ld current receive list entries (CRCV)\n",
 			can_pstats.rcv_entries);
@@ -479,7 +481,7 @@ void can_init_proc(void)
 	can_dir = proc_mkdir("can", proc_net);
 
 	if (!can_dir) {
-		printk(KERN_INFO "can: failed to create /proc/net/can. "
+		printk(KERN_INFO "can: failed to create /proc/net/can . "
 		       "CONFIG_PROC_FS missing?\n");
 		return;
 	}
