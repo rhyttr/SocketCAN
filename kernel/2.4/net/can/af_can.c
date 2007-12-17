@@ -76,7 +76,7 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>, "
 static int stats_timer __read_mostly = 1;
 MODULE_PARM(stats_timer, "1i");
 
-struct dev_rcv_lists *can_rx_dev_list;
+struct dev_rcv_lists *can_rx_dev_list = NULL;
 static struct dev_rcv_lists can_rx_alldev_list;
 rwlock_t can_rcvlists_lock = RW_LOCK_UNLOCKED;
 
@@ -107,7 +107,7 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 				    sizeof(sk->stamp)) ? -EFAULT : 0;
 		break;
 	default:
-		return dev_ioctl(cmd, (void *)arg);
+		return dev_ioctl(cmd, (void __user *)arg);
 	}
 }
 
@@ -272,16 +272,14 @@ EXPORT_SYMBOL(can_send);
 
 static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 {
-	struct dev_rcv_lists *d;
+	struct dev_rcv_lists *d = NULL;
 
 	/* find receive list for this device */
 
-	if (!dev)
-		return &can_rx_alldev_list;
-
-	for (d = can_rx_dev_list; d; d = d->next)
+	for (d = can_rx_dev_list; d; d = d->next) {
 		if (d->dev == dev)
 			break;
+	}
 
 	return d;
 }
@@ -398,17 +396,6 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 }
 EXPORT_SYMBOL(can_rx_register);
 
-static void can_rx_delete_all(struct receiver **rl)
-{
-	struct receiver *r, *n;
-
-	for (r = *rl; r; r = n) {
-		n = r->next;
-		kfree(r);
-	}
-	*rl = NULL;
-}
-
 /**
  * can_rx_unregister - unsubscribe CAN frames from a specific interface
  * @dev: pointer to netdevice (NULL => unsubcribe from 'all' CAN devices list)
@@ -468,6 +455,14 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	if (can_pstats.rcv_entries > 0)
 		can_pstats.rcv_entries--;
+
+	/* remove device structure requested by NETDEV_UNREGISTER */
+	if (d->remove_on_zero_entries && !d->entries) {
+		/* remove d from the list */
+		*d->pprev = d->next;
+		d->next->pprev = d->pprev;
+		kfree(d);
+	}
 
  out:
 	write_unlock_bh(&can_rcvlists_lock);
@@ -642,30 +637,27 @@ EXPORT_SYMBOL(can_proto_unregister);
 /*
  * af_can notifier to create/remove CAN netdevice specific structs
  */
-static int can_notifier(struct notifier_block *nb,
-			unsigned long msg, void *data)
+static int can_notifier(struct notifier_block *nb, unsigned long msg,
+			void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
+	struct dev_rcv_lists *d;
 
 	if (dev->type != ARPHRD_CAN)
 		return NOTIFY_DONE;
 
 	switch (msg) {
-		struct dev_rcv_lists *d;
-		int i;
 
 	case NETDEV_REGISTER:
 
 		/* create new dev_rcv_lists for this device */
 
-		d = kmalloc(sizeof(*d),
-			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		d = kzalloc(sizeof(*d), gfp_any());
 		if (!d) {
-			printk(KERN_ERR "CAN: allocation of receive "
-			       "list failed\n");
+			printk(KERN_ERR
+			       "can: allocation of receive list failed\n");
 			return NOTIFY_DONE;
 		}
-		memset(d, 0, sizeof(*d));
 		d->dev = dev;
 
 		/* insert d into the list */
@@ -683,27 +675,19 @@ static int can_notifier(struct notifier_block *nb,
 		write_lock_bh(&can_rcvlists_lock);
 
 		d = find_dev_rcv_lists(dev);
-		if (!d) {
-			printk(KERN_ERR "CAN: notifier: receive list not "
-			       "found for dev %s\n", DNAME(dev));
-			goto unreg_out;
-		}
+		if (d) {
+			if (d->entries) {
+				d->remove_on_zero_entries = 1;
+			} else {
+				/* remove d from the list */
+				*d->pprev = d->next;
+				d->next->pprev = d->pprev;
+				kfree(d);
+			}
+		} else
+			printk(KERN_ERR "can: notifier: receive list not "
+			       "found for dev %s\n", dev->name);
 
-		/* remove d from the list */
-		*d->pprev = d->next;
-		d->next->pprev = d->pprev;
-
-		/* remove all receivers hooked at this netdevice */
-		can_rx_delete_all(&d->rx[RX_ERR]);
-		can_rx_delete_all(&d->rx[RX_ALL]);
-		can_rx_delete_all(&d->rx[RX_FIL]);
-		can_rx_delete_all(&d->rx[RX_INV]);
-		can_rx_delete_all(&d->rx[RX_EFF]);
-		for (i = 0; i < 2048; i++)
-			can_rx_delete_all(&d->rx_sff[i]);
-		kfree(d);
-
-	unreg_out:
 		write_unlock_bh(&can_rcvlists_lock);
 
 		break;

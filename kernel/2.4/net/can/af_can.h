@@ -72,6 +72,7 @@ struct dev_rcv_lists {
 	struct net_device *dev;
 	struct receiver *rx[RX_MAX];
 	struct receiver *rx_sff[0x800];
+	int remove_on_zero_entries;
 	int entries;
 };
 
