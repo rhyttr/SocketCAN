@@ -630,7 +630,6 @@ void can_proto_unregister(struct can_proto *cp)
 	if (!proto_tab[proto]) {
 		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
 		       proto);
-		return;
 	}
 	proto_tab[proto] = NULL;
 }
