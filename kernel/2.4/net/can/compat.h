@@ -35,6 +35,11 @@ static inline void setup_timer(struct timer_list * timer,
 #define sk_error_report		error_report
 #define sk_receive_queue	receive_queue
 #define sk_destruct		destruct
+#define sk_state		state
+#define sk_shutdown		shutdown
+#define sk_sleep		sleep
+#define sk_bound_dev_if		bound_dev_if
+#define sk_refcnt		refcnt
 
 /* Force a compilation error if condition is true */
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
