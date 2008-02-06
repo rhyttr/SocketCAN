@@ -159,6 +159,7 @@ static int can_create(struct socket *sock, int protocol)
 		return -EAFNOSUPPORT;
 #endif
 
+#ifdef CONFIG_KMOD
 	/* try to load protocol module, when CONFIG_KMOD is defined */
 	if (!proto_tab[protocol]) {
 		err = request_module("can-proto-%d", protocol);
@@ -168,16 +169,11 @@ static int can_create(struct socket *sock, int protocol)
 		 * return the error code immediately.  Below we will
 		 * return -EPROTONOSUPPORT
 		 */
-		if (err == -ENOSYS) {
-			if (printk_ratelimit())
-				printk(KERN_INFO "can: request_module()"
-				       " not implemented.\n");
-		} else if (err) {
-			if (printk_ratelimit())
-				printk(KERN_ERR "can: request_module "
-				       "(can-proto-%d) failed.\n", protocol);
-		}
+		if (err && printk_ratelimit())
+			printk(KERN_ERR "can: request_module "
+			       "(can-proto-%d) failed.\n", protocol);
 	}
+#endif
 
 	spin_lock(&proto_tab_lock);
 	cp = proto_tab[protocol];
