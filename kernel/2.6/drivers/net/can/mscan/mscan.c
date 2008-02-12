@@ -489,13 +489,12 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 	struct net_device_stats *stats = dev->get_stats(dev);
-	u8 cantflg, canrflg;
+	u8 cantier, cantflg, canrflg;
 	irqreturn_t ret = IRQ_NONE;
 
-	if (in_8(&regs->cantier) & MSCAN_TXE) {
+	if ((cantier = in_8(&regs->cantier) & MSCAN_TXE) &&
+	    (cantflg = in_8(&regs->cantflg) & cantier)) {
 		struct list_head *tmp, *pos;
-
-		cantflg = in_8(&regs->cantflg) & MSCAN_TXE;
 
 		list_for_each_safe(pos, tmp, &priv->tx_head) {
 			tx_queue_entry_t *entry =
