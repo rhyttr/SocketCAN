@@ -42,6 +42,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/proc_fs.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
