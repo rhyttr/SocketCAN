@@ -93,6 +93,10 @@ struct mscan_priv {
 
 	struct list_head tx_head;
 	tx_queue_entry_t tx_queue[TX_QUEUE_SIZE];
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+	struct napi_struct napi;
+	struct net_device *dev;
+#endif
 };
 
 #define F_RX_PROGRESS	0
@@ -327,11 +331,22 @@ static inline int check_set_state(struct net_device *dev, u8 canrflg)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+static int mscan_rx_poll(struct napi_struct *napi, int quota)
+#else
 static int mscan_rx_poll(struct net_device *dev, int *budget)
+#endif
 {
-	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+	struct mscan_priv *priv = container_of(napi, struct mscan_priv, napi);
+	struct net_device *dev = priv->dev;
+#else
 	struct mscan_priv *priv = netdev_priv(dev);
-	int npackets = 0, quota = min(dev->quota, *budget);
+	int quota = min(dev->quota, *budget);
+#endif
+	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct net_device_stats *stats = dev->get_stats(dev);
+	int npackets = 0;
 	int ret = 1;
 	struct sk_buff *skb;
 	struct can_frame *frame;
@@ -346,7 +361,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 		if (!skb) {
 			if (printk_ratelimit())
 				dev_notice(ND2D(dev), "packet dropped\n");
-			priv->can.net_stats.rx_dropped++;
+			stats->rx_dropped++;
 			out_8(&regs->canrflg, canrflg);
 			continue;
 		}
@@ -394,15 +409,15 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 
 			out_8(&regs->canrflg, MSCAN_RXF);
 			dev->last_rx = jiffies;
-			priv->can.net_stats.rx_packets++;
-			priv->can.net_stats.rx_bytes += frame->can_dlc;
+			stats->rx_packets++;
+			stats->rx_bytes += frame->can_dlc;
 		} else if (canrflg & MSCAN_ERR_IF) {
 			frame->can_id = CAN_ERR_FLAG;
 
 			if (canrflg & MSCAN_OVRIF) {
 				frame->can_id |= CAN_ERR_CRTL;
 				frame->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
-				priv->can.net_stats.rx_over_errors++;
+				stats->rx_over_errors++;
 			} else
 				frame->data[1] = 0;
 
@@ -444,11 +459,17 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 		netif_receive_skb(skb);
 	}
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
 	*budget -= npackets;
 	dev->quota -= npackets;
+#endif
 
 	if (!(in_8(&regs->canrflg) & (MSCAN_RXF | MSCAN_ERR_IF))) {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+		netif_rx_complete(dev, &priv->napi);
+#else
 		netif_rx_complete(dev);
+#endif
 		clear_bit(F_RX_PROGRESS, &priv->flags);
 		out_8(&regs->canrier,
 		      in_8(&regs->canrier) | MSCAN_ERR_IF | MSCAN_RXFIE);
@@ -467,6 +488,7 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct net_device_stats *stats = dev->get_stats(dev);
 	u8 cantflg, canrflg;
 	irqreturn_t ret = IRQ_NONE;
 
@@ -484,13 +506,13 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 				continue;
 
 			if (in_8(&regs->cantaak) & mask) {
-				priv->can.net_stats.tx_dropped++;
-				priv->can.net_stats.tx_aborted_errors++;
+				stats->tx_dropped++;
+				stats->tx_aborted_errors++;
 			} else {
 				out_8(&regs->cantbsel, mask);
-				priv->can.net_stats.tx_bytes +=
+				stats->tx_bytes +=
 				    in_8(&regs->tx.dlr);
-				priv->can.net_stats.tx_packets++;
+				stats->tx_packets++;
 			}
 			priv->tx_active &= ~mask;
 			list_del(pos);
@@ -519,7 +541,11 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 		if (canrflg & ~MSCAN_STAT_MSK) {
 			priv->shadow_canrier = in_8(&regs->canrier);
 			out_8(&regs->canrier, 0);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+			netif_rx_schedule(dev, &priv->napi);
+#else
 			netif_rx_schedule(dev);
+#endif
 			ret = IRQ_HANDLED;
 		} else
 			clear_bit(F_RX_PROGRESS, &priv->flags);
@@ -588,6 +614,9 @@ static int mscan_open(struct net_device *dev)
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+	napi_enable(&priv->napi);
+#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 	ret = request_irq(dev->irq, mscan_isr, SA_SHIRQ, dev->name, dev);
 #else
@@ -595,6 +624,9 @@ static int mscan_open(struct net_device *dev)
 #endif
 
 	if (ret  < 0) {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+		napi_disable(&priv->napi);
+#endif
 		printk(KERN_ERR "%s - failed to attach interrupt\n",
 		       dev->name);
 		return ret;
@@ -695,8 +727,13 @@ struct net_device *alloc_mscandev(void)
 	dev->hard_start_xmit = mscan_hard_start_xmit;
 	dev->tx_timeout = mscan_tx_timeout;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+	priv->dev = dev;
+	netif_napi_add(dev, &priv->napi, mscan_rx_poll, 8);
+#else
 	dev->poll = mscan_rx_poll;
 	dev->weight = 8;
+#endif
 
 	priv->can.do_set_bit_time = mscan_do_set_bit_time;
 	priv->can.do_set_mode = mscan_do_set_mode;
