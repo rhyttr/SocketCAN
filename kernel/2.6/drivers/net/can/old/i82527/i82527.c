@@ -1152,7 +1152,7 @@ int can_set_drv_name(void)
 	return 0;
 }
 
-static __exit void i82527_exit_module(void)
+static void i82527_exit_module(void)
 {
 	int i, ret;
 

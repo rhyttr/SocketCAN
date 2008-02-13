@@ -1108,7 +1108,7 @@ int can_set_drv_name(void)
 	return 0;
 }
 
-static __exit void sja1000_exit_module(void)
+static void sja1000_exit_module(void)
 {
 	int i, ret;
 
