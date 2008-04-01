@@ -580,16 +580,11 @@ static void bcm_rx_timeout_handler(unsigned long data)
 }
 
 /*
- * bcm_rx_thr_handler - the time for blocked content updates is over now:
- *                      Check for throttled data and send it to the userspace
+ * bcm_rx_thr_flush - Check for throttled data and send it to the userspace
  */
-static void bcm_rx_thr_handler(unsigned long data)
+static void bcm_rx_thr_flush(struct bcm_op *op)
 {
-	struct bcm_op *op = (struct bcm_op *)data;
 	int i = 0;
-
-	/* mark disabled / consumed timer */
-	op->thrtimer.expires = 0;
 
 	if (op->nframes > 1) {
 		/* for MUX filter we start at index 1 */
@@ -608,6 +603,20 @@ static void bcm_rx_thr_handler(unsigned long data)
 			bcm_rx_changed(op, &op->last_frames[0]);
 		}
 	}
+}
+
+/*
+ * bcm_rx_thr_handler - the time for blocked content updates is over now:
+ *                      Check for throttled data and send it to the userspace
+ */
+static void bcm_rx_thr_handler(unsigned long data)
+{
+	struct bcm_op *op = (struct bcm_op *)data;
+
+	bcm_rx_thr_flush(op);
+
+	/* mark disabled / consumed timer */
+	op->thrtimer.expires = 0;
 }
 
 /*
@@ -1114,17 +1123,13 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			if (!op->j_ival1)
 				del_timer(&op->timer);
 
-			/* free currently blocked msgs ? */
-			if (op->thrtimer.expires) {
-				/* send blocked msgs hereafter */
-				mod_timer(&op->thrtimer, jiffies + 2);
-			}
-
 			/*
-			 * if (op->j_ival2) is zero, no (new) throttling
-			 * will happen. For details see functions
-			 * bcm_rx_update_and_send() and bcm_rx_thr_handler()
+			 * In any case cancel the throttle timer, flush
+			 * potentially blocked msgs and reset throttle handling
 			 */
+			del_timer(&op->thrtimer);
+			bcm_rx_thr_flush(op);
+			op->thrtimer.expires = 0;
 		}
 
 		if ((op->flags & STARTTIMER) && op->j_ival1)
