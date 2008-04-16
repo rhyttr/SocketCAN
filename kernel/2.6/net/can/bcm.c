@@ -582,17 +582,20 @@ static void bcm_rx_timeout_handler(unsigned long data)
 /*
  * bcm_rx_thr_flush - Check for throttled data and send it to the userspace
  */
-static void bcm_rx_thr_flush(struct bcm_op *op)
+static int bcm_rx_thr_flush(struct bcm_op *op)
 {
-	int i = 0;
+	int updated = 0;
 
 	if (op->nframes > 1) {
+		int i;
+
 		/* for MUX filter we start at index 1 */
 		for (i = 1; i < op->nframes; i++) {
 			if ((op->last_frames) &&
 			    (op->last_frames[i].can_dlc & RX_THR)) {
 				op->last_frames[i].can_dlc &= ~RX_THR;
 				bcm_rx_changed(op, &op->last_frames[i]);
+				updated++;
 			}
 		}
 
@@ -601,8 +604,11 @@ static void bcm_rx_thr_flush(struct bcm_op *op)
 		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)) {
 			op->last_frames[0].can_dlc &= ~RX_THR;
 			bcm_rx_changed(op, &op->last_frames[0]);
+			updated++;
 		}
 	}
+
+	return updated;
 }
 
 /*
@@ -613,10 +619,12 @@ static void bcm_rx_thr_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
 
-	bcm_rx_thr_flush(op);
-
-	/* mark disabled / consumed timer */
-	op->thrtimer.expires = 0;
+	if (bcm_rx_thr_flush(op))
+		mod_timer(&op->thrtimer, jiffies + op->j_ival2);
+	else {
+		/* mark disabled / consumed timer */
+		op->thrtimer.expires = 0;
+	}
 }
 
 /*
