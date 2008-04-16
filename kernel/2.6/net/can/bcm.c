@@ -44,6 +44,9 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+#include <linux/hrtimer.h>
+#endif
 #include <linux/list.h>
 #include <linux/proc_fs.h>
 #include <linux/uio.h>
@@ -75,7 +78,7 @@ RCSID("$Id$");
 #define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
 			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
 
-#define CAN_BCM_VERSION CAN_VERSION
+#define CAN_BCM_VERSION "20080415"
 static __initdata const char banner[] = KERN_INFO
 	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
 
@@ -94,14 +97,15 @@ struct bcm_op {
 	int ifindex;
 	canid_t can_id;
 	int flags;
-	unsigned long j_ival1, j_ival2, j_lastmsg;
 	unsigned long frames_abs, frames_filtered;
-	struct timer_list timer, thrtimer;
 	struct timeval ival1, ival2;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-	ktime_t rx_stamp;
+	struct hrtimer timer, thrtimer;
+	ktime_t rx_stamp, kt_ival1, kt_ival2, kt_lastmsg;
 #else
+	struct timer_list timer, thrtimer;
 	struct timeval rx_stamp;
+	unsigned long j_ival1, j_ival2, j_lastmsg;
 #endif
 	int rx_ifindex;
 	int count;
@@ -146,6 +150,7 @@ static inline struct bcm_sock *bcm_sk(const struct sock *sk)
 #define OPSIZ sizeof(struct bcm_op)
 #define MHSIZ sizeof(struct bcm_msg_head)
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 /*
  * rounded_tv2jif - calculate jiffies from timeval including optional up
  * @tv: pointer to timeval
@@ -178,6 +183,7 @@ static unsigned long rounded_tv2jif(const struct timeval *tv)
 
 	return jif + sec * HZ;
 }
+#endif
 
 /*
  * procfs functions
@@ -229,6 +235,17 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		len += snprintf(page + len, PAGE_SIZE - len, "[%d]%c ",
 				op->nframes,
 				(op->flags & RX_CHECK_DLC)?'d':' ');
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		if (op->kt_ival1.tv64)
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"timeo=%lld ",
+					ktime_to_us(op->kt_ival1));
+
+		if (op->kt_ival2.tv64)
+			len += snprintf(page + len, PAGE_SIZE - len,
+					"thr=%lld ",
+					ktime_to_us(op->kt_ival2));
+#else
 		if (op->j_ival1)
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"timeo=%ld ", op->j_ival1);
@@ -236,6 +253,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		if (op->j_ival2)
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"thr=%ld ", op->j_ival2);
+#endif
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"# recv %ld (%ld) => reduction: ",
@@ -259,6 +277,16 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 				"tx_op: %03X %s [%d] ",
 				op->can_id, bcm_proc_getifname(op->ifindex),
 				op->nframes);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		if (op->kt_ival1.tv64)
+			len += snprintf(page + len, PAGE_SIZE - len, "t1=%lld ",
+					ktime_to_us(op->kt_ival1));
+
+		if (op->kt_ival2.tv64)
+			len += snprintf(page + len, PAGE_SIZE - len, "t2=%lld ",
+					ktime_to_us(op->kt_ival2));
+#else
 		if (op->j_ival1)
 			len += snprintf(page + len, PAGE_SIZE - len, "t1=%ld ",
 					op->j_ival1);
@@ -266,6 +294,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		if (op->j_ival2)
 			len += snprintf(page + len, PAGE_SIZE - len, "t2=%ld ",
 					op->j_ival2);
+#endif
 
 		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n",
 				op->frames_abs);
@@ -400,11 +429,20 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 /*
  * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+static enum hrtimer_restart bcm_tx_timeout_handler(struct hrtimer *hrtimer)
+{
+	struct bcm_op *op = container_of(hrtimer, struct bcm_op, timer);
+	enum hrtimer_restart ret = HRTIMER_NORESTART;
+
+	if (op->kt_ival1.tv64 && (op->count > 0)) {
+#else
 static void bcm_tx_timeout_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
 
 	if (op->j_ival1 && (op->count > 0)) {
+#endif
 
 		op->count--;
 		if (!op->count && (op->flags & TX_COUNTEVT)) {
@@ -423,6 +461,26 @@ static void bcm_tx_timeout_handler(unsigned long data)
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	if (op->kt_ival1.tv64 && (op->count > 0)) {
+
+		/* send (next) frame */
+		bcm_can_tx(op);
+		hrtimer_forward(hrtimer, ktime_get(), op->kt_ival1);
+		ret = HRTIMER_RESTART;
+
+	} else {
+		if (op->kt_ival2.tv64) {
+
+			/* send (next) frame */
+			bcm_can_tx(op);
+			hrtimer_forward(hrtimer, ktime_get(), op->kt_ival2);
+			ret = HRTIMER_RESTART;
+		}
+	}
+
+	return ret;
+#else
 	if (op->j_ival1 && (op->count > 0)) {
 
 		/* send (next) frame */
@@ -439,6 +497,7 @@ static void bcm_tx_timeout_handler(unsigned long data)
 	}
 
 	return;
+#endif
 }
 
 /*
@@ -448,7 +507,9 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 {
 	struct bcm_msg_head head;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 	op->j_lastmsg = jiffies;
+#endif
 
 	/* update statistics */
 	op->frames_filtered++;
@@ -468,6 +529,14 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 	bcm_send_to_user(op, &head, data, 1);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+/* TODO: move to linux/hrtimer.h */
+static inline int hrtimer_callback_running(struct hrtimer *timer)
+{
+        return timer->state & HRTIMER_STATE_CALLBACK;
+}
+#endif
+
 /*
  * bcm_rx_update_and_send - process a detected relevant receive content change
  *                          1. update the last received data
@@ -477,6 +546,46 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 				   struct can_frame *lastdata,
 				   struct can_frame *rxdata)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	memcpy(lastdata, rxdata, CFSIZ);
+
+	/* mark as used */
+	lastdata->can_dlc |= RX_RECV;
+
+	/* throtteling mode inactive OR data update already on the run ? */
+	if (!op->kt_ival2.tv64 || hrtimer_callback_running(&op->thrtimer)) {
+		/* send RX_CHANGED to the user immediately */
+		bcm_rx_changed(op, rxdata);
+		return;
+	}
+
+	if (hrtimer_active(&op->thrtimer)) {
+		/* mark as 'throttled' */
+		lastdata->can_dlc |= RX_THR;
+		return;
+	}
+
+	if (!op->kt_lastmsg.tv64) {
+		/* send first RX_CHANGED to the user immediately */
+		bcm_rx_changed(op, rxdata);
+		op->kt_lastmsg = ktime_get();
+		return;
+	}
+
+	if (ktime_us_delta(ktime_get(), op->kt_lastmsg) <
+	    ktime_to_us(op->kt_ival2)) {
+		/* mark as 'throttled' and start timer */
+		lastdata->can_dlc |= RX_THR;
+		hrtimer_start(&op->thrtimer,
+			      ktime_add(op->kt_lastmsg, op->kt_ival2),
+			      HRTIMER_MODE_ABS);
+		return;
+	}
+
+	/* the gap was that big, that throttling was not needed here */
+	bcm_rx_changed(op, rxdata);
+	op->kt_lastmsg = ktime_get();
+#else
 	unsigned long nexttx = op->j_lastmsg + op->j_ival2;
 
 	memcpy(lastdata, rxdata, CFSIZ);
@@ -501,6 +610,7 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 		/* send RX_CHANGED to the user immediately */
 		bcm_rx_changed(op, rxdata);
 	}
+#endif
 }
 
 /*
@@ -548,16 +658,27 @@ static void bcm_rx_starttimer(struct bcm_op *op)
 	if (op->flags & RX_NO_AUTOTIMER)
 		return;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	if (op->kt_ival1.tv64)
+		hrtimer_start(&op->timer, op->kt_ival1, HRTIMER_MODE_REL);
+#else
 	if (op->j_ival1)
 		mod_timer(&op->timer, jiffies + op->j_ival1);
+#endif
 }
 
 /*
  * bcm_rx_timeout_handler - when the (cyclic) CAN frame receiption timed out
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+static enum hrtimer_restart bcm_rx_timeout_handler(struct hrtimer *hrtimer)
+{
+	struct bcm_op *op = container_of(hrtimer, struct bcm_op, timer);
+#else
 static void bcm_rx_timeout_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
+#endif
 	struct bcm_msg_head msg_head;
 
 	msg_head.opcode  = RX_TIMEOUT;
@@ -577,6 +698,10 @@ static void bcm_rx_timeout_handler(unsigned long data)
 		/* clear received can_frames to indicate 'nothing received' */
 		memset(op->last_frames, 0, op->nframes * CFSIZ);
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+
+	return HRTIMER_NORESTART;
+#endif
 }
 
 /*
@@ -615,6 +740,21 @@ static int bcm_rx_thr_flush(struct bcm_op *op)
  * bcm_rx_thr_handler - the time for blocked content updates is over now:
  *                      Check for throttled data and send it to the userspace
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+static enum hrtimer_restart bcm_rx_thr_handler(struct hrtimer *hrtimer)
+{
+	struct bcm_op *op = container_of(hrtimer, struct bcm_op, thrtimer);
+
+	if (bcm_rx_thr_flush(op)) {
+		hrtimer_forward(hrtimer, ktime_get(), op->kt_ival2);
+		return HRTIMER_RESTART;
+	} else {
+		/* rearm throttle handling */
+		op->kt_lastmsg = ktime_set(0, 0);
+		return HRTIMER_NORESTART;
+	}
+}
+#else
 static void bcm_rx_thr_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
@@ -626,6 +766,7 @@ static void bcm_rx_thr_handler(unsigned long data)
 		op->thrtimer.expires = 0;
 	}
 }
+#endif
 
 /*
  * bcm_rx_handler - handle a CAN frame receiption
@@ -637,7 +778,11 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 	int i;
 
 	/* disable timeout */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	hrtimer_cancel(&op->timer);
+#else
 	del_timer(&op->timer);
+#endif
 
 	if (skb->len == sizeof(rxframe)) {
 		memcpy(&rxframe, skb->data, sizeof(rxframe));
@@ -719,8 +864,13 @@ static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id,
 
 static void bcm_remove_op(struct bcm_op *op)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	hrtimer_cancel(&op->timer);
+	hrtimer_cancel(&op->thrtimer);
+#else
 	del_timer(&op->timer);
 	del_timer(&op->thrtimer);
+#endif
 
 	if ((op->frames) && (op->frames != &op->sframe))
 		kfree(op->frames);
@@ -921,11 +1071,19 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kzalloc) structure */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		hrtimer_init(&op->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		op->timer.function = bcm_tx_timeout_handler;
+
+		/* currently unused in tx_ops */
+		hrtimer_init(&op->thrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
 		setup_timer(&op->timer, bcm_tx_timeout_handler,
 			    (unsigned long)op);
 
 		/* currently unused in tx_ops */
 		init_timer(&op->thrtimer);
+#endif
 
 		/* add this bcm_op to the list of the tx_ops */
 		list_add(&op->list, &bo->tx_ops);
@@ -947,6 +1105,35 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->currframe = 0;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	if (op->flags & SETTIMER) {
+		/* set timer values */
+		op->count = msg_head->count;
+		op->ival1 = msg_head->ival1;
+		op->ival2 = msg_head->ival2;
+		op->kt_ival1 = timeval_to_ktime(msg_head->ival1);
+		op->kt_ival2 = timeval_to_ktime(msg_head->ival2);
+
+		/* disable an active timer due to zero values? */
+		if (!op->kt_ival1.tv64 && !op->kt_ival2.tv64)
+			hrtimer_cancel(&op->timer);
+	}
+
+	if ((op->flags & STARTTIMER) &&
+	    ((op->kt_ival1.tv64 && op->count) || op->kt_ival2.tv64)) {
+
+		/* spec: send can_frame when starting timer */
+		op->flags |= TX_ANNOUNCE;
+
+		if (op->kt_ival1.tv64 && (op->count > 0)) {
+			/* op->count-- is done in bcm_tx_timeout_handler */
+			hrtimer_start(&op->timer, op->kt_ival1,
+				      HRTIMER_MODE_REL);
+		} else
+			hrtimer_start(&op->timer, op->kt_ival2,
+				      HRTIMER_MODE_REL);
+	}
+#else
 	if (op->flags & SETTIMER) {
 		/* set timer values */
 		op->count = msg_head->count;
@@ -972,6 +1159,7 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		} else
 			mod_timer(&op->timer, jiffies + op->j_ival2);
 	}
+#endif
 
 	if (op->flags & TX_ANNOUNCE)
 		bcm_can_tx(op);
@@ -1082,6 +1270,13 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		op->ifindex = ifindex;
 
 		/* initialize uninitialized (kzalloc) structure */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		hrtimer_init(&op->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		op->timer.function = bcm_rx_timeout_handler;
+
+		hrtimer_init(&op->thrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		op->thrtimer.function = bcm_rx_thr_handler;
+#else
 		setup_timer(&op->timer, bcm_rx_timeout_handler,
 			    (unsigned long)op);
 
@@ -1091,6 +1286,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		/* mark disabled timer */
 		op->thrtimer.expires = 0;
+#endif
 
 		/* add this bcm_op to the list of the rx_ops */
 		list_add(&op->list, &bo->rx_ops);
@@ -1106,8 +1302,13 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 	if (op->flags & RX_RTR_FRAME) {
 
 		/* no timers in RTR-mode */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		hrtimer_cancel(&op->thrtimer);
+		hrtimer_cancel(&op->timer);
+#else
 		del_timer(&op->thrtimer);
 		del_timer(&op->timer);
+#endif
 
 		/*
 		 * funny feature in RX(!)_SETUP only for RTR-mode:
@@ -1119,6 +1320,32 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 			op->frames[0].can_id = op->can_id & ~CAN_RTR_FLAG;
 
 	} else {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		if (op->flags & SETTIMER) {
+
+			/* set timer value */
+			op->ival1 = msg_head->ival1;
+			op->ival2 = msg_head->ival2;
+			op->kt_ival1 = timeval_to_ktime(msg_head->ival1);
+			op->kt_ival2 = timeval_to_ktime(msg_head->ival2);
+
+			/* disable an active timer due to zero value? */
+			if (!op->kt_ival1.tv64)
+				hrtimer_cancel(&op->timer);
+
+			/*
+			 * In any case cancel the throttle timer, flush
+			 * potentially blocked msgs and reset throttle handling
+			 */
+			op->kt_lastmsg = ktime_set(0, 0);
+			hrtimer_cancel(&op->thrtimer);
+			bcm_rx_thr_flush(op);
+		}
+
+		if ((op->flags & STARTTIMER) && op->kt_ival1.tv64)
+			hrtimer_start(&op->timer, op->kt_ival1,
+				      HRTIMER_MODE_REL);
+#else
 		if (op->flags & SETTIMER) {
 
 			/* set timer value */
@@ -1142,6 +1369,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 
 		if ((op->flags & STARTTIMER) && op->j_ival1)
 			mod_timer(&op->timer, jiffies + op->j_ival1);
+#endif
 	}
 
 	/* now we can register for can_ids, if we added a new bcm_op */
