@@ -464,12 +464,12 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 			err = copy_from_user(filter, optval, optlen);
 			if (err) {
 				kfree(filter);
-				return err;
+				return -EFAULT;
 			}
 		} else if (count == 1) {
 			err = copy_from_user(&sfilter, optval, optlen);
 			if (err)
-				return err;
+				return -EFAULT;
 		}
 
 		lock_sock(sk);
@@ -521,7 +521,7 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 
 		err = copy_from_user(&err_mask, optval, optlen);
 		if (err)
-			return err;
+			return -EFAULT;
 
 		err_mask &= CAN_ERR_MASK;
 
@@ -557,7 +557,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(ro->loopback))
 			return -EINVAL;
 
-		err = copy_from_user(&ro->loopback, optval, optlen);
+		err = copy_from_user(&ro->loopback, optval, optlen) ?
+			-EFAULT : 0;
 
 		break;
 
@@ -565,7 +566,8 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(ro->recv_own_msgs))
 			return -EINVAL;
 
-		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
+		err = copy_from_user(&ro->recv_own_msgs, optval, optlen) ?
+			-EFAULT : 0;
 
 		break;
 
@@ -599,7 +601,8 @@ static int raw_getsockopt(struct socket *sock, int level, int optname,
 			int fsize = ro->count * sizeof(struct can_filter);
 			if (len > fsize)
 				len = fsize;
-			err = copy_to_user(optval, ro->filter, len);
+			if (copy_to_user(optval, ro->filter, len))
+				err = -EFAULT;
 		} else
 			len = 0;
 		release_sock(sk);
