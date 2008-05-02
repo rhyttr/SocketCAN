@@ -675,7 +675,9 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	struct dev_rcv_lists *d;
 	int matches;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+	if (dev->type != ARPHRD_CAN || dev_net(dev) != &init_net) {
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
 #else
 	if (dev->type != ARPHRD_CAN) {
@@ -796,7 +798,10 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 	struct net_device *dev = (struct net_device *)data;
 	struct dev_rcv_lists *d;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+	if (dev_net(dev) != &init_net)
+		return NOTIFY_DONE;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	if (dev->nd_net != &init_net)
 		return NOTIFY_DONE;
 #endif
