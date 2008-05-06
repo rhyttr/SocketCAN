@@ -198,6 +198,7 @@ static int can_create(struct socket *sock, int protocol)
  */
 int can_send(struct sk_buff *skb, int loop)
 {
+	struct sk_buff *newskb = NULL;
 	int err;
 
 	if (skb->dev->type != ARPHRD_CAN) {
@@ -236,8 +237,7 @@ int can_send(struct sk_buff *skb, int loop)
 			 * If the interface is not capable to do loopback
 			 * itself, we do it here.
 			 */
-			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
-
+			newskb = skb_clone(skb, GFP_ATOMIC);
 			if (!newskb) {
 				kfree_skb(skb);
 				return -ENOMEM;
@@ -246,7 +246,6 @@ int can_send(struct sk_buff *skb, int loop)
 			newskb->sk = skb->sk;
 			newskb->ip_summed = CHECKSUM_UNNECESSARY;
 			newskb->pkt_type = PACKET_BROADCAST;
-			netif_rx(newskb);
 		}
 	} else {
 		/* indication for the CAN driver: no loopback required */
@@ -258,11 +257,20 @@ int can_send(struct sk_buff *skb, int loop)
 	if (err > 0)
 		err = net_xmit_errno(err);
 
+	if (err) {
+		if (newskb)
+			kfree_skb(newskb);
+		return err;
+	}
+
+	if (newskb)
+		netif_rx(newskb);
+
 	/* update statistics */
 	can_stats.tx_frames++;
 	can_stats.tx_frames_delta++;
 
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(can_send);
 
