@@ -5,8 +5,13 @@
 #ifndef CAN_COMPAT_H
 #define CAN_COMPAT_H
 
+#ifndef PF_CAN
 #define PF_CAN 29
+#endif
+
+#ifndef AF_CAN
 #define AF_CAN PF_CAN
+#endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
 static inline void *kzalloc(size_t size, unsigned int __nocast flags)
