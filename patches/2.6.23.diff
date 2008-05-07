@@ -1,7 +1,7 @@
-diff -ruN linux.orig/CREDITS linux/CREDITS
---- linux.orig/CREDITS	2007-09-30 12:27:40.000000000 +0200
-+++ linux/CREDITS	2007-09-30 12:32:47.000000000 +0200
-@@ -1347,6 +1347,14 @@
+diff -ru linux-2.6.23-vanilla/CREDITS linux-2.6.23/CREDITS
+--- linux-2.6.23-vanilla/CREDITS	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/CREDITS	2008-05-07 11:44:21.000000000 +0200
+@@ -1331,6 +1331,14 @@
  S: 5623 HZ Eindhoven
  S: The Netherlands
  
@@ -16,7 +16,7 @@ diff -ruN linux.orig/CREDITS linux/CREDITS
  N: Andrew Haylett
  E: ajh@primag.co.uk
  D: Selection mechanism
-@@ -3300,6 +3308,14 @@
+@@ -3284,6 +3292,14 @@
  S: F-35042 Rennes Cedex
  S: France
  
@@ -31,10 +31,10 @@ diff -ruN linux.orig/CREDITS linux/CREDITS
  N: Jon Tombs
  E: jon@gte.esi.us.es
  W: http://www.esi.us.es/~jon
-diff -ruN linux.orig/drivers/net/Makefile linux/drivers/net/Makefile
---- linux.orig/drivers/net/Makefile	2007-09-30 12:27:52.000000000 +0200
-+++ linux/drivers/net/Makefile	2007-09-30 12:33:42.000000000 +0200
-@@ -12,6 +12,7 @@
+diff -ru linux-2.6.23-vanilla/drivers/net/Makefile linux-2.6.23/drivers/net/Makefile
+--- linux-2.6.23-vanilla/drivers/net/Makefile	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/drivers/net/Makefile	2008-05-07 11:44:21.000000000 +0200
+@@ -8,6 +8,7 @@
  obj-$(CONFIG_CHELSIO_T1) += chelsio/
  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
  obj-$(CONFIG_EHEA) += ehea/
@@ -42,9 +42,9 @@ diff -ruN linux.orig/drivers/net/Makefile linux/drivers/net/Makefile
  obj-$(CONFIG_BONDING) += bonding/
  obj-$(CONFIG_ATL1) += atl1/
  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-diff -ruN linux.orig/include/linux/if_arp.h linux/include/linux/if_arp.h
---- linux.orig/include/linux/if_arp.h	2007-09-30 12:28:07.000000000 +0200
-+++ linux/include/linux/if_arp.h	2007-09-30 12:30:08.000000000 +0200
+diff -ru linux-2.6.23-vanilla/include/linux/if_arp.h linux-2.6.23/include/linux/if_arp.h
+--- linux-2.6.23-vanilla/include/linux/if_arp.h	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/include/linux/if_arp.h	2008-05-07 11:44:21.000000000 +0200
 @@ -52,6 +52,7 @@
  #define ARPHRD_ROSE	270
  #define ARPHRD_X25	271		/* CCITT X.25			*/
@@ -53,9 +53,9 @@ diff -ruN linux.orig/include/linux/if_arp.h linux/include/linux/if_arp.h
  #define ARPHRD_PPP	512
  #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
  #define ARPHRD_HDLC	ARPHRD_CISCO
-diff -ruN linux.orig/include/linux/if_ether.h linux/include/linux/if_ether.h
---- linux.orig/include/linux/if_ether.h	2007-09-30 12:28:07.000000000 +0200
-+++ linux/include/linux/if_ether.h	2007-09-30 12:30:08.000000000 +0200
+diff -ru linux-2.6.23-vanilla/include/linux/if_ether.h linux-2.6.23/include/linux/if_ether.h
+--- linux-2.6.23-vanilla/include/linux/if_ether.h	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/include/linux/if_ether.h	2008-05-07 11:44:21.000000000 +0200
 @@ -90,6 +90,7 @@
  #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
  #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
@@ -64,9 +64,9 @@ diff -ruN linux.orig/include/linux/if_ether.h linux/include/linux/if_ether.h
  #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
  #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
  #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
-diff -ruN linux.orig/include/linux/socket.h linux/include/linux/socket.h
---- linux.orig/include/linux/socket.h	2007-09-30 12:28:08.000000000 +0200
-+++ linux/include/linux/socket.h	2007-09-30 12:30:08.000000000 +0200
+diff -ru linux-2.6.23-vanilla/include/linux/socket.h linux-2.6.23/include/linux/socket.h
+--- linux-2.6.23-vanilla/include/linux/socket.h	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/include/linux/socket.h	2008-05-07 11:44:21.000000000 +0200
 @@ -185,6 +185,7 @@
  #define AF_PPPOX	24	/* PPPoX sockets		*/
  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
@@ -83,9 +83,9 @@ diff -ruN linux.orig/include/linux/socket.h linux/include/linux/socket.h
  #define PF_TIPC		AF_TIPC
  #define PF_BLUETOOTH	AF_BLUETOOTH
  #define PF_IUCV		AF_IUCV
-diff -ruN linux.orig/include/linux/tty.h linux/include/linux/tty.h
---- linux.orig/include/linux/tty.h	2007-09-30 12:28:08.000000000 +0200
-+++ linux/include/linux/tty.h	2007-09-30 12:30:08.000000000 +0200
+diff -ru linux-2.6.23-vanilla/include/linux/tty.h linux-2.6.23/include/linux/tty.h
+--- linux-2.6.23-vanilla/include/linux/tty.h	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/include/linux/tty.h	2008-05-07 11:44:21.000000000 +0200
 @@ -24,7 +24,7 @@
  #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
  #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
@@ -103,10 +103,10 @@ diff -ruN linux.orig/include/linux/tty.h linux/include/linux/tty.h
  
  /*
   * This character is the same as _POSIX_VDISABLE: it cannot be used as
-diff -ruN linux.orig/MAINTAINERS linux/MAINTAINERS
---- linux.orig/MAINTAINERS	2007-09-30 12:27:40.000000000 +0200
-+++ linux/MAINTAINERS	2007-09-30 12:32:47.000000000 +0200
-@@ -991,6 +991,15 @@
+diff -ru linux-2.6.23-vanilla/MAINTAINERS linux-2.6.23/MAINTAINERS
+--- linux-2.6.23-vanilla/MAINTAINERS	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/MAINTAINERS	2008-05-07 11:44:21.000000000 +0200
+@@ -967,6 +967,15 @@
  L:	video4linux-list@redhat.com
  S:	Maintained
  
@@ -122,10 +122,10 @@ diff -ruN linux.orig/MAINTAINERS linux/MAINTAINERS
  CALGARY x86-64 IOMMU
  P:	Muli Ben-Yehuda
  M:	muli@il.ibm.com
-diff -ruN linux.orig/net/core/sock.c linux/net/core/sock.c
---- linux.orig/net/core/sock.c	2007-09-30 12:28:09.000000000 +0200
-+++ linux/net/core/sock.c	2007-09-30 12:30:08.000000000 +0200
-@@ -154,7 +154,7 @@
+diff -ru linux-2.6.23-vanilla/net/core/sock.c linux-2.6.23/net/core/sock.c
+--- linux-2.6.23-vanilla/net/core/sock.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/net/core/sock.c	2008-05-07 11:44:21.000000000 +0200
+@@ -153,7 +153,7 @@
    "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
    "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
    "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
@@ -134,7 +134,7 @@ diff -ruN linux.orig/net/core/sock.c linux/net/core/sock.c
    "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
    "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
  };
-@@ -168,7 +168,7 @@
+@@ -167,7 +167,7 @@
    "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
    "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
    "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
@@ -143,10 +143,10 @@ diff -ruN linux.orig/net/core/sock.c linux/net/core/sock.c
    "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
    "slock-AF_RXRPC" , "slock-AF_MAX"
  };
-diff -ruN linux.orig/net/Kconfig linux/net/Kconfig
---- linux.orig/net/Kconfig	2007-09-30 12:28:09.000000000 +0200
-+++ linux/net/Kconfig	2007-09-30 12:34:54.000000000 +0200
-@@ -218,6 +218,7 @@
+diff -ru linux-2.6.23-vanilla/net/Kconfig linux-2.6.23/net/Kconfig
+--- linux-2.6.23-vanilla/net/Kconfig	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/net/Kconfig	2008-05-07 11:44:21.000000000 +0200
+@@ -210,6 +210,7 @@
  endmenu
  
  source "net/ax25/Kconfig"
@@ -154,9 +154,9 @@ diff -ruN linux.orig/net/Kconfig linux/net/Kconfig
  source "net/irda/Kconfig"
  source "net/bluetooth/Kconfig"
  source "net/rxrpc/Kconfig"
-diff -ruN linux.orig/net/Makefile linux/net/Makefile
---- linux.orig/net/Makefile	2007-09-30 12:28:09.000000000 +0200
-+++ linux/net/Makefile	2007-09-30 12:34:54.000000000 +0200
+diff -ru linux-2.6.23-vanilla/net/Makefile linux-2.6.23/net/Makefile
+--- linux-2.6.23-vanilla/net/Makefile	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23/net/Makefile	2008-05-07 11:44:21.000000000 +0200
 @@ -34,6 +34,7 @@
  obj-$(CONFIG_NETROM)		+= netrom/
  obj-$(CONFIG_ROSE)		+= rose/
