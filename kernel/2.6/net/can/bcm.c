@@ -529,8 +529,8 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 	bcm_send_to_user(op, &head, data, 1);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-/* TODO: move to linux/hrtimer.h */
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,25)
+/* is part of linux/hrtimer.h since 2.6.26 */
 static inline int hrtimer_callback_running(struct hrtimer *timer)
 {
         return timer->state & HRTIMER_STATE_CALLBACK;

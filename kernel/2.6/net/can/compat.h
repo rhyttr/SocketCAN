@@ -46,4 +46,11 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
 #define __dev_get_by_index(ns, ifindex) __dev_get_by_index(ifindex)
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+#include <linux/hrtimer.h>
+static inline int hrtimer_callback_running(struct hrtimer *timer)
+{
+        return timer->state & HRTIMER_STATE_CALLBACK;
+}
+#endif
 #endif
