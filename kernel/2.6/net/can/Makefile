@@ -66,7 +66,7 @@ can-raw-objs		:= raw.o
 obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 can-bcm-objs		:= bcm.o
 
-obj-$(CONFIG_CAN)	+= candev.o
-candev-objs		:= dev.o
+obj-$(CONFIG_CAN)	+= can-dev.o
+can-dev-objs		:= dev.o sysfs.o
 
 endif

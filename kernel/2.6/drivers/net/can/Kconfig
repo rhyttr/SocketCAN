@@ -34,6 +34,18 @@ config CAN_DEBUG_DEVICES
 	  a problem with CAN support and want to see more of what is going
 	  on.
 
+config CAN_SJA1000
+       	tristate "Philips SJA1000"
+	---help---
+	  The SJA1000 is one of the top CAN controllers out there. As it
+	  has a multiplexed interface it fits directly to 8051
+	  microcontrollers or into the PC I/O port space. The SJA1000
+	  is a full CAN controller, with shadow registers for RX and TX.
+	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
+	  with a single (simple) filter setup.
+
+	  This driver will use the new device interface.
+
 config CAN_SJA1000_OLD
 	depends on CAN
 	tristate "Philips SJA1000 (old)"
@@ -99,5 +111,44 @@ config CAN_H7202
 	depends on CAN_CCAN
 	---help---
 	  This is a driver for the hynix h7202 can controller.
+
+config CAN_EMS_PCI
+	tristate "EMS CPC-PCI and CPC-PCIe Card"
+	depends on PCI && CAN_SJA1000
+	help
+
+	This driver is for the one or two channel CPC-PCI and CPC-PCIe
+	cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+
+config CAN_IXXAT_PCI
+	tristate "IXXAT PCI Card"
+	depends on PCI && CAN_SJA1000
+	help
+
+	This driver is for the IXXAT PC-I 04/PCI card (1 or 2 channel)
+	from the IXXAT Automation GmbH (http://www.ixxat.de).
+
+config CAN_PEAK_PCI
+	tristate "PEAK PCAN PCI Card"
+	depends on PCI && CAN_SJA1000
+	help
+
+	This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
+	2 channel) from PEAK Systems (http://www.peak-system.com).
+
+config CAN_PCM027
+        depends on CAN_SJA1000 && MACH_PCM027
+	tristate "Phytec pcm027 can driver (SJA1000)"
+	help
+	This driver adds support for the SJA1000 chip on the PCM027 board
+	from Phytec (http://www.phytec.de).
+
+config CAN_KVASER_PCI
+	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
+	depends on PCI && CAN_SJA1000
+	help
+
+	This driver is for the the PCIcanx and PCIcan cards (1, 2 or
+	4 channel) from Kvaser (http://www.kvaser.com).
 
 endmenu

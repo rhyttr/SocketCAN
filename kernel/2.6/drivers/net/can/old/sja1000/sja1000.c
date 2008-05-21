@@ -737,22 +737,6 @@ static struct net_device_stats *can_get_stats(struct net_device *dev)
 }
 #endif
 
-static int can_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-	if (!netif_running(dev))
-		return -EINVAL;
-
-	switch (cmd) {
-	case SIOCSCANBAUDRATE:
-		;
-		return 0;
-	case SIOCGCANBAUDRATE:
-		;
-		return 0;
-	}
-	return 0;
-}
-
 /*
  * SJA1000 interrupt handler
  */
@@ -1047,7 +1031,6 @@ void can_netdev_setup(struct net_device *dev)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats			= can_get_stats;
 #endif
-	dev->do_ioctl           	= can_ioctl;
 
 	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;
