@@ -21,6 +21,8 @@ config CAN_OLD_DRIVERS
 	  support. Some of the old drivers might only be configured by
 	  module commandline options.
 
+source "drivers/net/can/old/Kconfig"
+
 config CAN_SLCAN
 	tristate "Serial / USB serial CAN Adaptors (slcan)"
 	depends on CAN && EXPERIMENTAL
@@ -116,8 +118,6 @@ config CAN_H7202
 	depends on CAN_CCAN
 	---help---
 	  This is a driver for the hynix h7202 can controller.
-
-source "drivers/net/can/old/Kconfig"
 
 config CAN_DEBUG_DEVICES
 	bool "CAN devices debugging messages"
