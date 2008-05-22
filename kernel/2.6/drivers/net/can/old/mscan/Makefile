@@ -53,8 +53,8 @@ else
 
 -include $(TOPDIR)/Makefile.common
 
-obj-$(CONFIG_CAN_MPC52XX)	+= mscan-mpc52xx.o
+obj-$(CONFIG_CAN_MPC52XX_OLD)	+= mscan-mpc52xx-old.o
 
-mscan-mpc52xx-objs	:= mscan.o mpc52xx_can.o
+mscan-mpc52xx-old-objs	:= mscan.o mpc52xx_can.o
 
 endif
