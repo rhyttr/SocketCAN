@@ -1,0 +1,67 @@
+
+config CAN_SJA1000_OLD
+	depends on CAN_OLD_DRIVERS
+	tristate "Philips SJA1000 (old)"
+	---help---
+	  The SJA1000 is one of the top CAN controllers out there. As it
+	  has a multiplexed interface it fits directly to 8051
+	  microcontrollers or into the PC I/O port space. The SJA1000
+	  is a full CAN controller, with shadow registers for RX and TX.
+	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
+	  with a single (simple) filter setup.
+	  REMARK: This is the 'old' driver originally written by Matthias
+	  Brukner and Oliver Hartkopp which uses a non-standard hardware
+	  abstaction layer (HAL) inspired by the OCAN driver.
+
+config CAN_I82527_OLD
+	depends on CAN_OLD_DRIVERS
+	tristate "Intel 82527 (old)"
+	---help---
+	  The i82527 is a complex CAN controller that can handle RTR
+	  frame replies on it's own. This feature (and diffent RX filters)  
+	  lead to an amount of 15 message objects (for RX & TX). Message
+	  object 15 has (as only) a shadow register for a reliable
+	  receiption of EFF or(!) SFF frames at high CAN traffic.
+	  This driver can send each type of CAN frames (SFF/EFF/RTR).
+	  Using 4 message objects it can also receive each type of CAN
+	  frames. But due to the onchip filter matching trigger method
+	  it is not possible to determine the received RTR CAN-ID.
+	  The reliable message object 15 receives SFF frames by default.
+	  This message object 15 usage maybe changed with the mo15 param.
+	  REMARK: This is the 'old' driver originally written by Oliver
+	  Hartkopp which uses a non-standard hardware abstaction layer (HAL)
+	  inspired by the OCAN driver. http://ar.linux.it/software/#ocan
+
+config CAN_MSCAN_OLD
+	depends on CAN_OLD_DRIVERS && (PPC || M68K || M68KNOMMU)
+	tristate "Support for a Freescale MSCAN based chips (old)"
+	---help---
+	  The Motorola Scalable Controller Area Network (MSCAN) definition
+	  is based on the MSCAN12 definition which is the specific
+	  implementation of the Motorola Scalable CAN concept targeted for
+	  the Motorola MC68HC12 Microcontroller Family.
+
+config CAN_MPC52XX_OLD
+	tristate "Freescale MPC5200 onboard CAN controller (old)"
+	depends on CAN_MSCAN_OLD && (PPC_MPC52xx || PPC_52xx)
+	default LITE5200
+	---help---
+	  If you say yes here you get support for Freescale MPC5200
+	  onboard dualCAN controller.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called mpc52xx_can.
+
+config CAN_CCAN_OLD
+	depends on CAN_OLD_DRIVERS
+	tristate "Bosch CCAN driver (old)"
+	---help---
+	  This is a driver for the Bosch CCAN controller found for example
+	  on the hynix h7202 chip.
+
+config CAN_H7202_OLD
+	tristate "Hynix H7202 onboard CAN controller (old)"
+	depends on CAN_CCAN_OLD
+	---help---
+	  This is a driver for the hynix h7202 can controller.
+

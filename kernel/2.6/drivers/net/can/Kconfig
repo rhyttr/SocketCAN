@@ -12,9 +12,18 @@ config CAN_VCAN
 	  This driver can also be built as a module.  If so, the module
 	  will be called vcan.
 
+config CAN_OLD_DRIVERS
+	tristate "Prompt for old CAN drivers (e.g. no sysfs support)"
+ 	depends on CAN
+	default N
+ 	---help---
+	  The old drivers do not support sysfs nor proper platform device
+	  support. Some of the old drivers might only be configured by
+	  module commandline options.
+
 config CAN_SLCAN
 	tristate "Serial / USB serial CAN Adaptors (slcan)"
-	depends on CAN
+	depends on CAN && EXPERIMENTAL
 	default N
 	---help---
 	  CAN driver for several 'low cost' CAN interfaces that are attached
@@ -23,16 +32,6 @@ config CAN_SLCAN
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called slcan.
-
-config CAN_DEBUG_DEVICES
-	bool "CAN devices debugging messages"
-	depends on CAN
-	default N
-	---help---
-	  Say Y here if you want the CAN device drivers to produce a bunch of
-	  debug messages to the system log.  Select this if you are having
-	  a problem with CAN support and want to see more of what is going
-	  on.
 
 config CAN_SJA1000
        	tristate "Philips SJA1000"
@@ -45,39 +44,6 @@ config CAN_SJA1000
 	  with a single (simple) filter setup.
 
 	  This driver will use the new device interface.
-
-config CAN_SJA1000_OLD
-	depends on CAN
-	tristate "Philips SJA1000 (old)"
-	---help---
-	  The SJA1000 is one of the top CAN controllers out there. As it
-	  has a multiplexed interface it fits directly to 8051
-	  microcontrollers or into the PC I/O port space. The SJA1000
-	  is a full CAN controller, with shadow registers for RX and TX.
-	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
-	  with a single (simple) filter setup.
-	  REMARK: This is the 'old' driver originally written by Matthias
-	  Brukner and Oliver Hartkopp which uses a non-standard hardware
-	  abstaction layer (HAL) inspired by the OCAN driver.
-
-config CAN_I82527_OLD
-	depends on CAN
-	tristate "Intel 82527 (old)"
-	---help---
-	  The i82527 is a complex CAN controller that can handle RTR
-	  frame replies on it's own. This feature (and diffent RX filters)  
-	  lead to an amount of 15 message objects (for RX & TX). Message
-	  object 15 has (as only) a shadow register for a reliable
-	  receiption of EFF or(!) SFF frames at high CAN traffic.
-	  This driver can send each type of CAN frames (SFF/EFF/RTR).
-	  Using 4 message objects it can also receive each type of CAN
-	  frames. But due to the onchip filter matching trigger method
-	  it is not possible to determine the received RTR CAN-ID.
-	  The reliable message object 15 receives SFF frames by default.
-	  This message object 15 usage maybe changed with the mo15 param.
-	  REMARK: This is the 'old' driver originally written by Oliver
-	  Hartkopp which uses a non-standard hardware abstaction layer (HAL)
-	  inspired by the OCAN driver. http://ar.linux.it/software/#ocan
 
 config CAN_MSCAN
 	depends on CAN && (PPC || M68K || M68KNOMMU)
@@ -150,5 +116,17 @@ config CAN_KVASER_PCI
 
 	This driver is for the the PCIcanx and PCIcan cards (1, 2 or
 	4 channel) from Kvaser (http://www.kvaser.com).
+
+source "drivers/net/can/old/Kconfig"
+
+config CAN_DEBUG_DEVICES
+	bool "CAN devices debugging messages"
+	depends on CAN
+	default N
+	---help---
+	  Say Y here if you want the CAN device drivers to produce a bunch of
+	  debug messages to the system log.  Select this if you are having
+	  a problem with CAN support and want to see more of what is going
+	  on.
 
 endmenu
