@@ -92,8 +92,8 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 
 	ret = register_mscandev(dev, pdata->clock_src);
 	if (ret >= 0) {
-		dev_info(&pdev->dev, "probe for a port 0x%lX done\n",
-			 dev->base_addr);
+		dev_info(&pdev->dev, "probe for port 0x%lX done (irq=%d)\n",
+			 dev->base_addr, dev->irq);
 		return ret;
 	}
 
@@ -178,10 +178,14 @@ static int __init mpc52xx_of_to_pdev(void)
 {
 	struct device_node *np = NULL;
 	unsigned int i;
-	int ret;
+	int err = -ENODEV;
 
 	for (i = 0;
-	     (np = of_find_compatible_node(np, "mscan", "mpc5200-mscan"));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
+ 	     (np = of_find_compatible_node(np, "mscan", "mpc5200-mscan"));
+#else
+	     (np = of_find_compatible_node(np, NULL, "fsl,mpc5200-mscan"));
+#endif
 	     i++) {
 		struct resource r[2] = { };
 		struct mscan_platform_data pdata;
@@ -192,37 +196,40 @@ static int __init mpc52xx_of_to_pdev(void)
 			break;
 		}
 
-		ret = of_address_to_resource(np, 0, &r[0]);
-		if (ret)
-			goto err;
+		err = of_address_to_resource(np, 0, &r[0]);
+		if (err)
+			break;
 
 		of_irq_to_resource(np, 0, &r[1]);
 
 		pdev[i] =
 		    platform_device_register_simple("mpc52xx-mscan", i, r, 2);
 		if (IS_ERR(pdev[i])) {
-			ret = PTR_ERR(pdev[i]);
-			goto err;
+			err = PTR_ERR(pdev[i]);
+			break;
 		}
 
 		pdata.clock_src = MSCAN_CLKSRC_BUS;
 		pdata.clock_frq = mpc52xx_find_ipb_freq(np);
-		ret = platform_device_add_data(pdev[i], &pdata, sizeof(pdata));
-		if (ret)
-			goto err;
+		err = platform_device_add_data(pdev[i], &pdata, sizeof(pdata));
+		if (err)
+			break;
 	}
-	return 0;
-      err:
-	return ret;
+	return err;
 }
-#else
-#define mscan_of_to_pdev()
 #endif
 
 int __init mpc52xx_can_init(void)
 {
-	mpc52xx_of_to_pdev();
-	printk(KERN_INFO "%s initializing\n", mpc52xx_can_driver.driver.name);
+#ifdef CONFIG_PPC_MERGE
+	int err = mpc52xx_of_to_pdev();
+
+	if (err) {
+		printk(KERN_ERR "%s init failed with err=%d\n",
+		       mpc52xx_can_driver.driver.name, err);
+		return err;
+	}
+#endif
 	return platform_driver_register(&mpc52xx_can_driver);
 }
 
