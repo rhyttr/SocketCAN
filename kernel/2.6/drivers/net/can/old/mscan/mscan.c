@@ -445,6 +445,8 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 					frame->can_id |= CAN_ERR_BUSOFF;
 					frame->can_id &= ~CAN_ERR_CRTL;
 					break;
+				default:
+					break;
 				}
 			}
 			priv->shadow_statflg = canrflg & MSCAN_STAT_MSK;
@@ -734,7 +736,7 @@ struct net_device *alloc_mscandev(void)
 	dev->weight = 8;
 #endif
 
-	priv->can.do_set_bit_time = mscan_do_set_bit_time;
+	priv->can.do_set_bittime = mscan_do_set_bit_time;
 	priv->can.do_set_mode = mscan_do_set_mode;
 
 	for (i = 0; i < TX_QUEUE_SIZE; i++)
