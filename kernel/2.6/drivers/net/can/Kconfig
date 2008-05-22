@@ -106,19 +106,6 @@ config CAN_MPC52XX
 	  This driver can also be built as a module.  If so, the module
 	  will be called mpc52xx_can.
 
-config CAN_CCAN
-	depends on CAN
-	tristate "Bosch CCAN driver"
-	---help---
-	  This is a driver for the Bosch CCAN controller found for example
-	  on the hynix h7202 chip.
-
-config CAN_H7202
-	tristate "Hynix H7202 onboard CAN controller"
-	depends on CAN_CCAN
-	---help---
-	  This is a driver for the hynix h7202 can controller.
-
 config CAN_DEBUG_DEVICES
 	bool "CAN devices debugging messages"
 	depends on CAN
