@@ -234,7 +234,7 @@ static void ccan_tx_timeout(struct net_device *dev)
 	priv->can.net_stats.tx_errors++;
 }
 
-static int ccan_set_bit_time(struct net_device *dev, struct can_bittime *br)
+static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	unsigned int reg_timing, ctrl_save;
@@ -473,16 +473,7 @@ static int ccan_stop(struct net_device *dev)
 static int ccan_chip_config(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
-	struct can_bittime bit_time;
-	int ret, i;
-	
-	/* set bit timing */
-	bit_time.type = CAN_BITTIME_STD;
-	ret = can_calc_bit_time(&priv->can, priv->can.baudrate, &bit_time.std);
-	if (ret == 0)
-		ret = ccan_set_bit_time(dev, &bit_time);
-	if (ret)
-		dev_err(ND2D(dev), "failed to config bit timing\n");
+	int i;
 
 	/* setup message objects */
 	for(i = 0; i <= MAX_OBJECT; i++)
@@ -519,9 +510,9 @@ struct net_device *alloc_ccandev(int sizeof_priv)
 	dev->hard_start_xmit = ccan_hard_start_xmit;
 	dev->tx_timeout = ccan_tx_timeout;
 
-	priv->can.baudrate = 500000;
+	priv->can.bitrate = 500000;
 
-	priv->can.do_set_bit_time = ccan_set_bit_time;
+	priv->can.do_set_bittime = ccan_set_bittime;
 	priv->can.do_get_state = ccan_get_state;
 	priv->can.do_set_mode = ccan_set_mode;
 
