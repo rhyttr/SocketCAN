@@ -6,9 +6,9 @@
 # 
 # * Eliminate CPP conditional compilation for different kernel version, i.e.
 #   eliminate all occurences of #if LINUX_VERSION_CODE < KERNEL_VERSION(...)
-#   and likewise for <=, >, and >=.
+#   and likewise for <=, >, >=, ==, and !=.
 #
-# * Eliminate all Subversion $Id$ and RCSID() lines.
+# * Eliminate all Subversion Id and RCSID() lines.
 #
 # Call the program as
 #
@@ -18,7 +18,7 @@
 # where <version> is the kernel version you want the code to be generated
 # for, in the form <major>.<minor>.<patchlevel>.
 #
-# The -i option will strip all Subversion $Id$ lines from the the source.
+# The -i option will strip all Subversion Id lines from the the source.
 #
 # The -d (debug) option will give you some output on what the program does.
 #
@@ -28,9 +28,9 @@
 
 require("getopts.pl");
 
-$re_if = "^\\#if LINUX_VERSION_CODE (<|<=|>|>=) " .
+$re_if = "^\\#if LINUX_VERSION_CODE (==|!=|<|<=|>|>=) " .
     "KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
-$re_elif = "^\\#elif LINUX_VERSION_CODE (<|<=|>|>=) " .
+$re_elif = "^\\#elif LINUX_VERSION_CODE (==|!=|<|<=|>|>=) " .
     "KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
 
 Getopts("div:");
@@ -134,11 +134,16 @@ sub compare {
     my($version, $op, $major, $minor, $patchlevel) = @_;
 
     my($mj, $mn, $pl) = split(/\./, $version);
-    
-    if ($op eq "<" &&
-	($mj < $major ||
-	 $mj == $major && ($mn < $minor || 
-			   $mn == $minor && $pl < $patchlevel))) {
+
+    if ($op eq "==" && $mj == $major && $mn == $minor && $pl == $patchlevel) {
+	return 1;
+    } elsif ($op eq "!=" &&
+	     ($mj != $major || $mn != $minor || $pl != $patchlevel)) {
+	return 1;
+    } elsif ($op eq "<" &&
+	     ($mj < $major ||
+	      $mj == $major && ($mn < $minor || 
+				$mn == $minor && $pl < $patchlevel))) {
 	return 1;
     } elsif ($op eq "<=" &&
 	     ($mj < $major ||
