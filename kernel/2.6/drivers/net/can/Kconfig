@@ -78,6 +78,13 @@ config CAN_PCM027
 	This driver adds support for the SJA1000 chip on the PCM027 board
 	from Phytec (http://www.phytec.de).
 
+config CAN_PIPCAN
+	depends on CAN_SJA1000
+	tristate "MPL PIPCAN CAN module driver (SJA1000)"
+	help
+	This driver adds support for the PIPCAN module used on some SBC boards
+	from MPL AG (http://www.mpl.ch).
+
 config CAN_KVASER_PCI
 	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
 	depends on PCI && CAN_SJA1000
