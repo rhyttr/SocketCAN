@@ -533,7 +533,13 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 /* is part of linux/hrtimer.h since 2.6.26 */
 static inline int hrtimer_callback_running(struct hrtimer *timer)
 {
-        return timer->state & HRTIMER_STATE_CALLBACK;
+	return timer->state & HRTIMER_STATE_CALLBACK;
+}
+#endif
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,22)
+static inline s64 ktime_us_delta(const ktime_t later, const ktime_t earlier)
+{
+	return ktime_to_us(ktime_sub(later, earlier));
 }
 #endif
 
