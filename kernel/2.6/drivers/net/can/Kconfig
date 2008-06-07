@@ -12,17 +12,6 @@ config CAN_VCAN
 	  This driver can also be built as a module.  If so, the module
 	  will be called vcan.
 
-config CAN_OLD_DRIVERS
-	tristate "Prompt for old CAN drivers (e.g. no sysfs support)"
- 	depends on CAN
-	default N
- 	---help---
-	  The old drivers do not support sysfs nor proper platform device
-	  support. Some of the old drivers might only be configured by
-	  module commandline options.
-
-source "drivers/net/can/old/Kconfig"
-
 config CAN_SLCAN
 	tristate "Serial / USB serial CAN Adaptors (slcan)"
 	depends on CAN && EXPERIMENTAL
@@ -34,6 +23,17 @@ config CAN_SLCAN
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called slcan.
+
+config CAN_OLD_DRIVERS
+	tristate "Prompt for old CAN drivers (e.g. no sysfs support)"
+ 	depends on CAN
+	default N
+ 	---help---
+	  The old drivers do not support sysfs nor proper platform device
+	  support. Some of the old drivers might only be configured by
+	  module commandline options.
+
+source "drivers/net/can/old/Kconfig"
 
 config CAN_SJA1000
        	tristate "Philips SJA1000"
