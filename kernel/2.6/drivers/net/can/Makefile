@@ -10,6 +10,7 @@ PWD       := $(shell pwd)
 TOPDIR    := $(PWD)/../../..
 
 export CONFIG_CAN_VCAN=m
+export CONFIG_CAN_DEV=m
 export CONFIG_CAN_SJA1000_OLD=m
 export CONFIG_CAN_I82527_OLD=m
 export CONFIG_CAN_SJA1000=m
@@ -23,6 +24,10 @@ else
 
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o
 obj-$(CONFIG_CAN_SLCAN)		+= slcan.o
+
+obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+can-dev-objs			:= dev.o sysfs.o
+
 obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
 obj-$(CONFIG_CAN_MSCAN)		+= mscan/
 obj-$(CONFIG_CAN_SJA1000_OLD)	+= old/sja1000/

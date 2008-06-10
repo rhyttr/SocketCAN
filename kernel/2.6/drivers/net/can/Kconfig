@@ -35,7 +35,17 @@ config CAN_OLD_DRIVERS
 
 source "drivers/net/can/old/Kconfig"
 
+config CAN_DEV
+	tristate "Prompt for platform CAN drivers with sysfs support"
+ 	depends on CAN
+	default Y
+ 	---help---
+	  Enables the common framework for platform CAN drivers with sysfs
+	  support. This is the standard library for CAN drivers.
+	  If unsure, say Y.
+
 config CAN_SJA1000
+ 	depends on CAN_DEV
        	tristate "Philips SJA1000"
 	---help---
 	  The SJA1000 is one of the top CAN controllers out there. As it
@@ -94,7 +104,7 @@ config CAN_KVASER_PCI
 	4 channel) from Kvaser (http://www.kvaser.com).
 
 config CAN_MSCAN
-	depends on CAN && (PPC || M68K || M68KNOMMU)
+	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
 	tristate "Support for a Freescale MSCAN based chips"
 	---help---
 	  The Motorola Scalable Controller Area Network (MSCAN) definition
