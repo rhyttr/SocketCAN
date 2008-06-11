@@ -197,12 +197,13 @@ static ssize_t can_store_##_func(struct device *dev,			\
 				 const char *buf, size_t count)		\
 {									\
 	struct net_device *ndev = to_net_dev(dev);			\
-	char *endp;							\
 	_type val;							\
+	unsigned long input;						\
 	int ret = -EINVAL;						\
-	val = simple_strtoul(buf, &endp, 0);				\
-	if (endp == buf)						\
+	ret = strict_strtoul(buf, 0, &input);				\
+	if (ret)							\
 		return ret;						\
+	val = (_type)input;						\
 	rtnl_lock();							\
 	if (dev_isalive(ndev)) {					\
 		ret = can_set_##_func(ndev, val);			\
