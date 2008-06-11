@@ -38,7 +38,11 @@
 #include <linux/list.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#include <linux/io.h>
+#else
 #include <asm/io.h>
+#endif
 
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
@@ -134,7 +138,7 @@ static int ccan_read_object(struct net_device *dev, int iface, int objno)
 
 	if (ctrl & IF_MCONT_MSGLST) {
 		priv->can.net_stats.rx_errors++;
-		DBG("%s: msg lost in buffer %d\n", __FUNCTION__, objno);
+		DBG("%s: msg lost in buffer %d\n", __func__, objno);
 	}
 
 	frame->can_dlc = ctrl & 0xf;
@@ -181,7 +185,7 @@ static int ccan_setup_receive_object(struct net_device *dev, int iface,
 
 	ccan_object_put(dev, 0, objno, IF_COMM_ALL & ~IF_COMM_TXRQST);
 
-	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__,
+	DBG("%s: obj no %d msgval: 0x%08x\n", __func__,
 		objno, ccan_read_reg32(dev, CAN_MSGVAL));
 
 	return 0;
@@ -195,7 +199,7 @@ static int ccan_inval_object(struct net_device *dev, int iface, int objno)
 	priv->write_reg(dev, CAN_IF_MCONT(iface), 0);
 	ccan_object_put(dev, 0, objno, IF_COMM_ARB | IF_COMM_CONTROL);
 
-	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__,
+	DBG("%s: obj no %d msgval: 0x%08x\n", __func__,
 		objno, ccan_read_reg32(dev, CAN_MSGVAL));
 
 	return 0;
@@ -253,9 +257,9 @@ static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 		     ((tseg1 << BTR_TSEG1_SHIFT) & BTR_TSEG1_MASK) |
 		     ((tseg2 << BTR_TSEG2_SHIFT) & BTR_TSEG2_MASK);
 
-	DBG("%s: brp = %d sjw = %d seg1 = %d seg2 = %d\n", __FUNCTION__,
+	DBG("%s: brp = %d sjw = %d seg1 = %d seg2 = %d\n", __func__,
 		brp, sjw, tseg1, tseg2);
-	DBG("%s: setting BTR to %04x\n", __FUNCTION__, reg_timing);
+	DBG("%s: setting BTR to %04x\n", __func__, reg_timing);
 
 	spin_lock_irq(&priv->can.irq_lock);
 
@@ -274,7 +278,7 @@ static int ccan_set_mode(struct net_device *dev, can_mode_t mode)
 {
 	switch (mode) {
 	case CAN_MODE_START:
-		DBG("%s: CAN_MODE_START requested\n", __FUNCTION__);
+		DBG("%s: CAN_MODE_START requested\n", __func__);
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -303,7 +307,7 @@ static int ccan_get_state(struct net_device *dev, can_state_t *state)
 		*state = CAN_STATE_ACTIVE;
 #ifdef CCAN_DEBUG
 	DBG("buffer statistic:\n");
-	for (i=0; i<= MAX_OBJECT; i++)
+	for (i = 0; i <= MAX_OBJECT; i++)
 		DBG("%d: %d\n", i, priv->bufstat[i]);
 #endif
 	return 0;
@@ -337,7 +341,7 @@ static int ccan_do_status_irq(struct net_device *dev)
 			dev_info(ND2D(dev), "left busoff state\n");
 	}
 
-	if ( diff & STATUS_LEC_MASK) {
+	if (diff & STATUS_LEC_MASK) {
 		switch (status & STATUS_LEC_MASK) {
 		case LEC_STUFF_ERROR:
 			dev_info(ND2D(dev), "suffing error\n");
@@ -417,7 +421,7 @@ static irqreturn_t ccan_isr(int irq, void *dev_id)
 				 * case on the Magnachip h7202.
 				 */
 				priv->write_reg(dev, CAN_CONTROL, CONTROL_EIE |
-						CONTROL_IE );
+						CONTROL_IE);
 				schedule_delayed_work(&priv->work, HZ / 10);
 				goto exit;
 			}
@@ -476,10 +480,10 @@ static int ccan_chip_config(struct net_device *dev)
 	int i;
 
 	/* setup message objects */
-	for(i = 0; i <= MAX_OBJECT; i++)
+	for (i = 0; i <= MAX_OBJECT; i++)
 		ccan_inval_object(dev, 0, i);
 
-	for(i = MAX_TRANSMIT_OBJECT + 1; i < MAX_OBJECT; i++)
+	for (i = MAX_TRANSMIT_OBJECT + 1; i < MAX_OBJECT; i++)
 		ccan_setup_receive_object(dev, 0, i, 0, 0,
 					  IF_MCONT_RXIE | IF_MCONT_UMASK);
 
@@ -487,7 +491,7 @@ static int ccan_chip_config(struct net_device *dev)
 				  IF_MCONT_RXIE | IF_MCONT_UMASK);
 
 #ifdef CCAN_DEBUG
-	for(i = 0; i <= MAX_OBJECT; i++)
+	for (i = 0; i <= MAX_OBJECT; i++)
 		priv->bufstat[i] = 0;
 #endif
 
@@ -500,7 +504,7 @@ struct net_device *alloc_ccandev(int sizeof_priv)
 	struct ccan_priv *priv;
 
 	dev = alloc_candev(sizeof_priv);
-	if(!dev)
+	if (!dev)
 		return NULL;
 
 	priv = netdev_priv(dev);
