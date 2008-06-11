@@ -76,7 +76,7 @@ struct peak_pci {
 
 static struct pci_device_id peak_pci_tbl[] = {
 	{PEAK_PCI_VENDOR_ID, PEAK_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-        { 0,}
+	{0,}
 };
 
 MODULE_DEVICE_TABLE(pci, peak_pci_tbl);
@@ -118,20 +118,26 @@ static void peak_pci_del_chan(struct net_device *dev, int init_step)
 	struct peak_pci *board;
 	u16 icr_high;
 
-	if (!dev || !(priv = netdev_priv(dev)) || !(board = priv->priv))
+	if (!dev)
+		return;
+	priv = netdev_priv(dev);
+	if (!priv)
+		return;
+	board = priv->priv;
+	if (!board)
 		return;
 
 	switch (init_step) {
 	case 0:		/* Full cleanup */
-		printk("Removing %s device %s\n", DRV_NAME, dev->name);
+		printk(KERN_INFO "Removing %s device %s\n",
+		       DRV_NAME, dev->name);
 		unregister_sja1000dev(dev);
 	case 4:
 		icr_high = readw(board->conf_addr + PITA_ICR + 2);
-		if (board->channel == PEAK_PCI_SLAVE) {
+		if (board->channel == PEAK_PCI_SLAVE)
 			icr_high &= ~0x0001;
-		} else {
+		else
 			icr_high &= ~0x0002;
-		}
 		writew(icr_high, board->conf_addr + PITA_ICR + 2);
 	case 3:
 		iounmap((void *)dev->base_addr);
@@ -223,15 +229,14 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	/* Register and setup interrupt handling */
 	dev->irq = pdev->irq;
 	icr_high = readw(board->conf_addr + PITA_ICR + 2);
-	if (channel == PEAK_PCI_SLAVE) {
+	if (channel == PEAK_PCI_SLAVE)
 		icr_high |= 0x0001;
-	} else {
+	else
 		icr_high |= 0x0002;
-	}
 	writew(icr_high, board->conf_addr + PITA_ICR + 2);
 	init_step = 4;
 
-	printk("%s: base_addr=%#lx conf_addr=%p irq=%d\n", DRV_NAME,
+	printk(KERN_INFO "%s: base_addr=%#lx conf_addr=%p irq=%d\n", DRV_NAME,
 	       dev->base_addr, board->conf_addr, dev->irq);
 
 	SET_NETDEV_DEV(dev, &pdev->dev);
@@ -261,31 +266,39 @@ static int __devinit peak_pci_init_one(struct pci_dev *pdev,
 	u16 sub_sys_id;
 	struct net_device *master_dev = NULL;
 
-	printk("%s: initializing device %04x:%04x\n",
+	printk(KERN_INFO "%s: initializing device %04x:%04x\n",
 	       DRV_NAME, pdev->vendor, pdev->device);
 
-	if ((err = pci_enable_device(pdev)))
+	err = pci_enable_device(pdev);
+	if (err)
 		goto failure;
 
-	if ((err = pci_request_regions(pdev, DRV_NAME)))
+	err = pci_request_regions(pdev, DRV_NAME);
+	if (err)
 		goto failure;
 
-	if ((err = pci_read_config_word(pdev, 0x2e, &sub_sys_id)))
+	err = pci_read_config_word(pdev, 0x2e, &sub_sys_id);
+	if (err)
 		goto failure_cleanup;
 
-	if ((err = pci_write_config_word(pdev, 0x44, 0)))
+	err = pci_write_config_word(pdev, 0x44, 0);
+	if (err)
 		goto failure_cleanup;
 
 	if (sub_sys_id > 3) {
-		if ((err = peak_pci_add_chan(pdev, PEAK_PCI_MASTER,
-					     &master_dev)))
+		err = peak_pci_add_chan(pdev,
+					PEAK_PCI_MASTER, &master_dev);
+		if (err)
 			goto failure_cleanup;
-		if ((err = peak_pci_add_chan(pdev, PEAK_PCI_SLAVE,
-					     &master_dev)))
+
+		err = peak_pci_add_chan(pdev,
+					PEAK_PCI_SLAVE, &master_dev);
+		if (err)
 			goto failure_cleanup;
 	} else {
-		if ((err = peak_pci_add_chan(pdev, PEAK_PCI_SINGLE,
-					     &master_dev)))
+		err = peak_pci_add_chan(pdev, PEAK_PCI_SINGLE,
+					     &master_dev);
+		if (err)
 			goto failure_cleanup;
 	}
 

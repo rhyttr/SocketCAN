@@ -78,9 +78,8 @@ static int pcm027_probe(struct platform_device *pdev)
 
 	err = -ENOMEM;
 	addr = ioremap_nocache(res->start, res->end - res->start + 1);
-	if (!addr) {
+	if (!addr)
 		goto exit_release;
-	}
 
 	dev = alloc_sja1000dev(0);
 	if (!dev)
@@ -106,8 +105,8 @@ static int pcm027_probe(struct platform_device *pdev)
 		goto exit_free;
 	}
 
-	printk("%s: %s device registered (base_addr=%#lx, irq=%d)\n",
-	       dev->name, DRV_NAME, dev->base_addr, dev->irq);
+	dev_info(&pdev->dev, "%s device registered (base_addr=%#lx, irq=%d)\n",
+		 DRV_NAME, dev->base_addr, dev->irq);
 	return 0;
 
 exit_free:
@@ -120,7 +119,7 @@ exit:
 	return err;
 }
 
-static int pcm027_remove (struct platform_device *pdev)
+static int pcm027_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = dev_get_drvdata(&pdev->dev);
 	struct resource *res;
@@ -131,14 +130,14 @@ static int pcm027_remove (struct platform_device *pdev)
 	release_mem_region(res->start, res->end - res->start + 1);
 
 	if (dev->base_addr)
-		iounmap ((void *)dev->base_addr);
+		iounmap((void *)dev->base_addr);
 
 	free_sja1000dev(dev);
 
 	return 0;
 }
 
-static int pcm027_suspend (struct platform_device *pdev,
+static int pcm027_suspend(struct platform_device *pdev,
 				   pm_message_t state)
 {
 	dev_err(&pdev->dev, "suspend not implented\n");
@@ -146,9 +145,9 @@ static int pcm027_suspend (struct platform_device *pdev,
 }
 
 
-static int pcm027_resume (struct platform_device *pdev)
+static int pcm027_resume(struct platform_device *pdev)
 {
-        dev_err(&pdev->dev, "resume not implemented\n");
+	dev_err(&pdev->dev, "resume not implemented\n");
 	return 0;
 }
 

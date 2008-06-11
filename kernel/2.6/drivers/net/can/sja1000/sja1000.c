@@ -137,7 +137,7 @@ static const char *ecc_types[] = {
 };
 #endif
 
-static int debug = 0;
+static int debug;
 
 module_param(debug, int, S_IRUGO | S_IWUSR);
 
@@ -170,7 +170,7 @@ int set_reset_mode(struct net_device *dev)
 		if (status & MOD_RM) {
 			if (i > 1) {
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __FUNCTION__, i);
+				     dev->name, __func__, i);
 			}
 			priv->can.state = CAN_STATE_STOPPED;
 			return 0;
@@ -198,7 +198,7 @@ static int set_normal_mode(struct net_device *dev)
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 			if (i > 1) {
 				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __FUNCTION__, i);
+				     dev->name, __func__, i);
 			}
 #endif
 			priv->can.state = CAN_STATE_ACTIVE;
@@ -223,7 +223,7 @@ static void sja1000_start(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 
-	iDBG(KERN_INFO "%s: %s()\n", dev->name, __FUNCTION__);
+	iDBG(KERN_INFO "%s: %s()\n", dev->name, __func__);
 
 	/* leave reset mode */
 	if (priv->can.state != CAN_STATE_STOPPED)
@@ -244,7 +244,7 @@ static int sja1000_set_mode(struct net_device *dev, can_mode_t mode)
 
 	switch (mode) {
 	case CAN_MODE_START:
-		DBG("%s: CAN_MODE_START requested\n", __FUNCTION__);
+		DBG("%s: CAN_MODE_START requested\n", __func__);
 		if (!priv->open_time)
 			return -EINVAL;
 
@@ -281,12 +281,11 @@ static int sja1000_get_state(struct net_device *dev, can_state_t *state)
 			*state = CAN_STATE_BUS_OFF;
 		else if (status & SR_ES) {
 			if (priv->read_reg(dev, REG_TXERR) > 127 ||
-			    priv->read_reg(dev, REG_RXERR) > 127 )
+			    priv->read_reg(dev, REG_RXERR) > 127)
 				*state = CAN_STATE_BUS_PASSIVE;
 			else
 				*state = CAN_STATE_BUS_WARNING;
-		}
-		else
+		} else
 			*state = CAN_STATE_ACTIVE;
 	}
 #ifdef CONFIG_CAN_DEBUG_DEVICES
@@ -400,9 +399,8 @@ static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		priv->write_reg(dev, REG_ID2, (id & 0x00000007) << 5);
 	}
 
-	for (i = 0; i < dlc; i++) {
+	for (i = 0; i < dlc; i++)
 		priv->write_reg(dev, dreg++, cf->data[i]);
-	}
 
 	stats->tx_bytes += dlc;
 	dev->trans_start = jiffies;
@@ -457,9 +455,9 @@ static void sja1000_rx(struct net_device *dev)
 	memset(cf, 0, sizeof(struct can_frame));
 	cf->can_id = id;
 	cf->can_dlc = dlc;
-	for (i = 0; i < dlc; i++) {
+	for (i = 0; i < dlc; i++)
 		cf->data[i] = priv->read_reg(dev, dreg++);
-	}
+
 	while (i < 8)
 		cf->data[i++] = 0;
 
@@ -631,7 +629,7 @@ static irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 	if (priv->can.state == CAN_STATE_STOPPED) {
 		iiDBG(KERN_ERR "%s: %s: controller is in reset mode! "
 		      "MOD=0x%02X IER=0x%02X IR=0x%02X SR=0x%02X!\n",
-		      dev->name, __FUNCTION__, priv->read_reg(dev, REG_MOD),
+		      dev->name, __func__, priv->read_reg(dev, REG_MOD),
 		      priv->read_reg(dev, REG_IER), priv->read_reg(dev, REG_IR),
 		      priv->read_reg(dev, REG_SR));
 		goto out;
@@ -661,12 +659,11 @@ static irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
 			/* error interrupt */
 			if (sja1000_err(dev, isrc, status, n))
-  				break;
+				break;
 		}
 	}
-	if (n > 1) {
+	if (n > 1)
 		iDBG(KERN_INFO "%s: handled %d IRQs\n", dev->name, n);
-	}
 
 out:
 	if (priv->post_irq)
@@ -738,7 +735,6 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
 
 	return dev;
 }
-
 EXPORT_SYMBOL_GPL(alloc_sja1000dev);
 
 void free_sja1000dev(struct net_device *dev)
@@ -793,8 +789,8 @@ static __init int sja1000_init(void)
 	printk(KERN_INFO "%s driver v%s (%s)\n",
 	       drv_name, drv_version, drv_reldate);
 	printk(KERN_INFO "%s - options [debug %d]\n", drv_name, debug);
-
-	printk("%s driver %s %s loaded\n", drv_name, drv_version, drv_reldate);
+	printk(KERN_INFO "%s driver %s %s loaded\n",
+	       drv_name, drv_version, drv_reldate);
 	return 0;
 }
 
@@ -802,7 +798,7 @@ module_init(sja1000_init);
 
 static __exit void sja1000_exit(void)
 {
-	printk("%s driver %s %s unloaded\n",
+	printk(KERN_INFO "%s driver %s %s unloaded\n",
 	       drv_name, drv_version, drv_reldate);
 }
 

@@ -94,9 +94,9 @@ struct ems_pci_card {
 
 static struct pci_device_id ems_pci_tbl[] = {
 	{EMS_PCI_VENDOR_ID, EMS_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-	{ 0,}
+	{0,}
 };
-MODULE_DEVICE_TABLE (pci, ems_pci_tbl);
+MODULE_DEVICE_TABLE(pci, ems_pci_tbl);
 
 /*
  * Helper to read internal registers from card logic (not CAN)
@@ -168,7 +168,7 @@ static void ems_pci_del_card(struct pci_dev *pdev)
 		free_sja1000dev(dev);
 	}
 
-	if (card->base_addr != NULL )
+	if (card->base_addr != NULL)
 		pci_iounmap(card->pci_dev, card->base_addr);
 
 	if (card->conf_addr != NULL)

@@ -75,7 +75,7 @@ struct ixxat_pci {
 
 static struct pci_device_id ixxat_pci_tbl[] = {
 	{IXXAT_PCI_VENDOR_ID, IXXAT_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-        { 0,}
+	{0,}
 };
 
 MODULE_DEVICE_TABLE(pci, ixxat_pci_tbl);
@@ -160,20 +160,24 @@ static int __devinit ixxat_pci_init_one(struct pci_dev *pdev,
 	if (!board)
 		return -ENOMEM;
 
-	if ((err = pci_enable_device(pdev)))
+	err = pci_enable_device(pdev);
+	if (err)
 		goto failure;
 
-	if ((err = pci_request_regions(pdev, DRV_NAME)))
+	err = pci_request_regions(pdev, DRV_NAME);
+	if (err)
 		goto failure;
 
-	if ((err = pci_read_config_word(pdev, 0x2e, &sub_sys_id)))
+	err = pci_read_config_word(pdev, 0x2e, &sub_sys_id);
+	if (err)
 		goto failure_release_pci;
 
 	if (sub_sys_id != IXXAT_PCI_SUB_SYS_ID)
 		return -ENODEV;
 
 	/* Enable memory and I/O space */
-	if ((err = pci_write_config_word(pdev, 0x04, 0x3)))
+	err = pci_write_config_word(pdev, 0x04, 0x3);
+	if (err)
 		goto failure_release_pci;
 
 	board->conf_addr = pci_resource_start(pdev, 1);
