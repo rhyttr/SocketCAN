@@ -176,6 +176,46 @@ static inline int dev_isalive(const struct net_device *dev)
 	return dev->reg_state <= NETREG_REGISTERED;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
+#define CAN_ATTR(_name, _func, _type, _fmt)				\
+static ssize_t can_show_##_func(struct device *dev,			\
+				struct device_attribute *attr,		\
+				char *buf)				\
+{									\
+	struct net_device *ndev = to_net_dev(dev);			\
+	_type val;							\
+	int ret = -EINVAL;						\
+	read_lock(&dev_base_lock);					\
+	if (dev_isalive(ndev)) {					\
+		can_get_##_func(ndev, &val);				\
+		ret = snprintf(buf, PAGE_SIZE, _fmt "\n", val);		\
+	}								\
+	read_unlock(&dev_base_lock);					\
+	return ret;							\
+}									\
+static ssize_t can_store_##_func(struct device *dev,			\
+				 struct device_attribute *attr,		\
+				 const char *buf, size_t count)		\
+{									\
+	struct net_device *ndev = to_net_dev(dev);			\
+	char *endp;							\
+	_type val;							\
+	int ret = -EINVAL;						\
+	val = simple_strtoul(buf, &endp, 0);				\
+	if (endp == buf)						\
+		return ret;						\
+	rtnl_lock();							\
+	if (dev_isalive(ndev)) {					\
+		if ((ret = can_set_##_func(ndev, val)) == 0)		\
+			ret = count;					\
+	}								\
+	rtnl_unlock();							\
+	return ret;							\
+}									\
+static DEVICE_ATTR(_name, S_IRUGO | S_IWUSR, 				\
+		   can_show_##_func, can_store_##_func)
+
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25) */
 #define CAN_ATTR(_name, _func, _type, _fmt)				\
 static ssize_t can_show_##_func(struct device *dev,			\
 				struct device_attribute *attr,		\
@@ -215,6 +255,7 @@ static ssize_t can_store_##_func(struct device *dev,			\
 }									\
 static DEVICE_ATTR(_name, S_IRUGO | S_IWUSR, 				\
 		   can_show_##_func, can_store_##_func)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25) */
 
 CAN_ATTR(can_bitrate, bitrate, u32, "%d");
 CAN_ATTR(can_restart_ms, restart_ms, int, "%d");
