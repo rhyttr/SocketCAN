@@ -53,6 +53,7 @@
  *                 Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
