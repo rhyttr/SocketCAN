@@ -33,7 +33,9 @@ config CAN_OLD_DRIVERS
 	  support. Some of the old drivers might only be configured by
 	  module commandline options.
 
+if CAN_OLD_DRIVERS
 source "drivers/net/can/old/Kconfig"
+endif
 
 config CAN_DEV
 	tristate "Prompt for platform CAN drivers with sysfs support"
