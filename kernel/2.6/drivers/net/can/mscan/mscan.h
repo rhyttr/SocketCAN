@@ -31,7 +31,7 @@
 #define __MSCAN_H__
 
 #include <linux/autoconf.h>
-#include <asm/types.h>
+#include <linux/types.h>
 
 /* MSCAN control register 0 (CANCTL0) bits */
 #define MSCAN_RXFRM		0x80

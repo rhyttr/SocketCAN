@@ -34,12 +34,16 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-#include <linux/can.h>
 #include <linux/list.h>
-#include <asm/io.h>
-
+#include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#include <linux/io.h>
+#else
+#include <asm/io.h>
+#endif
+
 #include "mscan.h"
 
 #include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
