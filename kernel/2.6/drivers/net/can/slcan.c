@@ -89,7 +89,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
-static int debug = 0;
+static int debug;
 module_param(debug, int, S_IRUGO);
 #define DBG(args...)       (debug & 1 ? \
 			       (printk(KERN_DEBUG "slcan %s: ", __func__), \
@@ -196,7 +196,8 @@ static struct net_device **slcan_devs;
   *			STANDARD SLCAN DECAPSULATION		  	 *
   ************************************************************************/
 
-static int asc2nibble(char c) {
+static int asc2nibble(char c)
+{
 
 	if ((c >= '0') && (c <= '9'))
 		return c - '0';
@@ -243,12 +244,14 @@ static void slc_bump(struct slcan *sl)
 
 	*(u64 *) (&cf.data) = 0; /* clear payload */
 
-	for (i = 0, dlc_pos++; i < cf.can_dlc; i++){
+	for (i = 0, dlc_pos++; i < cf.can_dlc; i++) {
 
-		if ((tmp = asc2nibble(sl->rbuff[dlc_pos++])) > 0x0F)
+		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+		if (tmp > 0x0F)
 			return;
 		cf.data[i] = (tmp << 4);
-		if ((tmp = asc2nibble(sl->rbuff[dlc_pos++])) > 0x0F)
+		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+		if (tmp > 0x0F)
 			return;
 		cf.data[i] |= tmp;
 	}
@@ -356,9 +359,9 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
 
 	/* First make sure we're connected. */
-	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev)) {
+	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev))
 		return;
-	}
+
 	if (sl->xleft <= 0)  {
 		/* Now serial buffer is almost free & we can start
 		 * transmission of another packet */
@@ -461,7 +464,7 @@ static int slc_open(struct net_device *dev)
 {
 	struct slcan *sl = netdev_priv(dev);
 
-	if (sl->tty==NULL)
+	if (sl->tty == NULL)
 		return -ENODEV;
 
 	sl->flags &= (1 << SLF_INUSE);
@@ -539,9 +542,8 @@ static void slcan_receive_buf(struct tty_struct *tty,
 	/* Read the characters out of the buffer */
 	while (count--) {
 		if (fp && *fp++) {
-			if (!test_and_set_bit(SLF_ERROR, &sl->flags))  {
+			if (!test_and_set_bit(SLF_ERROR, &sl->flags))
 				stats->rx_errors++;
-			}
 			cp++;
 			continue;
 		}
@@ -562,7 +564,8 @@ static void slc_sync(void)
 	struct slcan	  *sl;
 
 	for (i = 0; i < maxdev; i++) {
-		if ((dev = slcan_devs[i]) == NULL)
+		dev = slcan_devs[i];
+		if (dev == NULL)
 			break;
 
 		sl = netdev_priv(dev);
@@ -689,7 +692,7 @@ static int slcan_open(struct tty_struct *tty)
 	struct slcan *sl;
 	int err;
 
-	if(!capable(CAP_NET_ADMIN))
+	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 
 	/* RTnetlink lock is misused here to serialize concurrent
@@ -710,7 +713,8 @@ static int slcan_open(struct tty_struct *tty)
 
 	/* OK.  Find a free SLCAN channel to use. */
 	err = -ENFILE;
-	if ((sl = slc_alloc(tty_devnum(tty))) == NULL)
+	sl = slc_alloc(tty_devnum(tty));
+	if (sl == NULL)
 		goto err_exit;
 
 	sl->tty = tty;
@@ -731,7 +735,8 @@ static int slcan_open(struct tty_struct *tty)
 
 		set_bit(SLF_INUSE, &sl->flags);
 
-		if ((err = register_netdevice(sl->dev)))
+		err = register_netdevice(sl->dev);
+		if (err)
 			goto err_free_chan;
 	}
 
@@ -805,11 +810,10 @@ static int slcan_ioctl(struct tty_struct *tty, struct file *file,
 	unsigned int tmp;
 
 	/* First make sure we're connected. */
-	if (!sl || sl->magic != SLCAN_MAGIC) {
+	if (!sl || sl->magic != SLCAN_MAGIC)
 		return -EINVAL;
-	}
 
-	switch(cmd) {
+	switch (cmd) {
 	case SIOCGIFNAME:
 		tmp = strlen(sl->dev->name) + 1;
 		if (copy_to_user((void __user *)arg, sl->dev->name, tmp))
@@ -856,7 +860,7 @@ static int __init slcan_init(void)
 		maxdev = 4; /* Sanity */
 
 	printk(banner);
-	printk(KERN_INFO "slcan: %d dynamic interface channels.\n", maxdev );
+	printk(KERN_INFO "slcan: %d dynamic interface channels.\n", maxdev);
 
 	slcan_devs = kmalloc(sizeof(struct net_device *)*maxdev, GFP_KERNEL);
 	if (!slcan_devs) {
@@ -868,7 +872,8 @@ static int __init slcan_init(void)
 	memset(slcan_devs, 0, sizeof(struct net_device *)*maxdev);
 
 	/* Fill in our line protocol discipline, and register it */
-	if ((status = tty_register_ldisc(N_SLCAN, &slc_ldisc)) != 0)  {
+	status = tty_register_ldisc(N_SLCAN, &slc_ldisc);
+	if (status != 0)  {
 		printk(KERN_ERR "slcan: can't register line discipline\n");
 		kfree(slcan_devs);
 	}
@@ -928,10 +933,9 @@ static void __exit slcan_exit(void)
 	kfree(slcan_devs);
 	slcan_devs = NULL;
 
-	if ((i = tty_unregister_ldisc(N_SLCAN)))
-	{
+	i = tty_unregister_ldisc(N_SLCAN);
+	if (i)
 		printk(KERN_ERR "slcan: can't unregister ldisc (err %d)\n", i);
-	}
 }
 
 module_init(slcan_init);
