@@ -82,11 +82,11 @@ struct mscan_state {
 
 #define TX_QUEUE_SIZE	3
 
-typedef struct {
+struct tx_queue_entry {
 	struct list_head list;
 	u8 mask;
 	u8 id;
-} tx_queue_entry_t;
+};
 
 struct mscan_priv {
 	struct can_priv can;
@@ -98,7 +98,7 @@ struct mscan_priv {
 	u8 tx_active;
 
 	struct list_head tx_head;
-	tx_queue_entry_t tx_queue[TX_QUEUE_SIZE];
+	struct tx_queue_entry tx_queue[TX_QUEUE_SIZE];
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	struct napi_struct napi;
 	struct net_device *dev;
@@ -496,8 +496,8 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 		struct list_head *tmp, *pos;
 
 		list_for_each_safe(pos, tmp, &priv->tx_head) {
-			tx_queue_entry_t *entry =
-			    list_entry(pos, tx_queue_entry_t, list);
+			struct tx_queue_entry *entry =
+			    list_entry(pos, struct tx_queue_entry, list);
 			u8 mask = entry->mask;
 
 			if (!(cantflg & mask))
