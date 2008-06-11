@@ -18,7 +18,7 @@ config CAN_I82527_OLD
 	tristate "Intel 82527 (old)"
 	---help---
 	  The i82527 is a complex CAN controller that can handle RTR
-	  frame replies on it's own. This feature (and diffent RX filters)  
+	  frame replies on it's own. This feature (and diffent RX filters)
 	  lead to an amount of 15 message objects (for RX & TX). Message
 	  object 15 has (as only) a shadow register for a reliable
 	  receiption of EFF or(!) SFF frames at high CAN traffic.
