@@ -27,7 +27,11 @@
 #include <linux/netdevice.h>
 #include <linux/can.h>
 #include <linux/can/dev.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#include <linux/io.h>
+#else
 #include <asm/io.h>
+#endif
 #include <asm/hardware.h>
 
 #include "ccan.h"
@@ -47,9 +51,9 @@ static u16 h7202can_read_reg(struct net_device *dev, enum c_regs reg)
 	 */
 	lock_kernel();
 	val = inw(dev->base_addr + (reg<<1));
-	for (i=0;i<DELAY;i++);
+	for (i = 0; i < DELAY; i++);
 	val = inw(dev->base_addr + (reg<<1));
-	for (i=0;i<DELAY;i++);
+	for (i = 0; i < DELAY; i++);
 	unlock_kernel();
 
 	return val;
@@ -61,7 +65,7 @@ static void h7202can_write_reg(struct net_device *dev, enum c_regs reg, u16 val)
 
 	lock_kernel();
 	outw(val, dev->base_addr + (reg<<1));
-	for (i=0;i<DELAY;i++);
+	for (i = 0; i < DELAY; i++);
 	unlock_kernel();
 }
 
