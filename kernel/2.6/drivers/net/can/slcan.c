@@ -58,7 +58,11 @@
 #include <linux/moduleparam.h>
 
 #include <asm/system.h>
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17)
+#include <linux/uaccess.h>
+#else
 #include <asm/uaccess.h>
+#endif
 #include <linux/bitops.h>
 #include <linux/string.h>
 #include <linux/mm.h>
