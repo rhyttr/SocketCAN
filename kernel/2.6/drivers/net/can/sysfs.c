@@ -205,7 +205,8 @@ static ssize_t can_store_##_func(struct device *dev,			\
 		return ret;						\
 	rtnl_lock();							\
 	if (dev_isalive(ndev)) {					\
-		if ((ret = can_set_##_func(ndev, val)) == 0)		\
+		ret = can_set_##_func(ndev, val);			\
+		if (ret == 0)						\
 			ret = count;					\
 	}								\
 	rtnl_unlock();							\
@@ -229,7 +230,7 @@ static ssize_t can_stats_show_##_name(struct device *dev,		\
 	int ret = -EINVAL;						\
 	read_lock(&dev_base_lock);					\
 	if (dev_isalive(ndev)) {					\
-	        ret= snprintf(buf, PAGE_SIZE, "%d\n",			\
+		ret = snprintf(buf, PAGE_SIZE, "%d\n",			\
 			      priv->can_stats._name);			\
 	}								\
 	read_unlock(&dev_base_lock);					\
@@ -238,12 +239,12 @@ static ssize_t can_stats_show_##_name(struct device *dev,		\
 static DEVICE_ATTR(_name, S_IRUGO, can_stats_show_##_name, NULL)
 
 #define CAN_CREATE_FILE(_dev, _name)					\
-        if (device_create_file(&_dev->dev, &dev_attr_##_name))		\
+	if (device_create_file(&_dev->dev, &dev_attr_##_name))		\
 		dev_err(ND2D(_dev),					\
 			"Couldn't create device file for ##_name\n")
 
 #define CAN_REMOVE_FILE(_dev, _name)					\
-        device_remove_file(&_dev->dev, &dev_attr_##_name)		\
+	device_remove_file(&_dev->dev, &dev_attr_##_name)		\
 
 CAN_STATS_ATTR(error_warning);
 CAN_STATS_ATTR(error_passive);
@@ -262,7 +263,8 @@ static ssize_t can_store_restart(struct device *dev,
 
 	rtnl_lock();
 	if (dev_isalive(ndev)) {
-		if (!(ret = can_restart_now(ndev)))
+		ret = can_restart_now(ndev);
+		if (!ret)
 			ret = count;
 	}
 	rtnl_unlock();
@@ -320,7 +322,7 @@ static ssize_t can_show_ctrlmode(struct device *dev,
 			ret += sprintf(buf + ret, "\n");
 	}
 	read_unlock(&dev_base_lock);
-        return ret;
+	return ret;
 }
 
 static ssize_t can_store_ctrlmode(struct device *dev,
@@ -338,7 +340,8 @@ static ssize_t can_store_ctrlmode(struct device *dev,
 
 	rtnl_lock();
 	if (dev_isalive(ndev) && count) {
-		if (!(ret = can_set_ctrlmode(ndev, ctrlmode)))
+		ret = can_set_ctrlmode(ndev, ctrlmode);
+		if (!ret)
 			ret = count;
 	}
 	rtnl_unlock();
@@ -374,7 +377,7 @@ static ssize_t can_show_custombittime(struct device *dev,
 			ret = snprintf(buf, PAGE_SIZE, "undefined\n");
 	}
 	read_unlock(&dev_base_lock);
-        return ret;
+	return ret;
 }
 
 static ssize_t can_store_custombittime(struct device *dev,
@@ -387,6 +390,7 @@ static ssize_t can_store_custombittime(struct device *dev,
 	int ret = -EINVAL;
 
 	if (!strncmp(buf, "std", 3)) {
+
 		if (sscanf(buf + 4, "%i %i %i %i %i %i",
 			   val, val + 1, val + 2, val + 3,
 			   val + 4, val + 5) == 6) {
@@ -398,19 +402,22 @@ static ssize_t can_store_custombittime(struct device *dev,
 			bt.std.sjw = val[4];
 			bt.std.sam = val[5];
 		}
-	}
-	else if (!strncmp(buf, "btr", 3)) {
+
+	} else if (!strncmp(buf, "btr", 3)) {
+
 		if (sscanf(buf + 4, "%i %i", val, val + 1) == 2) {
 			bt.type = CAN_BITTIME_BTR;
 			bt.btr.btr0 = val[0];
 			bt.btr.btr1 = val[1];
 		}
+
 	} else
 		goto out;
 
 	rtnl_lock();
 	if (dev_isalive(ndev)) {
-		if (!(ret = can_set_custombittime(ndev, &bt)))
+		ret = can_set_custombittime(ndev, &bt);
+		if (!ret)
 			ret = count;
 	}
 	rtnl_unlock();
@@ -422,19 +429,19 @@ static DEVICE_ATTR(can_custombittime, S_IRUGO | S_IWUSR,
 		   can_show_custombittime, can_store_custombittime);
 
 static struct attribute *can_stats_attrs[] = {
-        &dev_attr_error_warning.attr,
-        &dev_attr_error_passive.attr,
-        &dev_attr_bus_error.attr,
-        &dev_attr_arbitration_lost.attr,
-        &dev_attr_data_overrun.attr,
-        &dev_attr_wakeup.attr,
-        &dev_attr_restarts.attr,
+	&dev_attr_error_warning.attr,
+	&dev_attr_error_passive.attr,
+	&dev_attr_bus_error.attr,
+	&dev_attr_arbitration_lost.attr,
+	&dev_attr_data_overrun.attr,
+	&dev_attr_wakeup.attr,
+	&dev_attr_restarts.attr,
 	NULL
 };
 
 static struct attribute_group can_stats_group = {
-        .name = "can_statistics",
-        .attrs = can_stats_attrs,
+	.name = "can_statistics",
+	.attrs = can_stats_attrs,
 };
 
 void can_create_sysfs(struct net_device *dev)
@@ -450,11 +457,11 @@ void can_create_sysfs(struct net_device *dev)
 	CAN_CREATE_FILE(dev, can_clock);
 	CAN_CREATE_FILE(dev, can_echo);
 
-        err = sysfs_create_group(&(dev->dev.kobj), &can_stats_group);
-        if (err) {
+	err = sysfs_create_group(&(dev->dev.kobj), &can_stats_group);
+	if (err) {
 		printk(KERN_EMERG
 		       "couldn't create sysfs group for CAN stats\n");
-        }
+	}
 }
 
 void can_remove_sysfs(struct net_device *dev)
@@ -467,7 +474,7 @@ void can_remove_sysfs(struct net_device *dev)
 	CAN_REMOVE_FILE(dev, can_clock);
 	CAN_REMOVE_FILE(dev, can_echo);
 
-        sysfs_remove_group(&(dev->dev.kobj), &can_stats_group);
+	sysfs_remove_group(&(dev->dev.kobj), &can_stats_group);
 }
 
 #endif /* CONFIG_SYSFS */
