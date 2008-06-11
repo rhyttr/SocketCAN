@@ -47,7 +47,7 @@
 static u32 ccan_read_reg32(struct net_device *dev, enum c_regs reg)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
-	
+
 	u32 val = priv->read_reg(dev, reg);
 	val |= ((u32) priv->read_reg(dev, reg + 2)) << 16;
 
@@ -89,7 +89,7 @@ static int ccan_write_object(struct net_device *dev,
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	unsigned int val;
-	
+
 	if (frame->can_id & CAN_EFF_FLAG)
 		val = IF_ARB_MSGXTD | (frame->can_id & CAN_EFF_MASK);
 	else
@@ -140,7 +140,7 @@ static int ccan_read_object(struct net_device *dev, int iface, int objno)
 	frame->can_dlc = ctrl & 0xf;
 
 	val = ccan_read_reg32(dev, CAN_IF_ARB(iface));
-	
+
 	data = ccan_read_reg32(dev, CAN_IF_DATAA(iface));
 	memcpy(&frame->data[0], &data, 4);
 	data = ccan_read_reg32(dev, CAN_IF_DATAB(iface));
@@ -181,9 +181,9 @@ static int ccan_setup_receive_object(struct net_device *dev, int iface,
 
 	ccan_object_put(dev, 0, objno, IF_COMM_ALL & ~IF_COMM_TXRQST);
 
-	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__, 
+	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__,
 		objno, ccan_read_reg32(dev, CAN_MSGVAL));
-		
+
 	return 0;
 }
 
@@ -195,9 +195,9 @@ static int ccan_inval_object(struct net_device *dev, int iface, int objno)
 	priv->write_reg(dev, CAN_IF_MCONT(iface), 0);
 	ccan_object_put(dev, 0, objno, IF_COMM_ARB | IF_COMM_CONTROL);
 
-	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__, 
+	DBG("%s: obj no %d msgval: 0x%08x\n", __FUNCTION__,
 		objno, ccan_read_reg32(dev, CAN_MSGVAL));
-		
+
 	return 0;
 }
 
@@ -230,7 +230,7 @@ static int ccan_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void ccan_tx_timeout(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
-	
+
 	priv->can.net_stats.tx_errors++;
 }
 
@@ -238,7 +238,7 @@ static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	unsigned int reg_timing, ctrl_save;
-	u8 brp, sjw, tseg1, tseg2; 
+	u8 brp, sjw, tseg1, tseg2;
 
 	if (br->type != CAN_BITTIME_STD)
 		return -EINVAL;
@@ -252,8 +252,8 @@ static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 		     ((sjw << BTR_SJW_SHIFT) & BTR_SJW_MASK) |
 		     ((tseg1 << BTR_TSEG1_SHIFT) & BTR_TSEG1_MASK) |
 		     ((tseg2 << BTR_TSEG2_SHIFT) & BTR_TSEG2_MASK);
-		     
-	DBG("%s: brp = %d sjw = %d seg1 = %d seg2 = %d\n", __FUNCTION__, 
+
+	DBG("%s: brp = %d sjw = %d seg1 = %d seg2 = %d\n", __FUNCTION__,
 		brp, sjw, tseg1, tseg2);
 	DBG("%s: setting BTR to %04x\n", __FUNCTION__, reg_timing);
 
@@ -266,7 +266,7 @@ static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 	priv->write_reg(dev, CAN_CONTROL, ctrl_save);
 
 	spin_unlock_irq(&priv->can.irq_lock);
-	
+
 	return 0;
 }
 
@@ -356,7 +356,7 @@ static int ccan_do_status_irq(struct net_device *dev)
 
 	priv->write_reg(dev, CAN_STATUS, 0);
 	priv->last_status = status;
-	
+
 	return diff ? 1 : 0;
 }
 
@@ -386,7 +386,7 @@ static void ccan_do_object_irq(struct net_device *dev, u16 irqstatus)
 
 static void do_statuspoll(struct work_struct *work)
 {
-	struct ccan_priv *priv = container_of(((struct delayed_work *) work), 
+	struct ccan_priv *priv = container_of(((struct delayed_work *) work),
 					      struct ccan_priv, work);
 
 	priv->write_reg(priv->dev, CAN_CONTROL,
@@ -403,7 +403,7 @@ static irqreturn_t ccan_isr(int irq, void *dev_id)
 	struct ccan_priv *priv = netdev_priv(dev);
 	u16 irqstatus;
 	unsigned long flags;
-	
+
 	spin_lock_irqsave(&priv->can.irq_lock, flags);
 
 	irqstatus = priv->read_reg(dev, CAN_IR);
@@ -482,10 +482,10 @@ static int ccan_chip_config(struct net_device *dev)
 	for(i = MAX_TRANSMIT_OBJECT + 1; i < MAX_OBJECT; i++)
 		ccan_setup_receive_object(dev, 0, i, 0, 0,
 					  IF_MCONT_RXIE | IF_MCONT_UMASK);
-					  
+
 	ccan_setup_receive_object(dev, 0, MAX_OBJECT, 0, 0, IF_MCONT_EOB |
 				  IF_MCONT_RXIE | IF_MCONT_UMASK);
-				  
+
 #ifdef CCAN_DEBUG
 	for(i = 0; i <= MAX_OBJECT; i++)
 		priv->bufstat[i] = 0;
@@ -502,7 +502,7 @@ struct net_device *alloc_ccandev(int sizeof_priv)
 	dev = alloc_candev(sizeof_priv);
 	if(!dev)
 		return NULL;
-		
+
 	priv = netdev_priv(dev);
 
 	dev->open = ccan_open;
@@ -516,7 +516,7 @@ struct net_device *alloc_ccandev(int sizeof_priv)
 	priv->can.do_get_state = ccan_get_state;
 	priv->can.do_set_mode = ccan_set_mode;
 
-	priv->dev = dev;	
+	priv->dev = dev;
 	priv->tx_object = 0;
 
 	return dev;
@@ -532,20 +532,20 @@ EXPORT_SYMBOL(free_ccandev);
 int register_ccandev(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
-	
+
 	ccan_set_mode(dev, CAN_MODE_START);
 
 	ccan_chip_config(dev);
 	INIT_DELAYED_WORK(&priv->work, do_statuspoll);
-	
-	return register_netdev(dev);	
+
+	return register_netdev(dev);
 }
 EXPORT_SYMBOL(register_ccandev);
 
 void unregister_ccandev(struct net_device *dev)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
-	
+
 	ccan_set_mode(dev, CAN_MODE_START);
 
 	cancel_delayed_work(&priv->work);

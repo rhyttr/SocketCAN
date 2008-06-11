@@ -106,7 +106,7 @@ module_param(debug, int, S_IRUGO);
  * you will have to modify two kernel includes & recompile the kernel.
  *
  * Add this in include/asm/termios.h after the definition of N_HCI:
- *        #define N_SLCAN         16 
+ *        #define N_SLCAN         16
  *
  * Increment NR_LDICS in include/linux/tty.h from 16 to 17
  *
@@ -182,7 +182,7 @@ static struct net_device **slcan_devs;
  * The <id> is 3 (standard) or 8 (extended) bytes in ASCII Hex (base64).
  * The <dlc> is a one byte ASCII number ('0' - '8')
  * The <data> section has at much ASCII Hex bytes as defined by the <dlc>
- * 
+ *
  * Examples:
  *
  * t1230 : can_id 0x123, can_dlc 0, no data
@@ -234,7 +234,7 @@ static void slc_bump(struct slcan *sl)
 
 	sl->rbuff[dlc_pos] = 0; /* terminate can_id string */
 	cf.can_id = simple_strtoul(sl->rbuff+1, NULL, 16);
-	
+
 	if (!(cmd & 0x20)) /* NO tiny chars => extended frame format */
 		cf.can_id |= CAN_EFF_FLAG;
 
@@ -244,7 +244,7 @@ static void slc_bump(struct slcan *sl)
 	*(u64 *) (&cf.data) = 0; /* clear payload */
 
 	for (i = 0, dlc_pos++; i < cf.can_dlc; i++){
-		
+
 		if ((tmp = asc2nibble(sl->rbuff[dlc_pos++])) > 0x0F)
 			return;
 		cf.data[i] = (tmp << 4);

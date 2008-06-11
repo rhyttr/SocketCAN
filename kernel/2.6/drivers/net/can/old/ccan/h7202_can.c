@@ -44,14 +44,14 @@ static u16 h7202can_read_reg(struct net_device *dev, enum c_regs reg)
 	/* The big kernel lock is used to prevent any other AMBA devices from
 	 * interfering with the current register read operation. The register
 	 * is read twice because of braindamaged hynix cpu.
-	 */ 
+	 */
 	lock_kernel();
 	val = inw(dev->base_addr + (reg<<1));
 	for (i=0;i<DELAY;i++);
 	val = inw(dev->base_addr + (reg<<1));
 	for (i=0;i<DELAY;i++);
 	unlock_kernel();
-	
+
 	return val;
 }
 
@@ -72,11 +72,11 @@ static int h7202can_drv_probe(struct platform_device *pdev)
 	struct resource *mem;
 	u32 mem_size;
 	int ret = -ENODEV;
-	
+
 	dev = alloc_ccandev(sizeof(struct ccan_priv));
 	if (!dev)
 		return -ENOMEM;
-		
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev->irq = platform_get_irq(pdev, 0);
 	if (!mem || !dev->irq)
@@ -104,7 +104,7 @@ static int h7202can_drv_probe(struct platform_device *pdev)
 	priv->write_reg = h7202can_write_reg;
 
 	platform_set_drvdata(pdev, dev);
-	
+
 	/* configure ports */
 	switch (mem->start) {
 	case CAN0_PHYS:
@@ -119,7 +119,7 @@ static int h7202can_drv_probe(struct platform_device *pdev)
 		break;
 	}
 
-	/* enable can */	
+	/* enable can */
 	h7202can_write_reg(dev, CAN_ENABLE, 1);
 
 	ret = register_ccandev(dev);
