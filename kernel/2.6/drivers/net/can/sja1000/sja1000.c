@@ -76,7 +76,6 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Socketcan " CHIP_NAME " network device driver");
 
-#define CONFIG_CAN_DEBUG_DEVICES
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((debug > 0) ? printk(args) : 0)
 /* logging in interrupt context! */
