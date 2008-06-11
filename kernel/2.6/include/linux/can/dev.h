@@ -49,7 +49,7 @@ struct can_priv {
 	/* Please hold this lock when touching net_stats/can_stats */
 	spinlock_t stats_lock;
 
-	can_state_t state;
+	enum can_state state;
 	u32 ctrlmode;
 
 	int restart_ms;

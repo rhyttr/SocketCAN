@@ -101,7 +101,7 @@ static int can_get_ctrlmode(struct net_device *dev, u32 *ctrlmode)
 	return 0;
 }
 
-static int can_get_state(struct net_device *dev, can_state_t *state)
+static int can_get_state(struct net_device *dev, enum can_state *state)
 {
 	struct can_priv *priv = netdev_priv(dev);
 
@@ -283,7 +283,7 @@ static ssize_t can_show_state(struct device *dev,
 			     char *buf)
 {
 	struct net_device *ndev = to_net_dev(dev);
-	can_state_t state;
+	enum can_state state;
 	int ret = -EINVAL;
 
 	read_lock(&dev_base_lock);

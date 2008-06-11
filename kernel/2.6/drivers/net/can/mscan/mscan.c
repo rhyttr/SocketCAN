@@ -109,7 +109,7 @@ struct mscan_priv {
 #define F_TX_PROGRESS	1
 #define F_TX_WAIT_ALL	2
 
-static can_state_t state_map[] = {
+static enum can_state state_map[] = {
 	CAN_STATE_ACTIVE,
 	CAN_STATE_BUS_WARNING,
 	CAN_STATE_BUS_PASSIVE,
@@ -304,7 +304,7 @@ static int mscan_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static inline int check_set_state(struct net_device *dev, u8 canrflg)
 {
 	struct mscan_priv *priv = netdev_priv(dev);
-	can_state_t state;
+	enum can_state state;
 	int ret = 0;
 
 	if (!(canrflg & MSCAN_CSCIF) || priv->can.state > CAN_STATE_BUS_OFF)
@@ -552,7 +552,7 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	return ret;
 }
 
-static int mscan_do_set_mode(struct net_device *dev, can_mode_t mode)
+static int mscan_do_set_mode(struct net_device *dev, enum can_mode mode)
 {
 
 	struct mscan_priv *priv = netdev_priv(dev);

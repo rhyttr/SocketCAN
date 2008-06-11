@@ -274,7 +274,7 @@ static int ccan_set_bittime(struct net_device *dev, struct can_bittime *br)
 	return 0;
 }
 
-static int ccan_set_mode(struct net_device *dev, can_mode_t mode)
+static int ccan_set_mode(struct net_device *dev, enum can_mode mode)
 {
 	switch (mode) {
 	case CAN_MODE_START:
@@ -287,7 +287,7 @@ static int ccan_set_mode(struct net_device *dev, can_mode_t mode)
 	return 0;
 }
 
-static int ccan_get_state(struct net_device *dev, can_state_t *state)
+static int ccan_get_state(struct net_device *dev, enum can_state *state)
 {
 	struct ccan_priv *priv = netdev_priv(dev);
 	u32 reg_status;

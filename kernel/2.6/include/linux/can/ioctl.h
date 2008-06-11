@@ -25,10 +25,10 @@
 /*
  * CAN custom bit time
  */
-typedef enum CAN_BITTIME_TYPE {
+enum can_bittimes {
 	CAN_BITTIME_STD,
 	CAN_BITTIME_BTR
-} can_bittime_type_t;
+};
 
 /* TSEG1 of controllers usually is a sum of synch_seg (always 1),
  * prop_seg and phase_seg1, TSEG2 = phase_seg2 */
@@ -48,7 +48,7 @@ struct can_bittime_btr {
 };
 
 struct can_bittime {
-	can_bittime_type_t type;
+	enum can_bittimes type;
 	union {
 		struct can_bittime_std std;
 		struct can_bittime_btr btr;
@@ -58,11 +58,11 @@ struct can_bittime {
 /*
  * CAN mode
  */
-typedef enum {
+enum can_mode {
 	CAN_MODE_STOP = 0,
 	CAN_MODE_START,
 	CAN_MODE_SLEEP
-} can_mode_t;
+};
 
 /*
  * CAN controller mode
@@ -73,14 +73,14 @@ typedef enum {
 /*
  * CAN operational and error states
  */
-typedef enum {
+enum can_state {
 	CAN_STATE_ACTIVE = 0,
 	CAN_STATE_BUS_WARNING,
 	CAN_STATE_BUS_PASSIVE,
 	CAN_STATE_BUS_OFF,
 	CAN_STATE_STOPPED,
 	CAN_STATE_SLEEPING
-} can_state_t;
+};
 
 /*
  * CAN device statistics

@@ -238,7 +238,7 @@ static void sja1000_start(struct net_device *dev)
 	set_normal_mode(dev);
 }
 
-static int sja1000_set_mode(struct net_device *dev, can_mode_t mode)
+static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 
@@ -260,7 +260,7 @@ static int sja1000_set_mode(struct net_device *dev, can_mode_t mode)
 	return 0;
 }
 
-static int sja1000_get_state(struct net_device *dev, can_state_t *state)
+static int sja1000_get_state(struct net_device *dev, enum can_state *state)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 	u8 status;
@@ -478,7 +478,7 @@ static int sja1000_err(struct net_device *dev,
 	struct net_device_stats *stats = dev->get_stats(dev);
 	struct can_frame *cf;
 	struct sk_buff *skb;
-	can_state_t state = priv->can.state;
+	enum can_state state = priv->can.state;
 	uint8_t ecc, alc;
 
 	skb = dev_alloc_skb(sizeof(struct can_frame));
