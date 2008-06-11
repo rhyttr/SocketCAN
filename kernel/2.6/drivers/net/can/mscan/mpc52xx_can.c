@@ -102,9 +102,11 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 	}
 
 	iounmap((unsigned long *)dev->base_addr);
-      fail_map:
+
+fail_map:
 	release_mem_region(mem->start, mem_size);
-      req_error:
+
+req_error:
 	free_candev(dev);
 	dev_err(&pdev->dev, "probe failed\n");
 	return ret;

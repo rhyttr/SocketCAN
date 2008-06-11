@@ -137,10 +137,10 @@
 #define MSCAN_BOHOLD		0x01
 
 #ifdef	CONFIG_PPC_MPC52xx
-#define _MSCAN_RESERVED_(n,num)	u8	_res##n[num]
+#define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
 #define _MSCAN_RESERVED_DSR_SIZE	2
 #else
-#define _MSCAN_RESERVED_(n,num)
+#define _MSCAN_RESERVED_(n, num)
 #define _MSCAN_RESERVED_DSR_SIZE	0
 #endif
 

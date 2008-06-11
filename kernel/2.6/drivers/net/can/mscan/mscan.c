@@ -200,7 +200,8 @@ static int mscan_start(struct net_device *dev)
 	priv->shadow_canrier = 0;
 	priv->flags = 0;
 
-	if ((err = mscan_set_mode(dev, MSCAN_NORMAL_MODE)))
+	err = mscan_set_mode(dev, MSCAN_NORMAL_MODE);
+	if (err)
 		return err;
 
 	canrflg = in_8(&regs->canrflg);
@@ -227,7 +228,7 @@ static int mscan_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (frame->can_dlc > 8)
 		return -EINVAL;
 
-	dev_dbg(ND2D(dev), "%s\n", __FUNCTION__);
+	dev_dbg(ND2D(dev), "%s\n", __func__);
 	out_8(&regs->cantier, 0);
 
 	i = ~priv->tx_active & MSCAN_TXE;
@@ -391,8 +392,8 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			for (i = 0;
 			     i < frame->can_dlc && !(frame->can_id &
 						     CAN_FLAG_RTR); i++)
-				printk("%2x ", frame->data[i]);
-			printk("\n");
+				printk(KERN_DEBUG "%2x ", frame->data[i]);
+			printk(KERN_DEBUG "\n");
 #endif
 
 			out_8(&regs->canrflg, MSCAN_RXF);
@@ -487,8 +488,11 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	u8 cantier, cantflg, canrflg;
 	irqreturn_t ret = IRQ_NONE;
 
-	if ((cantier = in_8(&regs->cantier) & MSCAN_TXE) &&
-	    (cantflg = in_8(&regs->cantflg) & cantier)) {
+	cantier = in_8(&regs->cantier) & MSCAN_TXE;
+	cantflg = in_8(&regs->cantflg) & cantier;
+
+	if (cantier && cantflg) {
+
 		struct list_head *tmp, *pos;
 
 		list_for_each_safe(pos, tmp, &priv->tx_head) {
@@ -524,8 +528,8 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	if ((((canrflg = in_8(&regs->canrflg)) & ~MSCAN_STAT_MSK)) &&
 	    !test_and_set_bit(F_RX_PROGRESS, &priv->flags)) {
 #if 0
-		printk("%s: canrflg=%#02x canrier=%#02x\n", dev->name, canrflg,
-		       in_8(&regs->canrier));
+		printk(KERN_DEBUG "%s: canrflg=%#02x canrier=%#02x\n",
+		       dev->name, canrflg, in_8(&regs->canrier));
 #endif
 #if 0
 		if (check_set_state(dev, canrflg)) {
@@ -569,7 +573,8 @@ static int mscan_do_set_mode(struct net_device *dev, can_mode_t mode)
 	case CAN_MODE_START:
 		if (priv->can.state <= CAN_STATE_BUS_OFF)
 			mscan_set_mode(dev, MSCAN_INIT_MODE);
-		if ((ret = mscan_start(dev)))
+		ret = mscan_start(dev);
+		if (ret)
 			break;
 		if (netif_queue_stopped(dev))
 			netif_wake_queue(dev);
@@ -638,8 +643,10 @@ static int mscan_open(struct net_device *dev)
 
 	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_LISTEN);
 
-	if ((ret = mscan_start(dev)))
+	ret = mscan_start(dev);
+	if (ret)
 		return ret;
+
 	netif_start_queue(dev);
 
 	return 0;
@@ -697,7 +704,6 @@ int register_mscandev(struct net_device *dev, int clock_src)
 
 	return register_netdev(dev);
 }
-
 EXPORT_SYMBOL(register_mscandev);
 
 void unregister_mscandev(struct net_device *dev)
@@ -707,7 +713,6 @@ void unregister_mscandev(struct net_device *dev)
 	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_CANE);
 	unregister_netdev(dev);
 }
-
 EXPORT_SYMBOL(unregister_mscandev);
 
 struct net_device *alloc_mscandev(void)
@@ -745,7 +750,6 @@ struct net_device *alloc_mscandev(void)
 
 	return dev;
 }
-
 EXPORT_SYMBOL(alloc_mscandev);
 
 MODULE_AUTHOR("Andrey Volkov <avolkov@varma-el.com>");
