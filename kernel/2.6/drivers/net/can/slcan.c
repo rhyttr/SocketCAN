@@ -235,7 +235,13 @@ static void slc_bump(struct slcan *sl)
 	cf.can_dlc = sl->rbuff[dlc_pos] & 0x0F; /* get can_dlc */
 
 	sl->rbuff[dlc_pos] = 0; /* terminate can_id string */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 	cf.can_id = simple_strtoul(sl->rbuff+1, NULL, 16);
+#else
+	if (strict_strtoul(sl->rbuff+1, 16, (unsigned long *) &cf.can_id))
+		return;
+#endif
 
 	if (!(cmd & 0x20)) /* NO tiny chars => extended frame format */
 		cf.can_id |= CAN_EFF_FLAG;
