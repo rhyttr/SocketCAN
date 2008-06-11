@@ -32,7 +32,7 @@ MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Marc Kleine-Budde <mkl@pengutronix.de>, "
 	      "Andrey Volkov <avolkov@varma-el.com>");
 
-static int restart_ms = 0;
+static int restart_ms;
 
 module_param(restart_ms, int, S_IRUGO | S_IWUSR);
 
@@ -158,7 +158,7 @@ int can_calc_bittime(struct can_priv *can, u32 bitrate,
 				}
 			}
 		}
-	      next_brp:;
+next_brp:;
 	}
 
 	if (best_error < 0)
@@ -246,14 +246,12 @@ struct net_device *alloc_candev(int sizeof_priv)
 
 	return dev;
 }
-
 EXPORT_SYMBOL(alloc_candev);
 
 void free_candev(struct net_device *dev)
 {
 	free_netdev(dev);
 }
-
 EXPORT_SYMBOL(free_candev);
 
 /*
@@ -305,9 +303,8 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 
 			skb = skb_clone(old_skb, GFP_ATOMIC);
 			kfree_skb(old_skb);
-			if (!skb) {
+			if (!skb)
 				return;
-			}
 		} else
 			skb_orphan(skb);
 
@@ -324,7 +321,7 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 	} else {
 		/* locking problem with netif_stop_queue() ?? */
 		printk(KERN_ERR "%s: %s: BUG! echo_skb is occupied!\n",
-		       dev->name, __FUNCTION__);
+		       dev->name, __func__);
 		kfree_skb(skb);
 	}
 }
@@ -364,7 +361,8 @@ int can_restart_now(struct net_device *dev)
 
 	can_flush_echo_skb(dev);
 
-	if ((err = priv->do_set_mode(dev, CAN_MODE_START)))
+	err = priv->do_set_mode(dev, CAN_MODE_START);
+	if (err)
 		return err;
 
 	netif_carrier_on(dev);

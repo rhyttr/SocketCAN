@@ -57,12 +57,12 @@ struct can_priv {
 
 	struct sk_buff *echo_skb[CAN_ECHO_SKB_MAX];
 
-	int (*do_set_bittime)(struct net_device * dev,
-			      struct can_bittime * br);
-	int (*do_get_state)(struct net_device * dev, u32* state);
-	int (*do_set_mode)(struct net_device * dev, u32 mode);
-	int (*do_set_ctrlmode)(struct net_device * dev, u32 ctrlmode);
-	int (*do_get_ctrlmode)(struct net_device * dev, u32* ctrlmode);
+	int (*do_set_bittime)(struct net_device *dev,
+			      struct can_bittime *br);
+	int (*do_get_state)(struct net_device *dev, u32 *state);
+	int (*do_set_mode)(struct net_device *dev, u32 mode);
+	int (*do_set_ctrlmode)(struct net_device *dev, u32 ctrlmode);
+	int (*do_get_ctrlmode)(struct net_device *dev, u32*ctrlmode);
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
