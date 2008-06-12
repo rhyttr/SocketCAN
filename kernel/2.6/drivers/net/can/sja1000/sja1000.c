@@ -65,7 +65,6 @@
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
 #include <linux/can/dev.h>
-#include <linux/can/ioctl.h>	/* for struct can_device_stats */
 
 #include "sja1000.h"
 
