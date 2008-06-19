@@ -67,6 +67,14 @@ config CAN_EMS_PCI
 	This driver is for the one or two channel CPC-PCI and CPC-PCIe
 	cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
 
+config CAN_EMS_PCMCIA
+	tristate "EMS CPC-CARD Card"
+	depends on PCMCIA && CAN_SJA1000
+	help
+
+	This driver is for the one or two channel CPC-CARD cards from
+	EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+
 config CAN_IXXAT_PCI
 	tristate "IXXAT PCI Card"
 	depends on PCI && CAN_SJA1000

@@ -57,6 +57,7 @@ else
 
 obj-$(CONFIG_CAN_SJA1000) += sja1000.o
 obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+obj-$(CONFIG_CAN_EMS_PCMCIA) += ems_pcmcia.o
 obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
 obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
 obj-$(CONFIG_CAN_PCM027) += pcm027.o
