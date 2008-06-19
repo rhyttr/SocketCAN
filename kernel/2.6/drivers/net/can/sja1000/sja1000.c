@@ -607,10 +607,9 @@ static int sja1000_err(struct net_device *dev,
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-static irqreturn_t sja1000_interrupt(int irq, void *dev_id,
-				     struct pt_regs *regs)
+irqreturn_t sja1000_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 #else
-static irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 #endif
 {
 	struct net_device *dev = (struct net_device *)dev_id;
@@ -667,8 +666,9 @@ out:
 	if (priv->post_irq)
 		priv->post_irq(dev);
 
-	return n == 0 ? IRQ_NONE : IRQ_HANDLED;
+	return (n) ? IRQ_HANDLED : IRQ_NONE;
 }
+EXPORT_SYMBOL_GPL(sja1000_interrupt);
 
 static int sja1000_open(struct net_device *dev)
 {
@@ -678,16 +678,18 @@ static int sja1000_open(struct net_device *dev)
 	/* set chip into reset mode */
 	set_reset_mode(dev);
 
-	/* register interrupt handler */
+	/* register interrupt handler, if not done by the device driver */
+	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
-	err = request_irq(dev->irq, &sja1000_interrupt, SA_SHIRQ,
-			  dev->name, (void *)dev);
+		err = request_irq(dev->irq, &sja1000_interrupt, SA_SHIRQ,
+				  dev->name, (void *)dev);
 #else
-	err = request_irq(dev->irq, &sja1000_interrupt, IRQF_SHARED,
-			  dev->name, (void *)dev);
+		err = request_irq(dev->irq, &sja1000_interrupt, IRQF_SHARED,
+				  dev->name, (void *)dev);
 #endif
-	if (err)
-		return -EAGAIN;
+		if (err)
+			return -EAGAIN;
+	}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	/* clear statistics */
@@ -711,7 +713,9 @@ static int sja1000_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	priv->open_time = 0;
 	can_close_cleanup(dev);
-	free_irq(dev->irq, (void *)dev);
+
+	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER))
+		free_irq(dev->irq, (void *)dev);
 
 	return 0;
 }

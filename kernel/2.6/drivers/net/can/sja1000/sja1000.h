@@ -167,6 +167,14 @@
 #define OCR_TX1_PULLUP    0x80
 #define OCR_TX1_PUSHPULL  0xc0
 
+
+/*
+ * Flags for sja1000priv.flags
+ */
+
+#define SJA1000_CUSTOM_IRQ_HANDLER 0x1
+
+
 /*
  * SJA1000 private data structure
  */
@@ -174,20 +182,30 @@ struct sja1000_priv {
 	struct can_priv can;	/* must be the first member! */
 	long open_time;
 	struct sk_buff *echo_skb;
+
 	u8 (*read_reg) (struct net_device *dev, int reg);
 	void (*write_reg) (struct net_device *dev, int reg, u8 val);
 	void (*pre_irq) (struct net_device *dev);
 	void (*post_irq) (struct net_device *dev);
+
 	void *priv;		/* for board-specific data */
 	struct net_device *dev;
+
 	u8 ocr;
 	u8 cdr;
+	u32 flags;
 };
 
 struct net_device *alloc_sja1000dev(int sizeof_priv);
 void free_sja1000dev(struct net_device *dev);
 int register_sja1000dev(struct net_device *dev);
 void unregister_sja1000dev(struct net_device *dev);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+irqreturn_t sja1000_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+#else
+irqreturn_t sja1000_interrupt(int irq, void *dev_id);
+#endif
 
 #if 0
 void can_proc_create(const char *drv_name);
