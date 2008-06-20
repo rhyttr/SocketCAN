@@ -71,9 +71,14 @@
 #include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
 RCSID("$Id: sja1000.c 531 2007-10-19 07:38:29Z hartkopp $");
 
+
+#define DRV_NAME "sja1000"
+#define DRV_REV  "20080620"
+
+
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("Socketcan " CHIP_NAME " network device driver");
+MODULE_DESCRIPTION(DRV_NAME " CAN network device driver (rev" DRV_REV ")");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((debug > 0) ? printk(args) : 0)
@@ -85,11 +90,6 @@ MODULE_DESCRIPTION("Socketcan " CHIP_NAME " network device driver");
 #define iDBG(args...)
 #define iiDBG(args...)
 #endif
-
-/* driver and version information */
-static const char *drv_name = "SJA1000";
-static const char *drv_version = "0.2.0";
-static const char *drv_reldate = "2007-10-25";
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 static const char *ecc_errors[] = {
@@ -148,7 +148,7 @@ static int sja1000_probe_chip(struct net_device *dev)
 
 	if (dev->base_addr && (priv->read_reg(dev, 0) == 0xFF)) {
 		printk(KERN_INFO "%s: probing @0x%lX failed\n",
-		       drv_name, dev->base_addr);
+		       DRV_NAME, dev->base_addr);
 		return 0;
 	}
 	return 1;
@@ -768,7 +768,7 @@ int register_sja1000dev(struct net_device *dev)
 	err = register_netdev(dev);
 	if (err) {
 		printk(KERN_INFO
-		       "%s: registering netdev failed\n", CHIP_NAME);
+		       "%s: registering netdev failed\n", DRV_NAME);
 		free_netdev(dev);
 		return err;
 	}
@@ -788,11 +788,13 @@ EXPORT_SYMBOL(unregister_sja1000dev);
 
 static __init int sja1000_init(void)
 {
-	printk(KERN_INFO "%s driver v%s (%s)\n",
-	       drv_name, drv_version, drv_reldate);
-	printk(KERN_INFO "%s - options [debug %d]\n", drv_name, debug);
-	printk(KERN_INFO "%s driver %s %s loaded\n",
-	       drv_name, drv_version, drv_reldate);
+	printk(KERN_INFO "%s CAN network device driver (rev%s)\n",
+	       DRV_NAME, DRV_REV);
+
+	if (debug)
+		printk(KERN_INFO "%s: debug level set to %d.\n",
+		       DRV_NAME, debug);
+
 	return 0;
 }
 
@@ -800,8 +802,7 @@ module_init(sja1000_init);
 
 static __exit void sja1000_exit(void)
 {
-	printk(KERN_INFO "%s driver %s %s unloaded\n",
-	       drv_name, drv_version, drv_reldate);
+	printk(KERN_INFO "%s: driver removed\n", DRV_NAME);
 }
 
 module_exit(sja1000_exit);

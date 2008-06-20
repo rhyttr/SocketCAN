@@ -51,8 +51,6 @@
 
 #include <linux/can/dev.h>
 
-#define CHIP_NAME	"SJA1000"
-
 #define TX_TIMEOUT      (50*HZ/1000)	/* 50ms */
 #define RESTART_MS      100	/* restart chip on persistent errors in 100ms */
 #define MAX_BUS_ERRORS  200	/* prevent from flooding bus error interrupts */
