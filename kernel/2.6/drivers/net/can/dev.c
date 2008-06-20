@@ -27,7 +27,10 @@
 
 #include "sysfs.h"
 
-MODULE_DESCRIPTION("CAN netdevice library");
+#define MOD_DESC "CAN netdevice library"
+#define MOD_REV  "20080620"
+
+MODULE_DESCRIPTION(MOD_DESC " (rev " MOD_REV ")");
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Marc Kleine-Budde <mkl@pengutronix.de>, "
 	      "Andrey Volkov <avolkov@varma-el.com>");
@@ -471,6 +474,8 @@ static struct notifier_block can_netdev_notifier = {
 
 static __init int can_dev_init(void)
 {
+	printk(KERN_INFO MOD_DESC " (rev " MOD_REV ")\n");
+
 	return register_netdevice_notifier(&can_netdev_notifier);
 }
 module_init(can_dev_init);
