@@ -182,7 +182,8 @@ static void ems_pcmcia_del_card(struct pcmcia_device *pdev)
 		if (!dev)
 			continue;
 
-		printk(KERN_INFO "%s: removing channel #%d\n", DRV_NAME, i);
+		printk(KERN_INFO "%s: removing %s on channel #%d\n",
+		       DRV_NAME, dev->name, i);
 		unregister_sja1000dev(dev);
 		free_sja1000dev(dev);
 	}
@@ -283,8 +284,9 @@ static int __devinit ems_pcmcia_add_card(struct pcmcia_device *pdev,
 
 			card->channels++;
 
-			printk(KERN_INFO "%s: channel #%d at %lX, irq %d\n",
-			       DRV_NAME, i + 1,	dev->base_addr, dev->irq);
+			printk(KERN_INFO "%s: registered %s on channel "
+			       "#%d at %lX, irq %d\n", DRV_NAME, dev->name,
+			       i, dev->base_addr, dev->irq);
 		} else {
 			free_sja1000dev(dev);
 		}
