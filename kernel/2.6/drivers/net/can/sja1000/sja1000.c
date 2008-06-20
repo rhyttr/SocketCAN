@@ -78,7 +78,7 @@ RCSID("$Id: sja1000.c 531 2007-10-19 07:38:29Z hartkopp $");
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION(DRV_NAME " CAN network device driver (rev" DRV_REV ")");
+MODULE_DESCRIPTION(DRV_NAME " CAN netdevice driver (rev " DRV_REV ")");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((debug > 0) ? printk(args) : 0)
@@ -788,7 +788,7 @@ EXPORT_SYMBOL(unregister_sja1000dev);
 
 static __init int sja1000_init(void)
 {
-	printk(KERN_INFO "%s CAN network device driver (rev%s)\n",
+	printk(KERN_INFO "%s CAN netdevice driver (rev %s)\n",
 	       DRV_NAME, DRV_REV);
 
 	if (debug)
