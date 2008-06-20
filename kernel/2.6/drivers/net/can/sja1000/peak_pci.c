@@ -236,9 +236,6 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	writew(icr_high, board->conf_addr + PITA_ICR + 2);
 	init_step = 4;
 
-	printk(KERN_INFO "%s: base_addr=%#lx conf_addr=%p irq=%d\n", DRV_NAME,
-	       dev->base_addr, board->conf_addr, dev->irq);
-
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	/* Register SJA1000 device */
@@ -251,6 +248,9 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 
 	if (channel != PEAK_PCI_SLAVE)
 		*master_dev = dev;
+
+	printk(KERN_INFO "%s: %s at base_addr=%#lx conf_addr=%p irq=%d\n",
+	       DRV_NAME, dev->name, dev->base_addr, board->conf_addr, dev->irq);
 
 	return 0;
 
