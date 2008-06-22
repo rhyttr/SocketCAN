@@ -525,7 +525,8 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	}
 
-	if ((((canrflg = in_8(&regs->canrflg)) & ~MSCAN_STAT_MSK)) &&
+	canrflg = in_8(&regs->canrflg);
+	if ((canrflg & ~MSCAN_STAT_MSK) &&
 	    !test_and_set_bit(F_RX_PROGRESS, &priv->flags)) {
 #if 0
 		printk(KERN_DEBUG "%s: canrflg=%#02x canrier=%#02x\n",
