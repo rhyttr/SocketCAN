@@ -239,11 +239,13 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 		if (op->kt_ival1.tv64)
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"timeo=%lld ",
+					(long long)
 					ktime_to_us(op->kt_ival1));
 
 		if (op->kt_ival2.tv64)
 			len += snprintf(page + len, PAGE_SIZE - len,
 					"thr=%lld ",
+					(long long)
 					ktime_to_us(op->kt_ival2));
 #else
 		if (op->j_ival1)
@@ -281,11 +283,11 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 		if (op->kt_ival1.tv64)
 			len += snprintf(page + len, PAGE_SIZE - len, "t1=%lld ",
-					ktime_to_us(op->kt_ival1));
+					(long long) ktime_to_us(op->kt_ival1));
 
 		if (op->kt_ival2.tv64)
 			len += snprintf(page + len, PAGE_SIZE - len, "t2=%lld ",
-					ktime_to_us(op->kt_ival2));
+					(long long) ktime_to_us(op->kt_ival2));
 #else
 		if (op->j_ival1)
 			len += snprintf(page + len, PAGE_SIZE - len, "t1=%ld ",
@@ -542,7 +544,6 @@ static inline s64 ktime_us_delta(const ktime_t later, const ktime_t earlier)
 	return ktime_to_us(ktime_sub(later, earlier));
 }
 #endif
-
 /*
  * bcm_rx_update_and_send - process a detected relevant receive content change
  *                          1. update the last received data
