@@ -73,12 +73,10 @@ RCSID("$Id: sja1000.c 531 2007-10-19 07:38:29Z hartkopp $");
 
 
 #define DRV_NAME "sja1000"
-#define DRV_REV  "20080620"
-
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION(DRV_NAME " CAN netdevice driver (rev " DRV_REV ")");
+MODULE_DESCRIPTION(DRV_NAME " CAN netdevice driver");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 #define DBG(args...)   ((debug > 0) ? printk(args) : 0)
@@ -788,8 +786,7 @@ EXPORT_SYMBOL(unregister_sja1000dev);
 
 static __init int sja1000_init(void)
 {
-	printk(KERN_INFO "%s CAN netdevice driver (rev %s)\n",
-	       DRV_NAME, DRV_REV);
+	printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
 
 	if (debug)
 		printk(KERN_INFO "%s: debug level set to %d.\n",
