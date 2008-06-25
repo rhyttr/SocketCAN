@@ -1,0 +1,33 @@
+---
+ drivers/net/can/Kconfig          |    7 +++++++
+ drivers/net/can/sja1000/Makefile |    2 ++
+ 2 files changed, 9 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -32,6 +32,13 @@ config CAN_SJA1000
+ 	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
+ 	  with a single (simple) filter setup.
+ 
++config CAN_EMS_PCI
++	tristate "EMS CPC-PCI and CPC-PCIe Card"
++	depends on PCI && CAN_SJA1000
++	---help---
++	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
++	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/sja1000/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+@@ -3,3 +3,5 @@
+ #
+ 
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
++
++obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o

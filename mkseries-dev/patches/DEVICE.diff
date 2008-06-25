@@ -1,0 +1,65 @@
+---
+ drivers/net/can/Kconfig  |    9 +++++++++
+ drivers/net/can/Makefile |    3 +++
+ drivers/net/can/dev.c    |    8 --------
+ 3 files changed, 12 insertions(+), 8 deletions(-)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -12,6 +12,15 @@ config CAN_VCAN
+ 	  This driver can also be built as a module.  If so, the module
+ 	  will be called vcan.
+ 
++config CAN_DEV
++	tristate "Prompt for platform CAN drivers with sysfs support"
++	depends on CAN
++	default Y
++	---help---
++	  Enables the common framework for platform CAN drivers with sysfs
++	  support. This is the standard library for CAN drivers.
++	  If unsure, say Y.
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/Makefile
+@@ -3,3 +3,6 @@
+ #
+ 
+ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
++
++obj-$(CONFIG_CAN_DEV)		+= can-dev.o
++can-dev-y			:= dev.o
+Index: linux-2.6.25.6.OLD/drivers/net/can/dev.c
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/dev.c
++++ linux-2.6.25.6.OLD/drivers/net/can/dev.c
+@@ -23,8 +23,6 @@
+ #include <linux/can.h>
+ #include <linux/can/dev.h>
+ 
+-#include "sysfs.h"
+-
+ #define MOD_DESC "CAN netdevice library"
+ 
+ MODULE_DESCRIPTION(MOD_DESC);
+@@ -440,14 +438,8 @@ static int can_netdev_notifier_call(stru
+ 			if (can_set_bitrate(dev, CAN_BITRATE_DEFAULT))
+ 				dev_err(ND2D(dev), "failed to set bitrate\n");
+ 		}
+-#ifdef CONFIG_SYSFS
+-		can_create_sysfs(dev);
+-#endif
+ 		break;
+ 	case NETDEV_UNREGISTER:
+-#ifdef CONFIG_SYSFS
+-		can_remove_sysfs(dev);
+-#endif
+ 		break;
+ 	}
+ 	return 0;

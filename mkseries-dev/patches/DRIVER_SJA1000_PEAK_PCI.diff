@@ -1,0 +1,32 @@
+---
+ drivers/net/can/Kconfig          |    7 +++++++
+ drivers/net/can/sja1000/Makefile |    1 +
+ 2 files changed, 8 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -67,6 +67,13 @@ config CAN_PCM027
+ 	  This driver adds support for the SJA1000 chip on the PCM027 board
+ 	  from Phytec (http://www.phytec.de).
+ 
++config CAN_PEAK_PCI
++	tristate "PEAK PCAN PCI Card"
++	depends on PCI && CAN_SJA1000
++	---help---
++	  This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
++	  2 channel) from PEAK Systems (http://www.peak-system.com).
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/sja1000/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+@@ -9,3 +9,4 @@ obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci
+ obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
+ obj-$(CONFIG_CAN_PIPCAN) += pipcan.o
+ obj-$(CONFIG_CAN_PCM027) += pcm027.o
++obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o

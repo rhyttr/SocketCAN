@@ -1,0 +1,43 @@
+---
+ drivers/net/can/Makefile |    2 +-
+ drivers/net/can/dev.c    |    8 ++++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/dev.c
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/dev.c
++++ linux-2.6.25.6.OLD/drivers/net/can/dev.c
+@@ -23,6 +23,8 @@
+ #include <linux/can.h>
+ #include <linux/can/dev.h>
+ 
++#include "sysfs.h"
++
+ #define MOD_DESC "CAN netdevice library"
+ 
+ MODULE_DESCRIPTION(MOD_DESC);
+@@ -438,8 +440,14 @@ static int can_netdev_notifier_call(stru
+ 			if (can_set_bitrate(dev, CAN_BITRATE_DEFAULT))
+ 				dev_err(ND2D(dev), "failed to set bitrate\n");
+ 		}
++#ifdef CONFIG_SYSFS
++		can_create_sysfs(dev);
++#endif
+ 		break;
+ 	case NETDEV_UNREGISTER:
++#ifdef CONFIG_SYSFS
++		can_remove_sysfs(dev);
++#endif
+ 		break;
+ 	}
+ 	return 0;
+Index: linux-2.6.25.6.OLD/drivers/net/can/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/Makefile
+@@ -5,4 +5,4 @@
+ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+ 
+ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+-can-dev-y			:= dev.o
++can-dev-y			:= dev.o sysfs.o

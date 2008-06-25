@@ -1,0 +1,188 @@
+#!/bin/bash
+
+#set -x
+
+#
+# New files of CAN device interface and drivers
+#
+PATCH_DEVICE_NAME=socketcan-device.diff
+PATCH_DEVICE_FILES="\
+include/linux/can/dev.h \
+drivers/net/can/dev.c"
+
+PATCH_SYSFS_NAME=socketcan-sysfs.diff
+PATCH_SYSFS_FILES="\
+drivers/net/can/sysfs.c \
+drivers/net/can/sysfs.h"
+
+PATCH_DRIVER_SJA1000_NAME=socketcan-driver-sja1000.diff
+PATCH_DRIVER_SJA1000_FILES="\
+drivers/net/can/sja1000/sja1000.c \
+drivers/net/can/sja1000/sja1000.h "
+
+PATCH_DRIVER_SJA1000_EMS_PCI_NAME=socketcan-driver-sja1000-ems-pci.diff
+PATCH_DRIVER_SJA1000_EMS_PCI_FILES="\
+drivers/net/can/sja1000/ems_pci.c"
+
+PATCH_DRIVER_SJA1000_IXXAT_PCI_NAME=socketcan-driver-sja1000-ixxat-pci.diff
+PATCH_DRIVER_SJA1000_IXXAT_PCI_FILES="\
+drivers/net/can/sja1000/ixxat_pci.c"
+
+PATCH_DRIVER_SJA1000_KVASER_PCI_NAME=socketcan-driver-sja1000-kvaser-pci.diff
+PATCH_DRIVER_SJA1000_KVASER_PCI_FILES="\
+drivers/net/can/sja1000/kvaser_pci.c"
+
+PATCH_DRIVER_SJA1000_PIPCAN_NAME=socketcan-driver-sja1000-pipcan.diff
+PATCH_DRIVER_SJA1000_PIPCAN_FILES="\
+drivers/net/can/sja1000/pipcan.c"
+
+PATCH_DRIVER_SJA1000_PCM027_NAME=socketcan-driver-sja1000-pcm027.diff
+PATCH_DRIVER_SJA1000_PCM027_FILES="\
+drivers/net/can/sja1000/pcm027.c"
+
+PATCH_DRIVER_SJA1000_PEAK_PCI_NAME=socketcan-driver-sja1000-peak-pci.diff
+PATCH_DRIVER_SJA1000_PEAK_PCI_FILES="\
+drivers/net/can/sja1000/peak_pci.c"
+
+PATCH_DRIVER_MSCAN_NAME=socketcan-driver-mscan.diff
+PATCH_DRIVER_MSCAN_FILES="\
+drivers/net/can/mscan/mscan.c \
+drivers/net/can/mscan/mscan.h \
+drivers/net/can/mscan/mpc52xx_can.c"
+
+#
+# Old files of CAN core and VCAN driver
+#
+PATCH_CORE_NAME=socketcan-core.diff
+PATCH_CORE_FILES="\
+include/linux/can.h \
+include/linux/can/raw.h \
+include/linux/can/bcm.h \
+include/linux/can/core.h \
+include/linux/can/error.h \
+net/can/af_can.c \
+net/can/af_can.h \
+net/can/proc.c \
+net/can/raw.c \
+net/can/bcm.c"
+
+PATCH_DRIVER_VCAN_NAME=socketcan-driver-vcan.diff
+PATCH_DRIVER_VCAN_FILES="\
+drivers/net/can/vcan.c"
+
+usage() {
+    echo "usage: $0 <path-to-kernel-dir> <patch-to-output-dir>" >&2
+    exit 1
+}
+
+#
+# Main
+#
+HERE=$(pwd)
+SRC_DIR=$HERE/kernel/2.6
+SCR_DIR=$HERE/`dirname $0`
+PATCH_DIR=$SCR_DIR/patches
+HDR_DIR=$SCR_DIR/headers
+
+[ ! -e $1/MAINTAINERS ] && usage
+KERNEL_DIR=$1
+
+if [ $# -gt 1 ]; then
+    DEST_DIR=$2
+else
+    DEST_DIR=${HERE}/socketcan-patches
+fi
+
+echo $DEST_DIR
+if [ -e $DEST_DIR ]; then
+    echo "error: $DEST_DIR does already exist, exiting" >&2
+    exit 1
+fi
+
+# determine kernel version
+KERNEL_MAJOR=$(grep "^VERSION =" ${KERNEL_DIR}/Makefile | sed -e "s/[ \t]//g" | sed -e "s/VERSION=//g")
+KERNEL_MINOR=$(grep "^PATCHLEVEL =" ${KERNEL_DIR}/Makefile | sed -e "s/[ \t]//g" | sed -e "s/PATCHLEVEL=//g")
+KERNEL_MICRO=$(grep "^SUBLEVEL =" ${KERNEL_DIR}/Makefile | sed -e "s/[ \t]//g" | sed -e "s/SUBLEVEL=//g")
+KERNEL_EXTRA=$(grep "^EXTRAVERSION =" ${KERNEL_DIR}/Makefile | sed -e "s/[ \t]//g" | sed -e "s/EXTRAVERSION=//g")
+
+mkdir -p $DEST_DIR
+export QUILT_PATCHES=$DEST_DIR
+
+echo "Creating patches against kernel in $KERNEL_DIR"
+
+num=0
+
+
+for patch in \
+    DEVICE \
+    SYSFS \
+    DRIVER_SJA1000 \
+    DRIVER_SJA1000_EMS_PCI \
+    DRIVER_SJA1000_IXXAT_PCI \
+    DRIVER_SJA1000_KVASER_PCI \
+    DRIVER_SJA1000_PIPCAN \
+    DRIVER_SJA1000_PCM027 \
+    DRIVER_SJA1000_PEAK_PCI \
+    DRIVER_MSCAN \
+    DRIVER_VCAN \
+    CORE
+  do
+  name=PATCH_${patch}_NAME
+  files=PATCH_${patch}_FILES
+  append=PATCH_${patch}_APPEND
+
+  num=$((num + 1))
+
+  [ -z "${!name}" ] && continue
+
+  patch_name=$(printf "%02i" $num)-${!name}
+  echo "${patch_name}..."
+
+  cd ${KERNEL_DIR}
+  quilt new ${patch_name} > /dev/null
+
+  for file in ${!files}; do
+      quilt add ${file} > /dev/null
+      mkdir -p $(dirname ${KERNEL_DIR}/${file})
+      ${HERE}/strip-src \
+	  -v ${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_MICRO} \
+	  -i \
+	  ${SRC_DIR}/${file} > ${KERNEL_DIR}/${file}
+  done
+
+  file=$PATCH_DIR/$patch.diff
+  if [ -r $file ]; then
+      ok=n
+      patch -p1 --dry-run < $file > /dev/null && ok=y
+      if [ $ok = y ]; then
+	  quilt add `grep "Index: " $file | cut -d"/" -f 2-` > /dev/null
+	  patch -p1 < $file
+      else
+	  echo "Couldn't apply patch $file, please fix!"
+      fi
+  fi
+
+  quilt refresh --diffstat > /dev/null
+
+  file=$HDR_DIR/$patch.txt
+  if [ -r $file ]; then
+      quilt header --strip-trailing-whitespace -r < $file > /dev/null
+  fi
+done
+
+quilt pop -a > /dev/null
+
+#
+# Check patches and add patch description
+#
+file=$DEST_DIR/checkpatch.log
+echo "Checking patches, please inspect $file"
+echo "Linux coding style issues reported by checkpatch.pl" > $file
+for patch in $DEST_DIR/*.diff; do
+    echo >> $file
+    echo "***************************************************" >> $file
+    echo "$patch" >> $file
+    echo >> $file
+    ${KERNEL_DIR}/scripts/checkpatch.pl ${patch} >> $file
+done
+

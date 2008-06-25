@@ -1,0 +1,32 @@
+---
+ drivers/net/can/Kconfig          |    7 +++++++
+ drivers/net/can/sja1000/Makefile |    1 +
+ 2 files changed, 8 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -53,6 +53,13 @@ config CAN_KVASER_PCI
+ 	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
+ 	  4 channel) from Kvaser (http://www.kvaser.com).
+ 
++config CAN_PIPCAN
++	depends on CAN_SJA1000
++	tristate "MPL PIPCAN CAN module driver (SJA1000)"
++	---help---
++	  This driver adds support for the PIPCAN module used on some SBC
++	  boards from MPL AG (http://www.mpl.ch).
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/sja1000/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+@@ -7,3 +7,4 @@ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
+ obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
++obj-$(CONFIG_CAN_PIPCAN) += pipcan.o

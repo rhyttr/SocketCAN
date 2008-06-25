@@ -1,0 +1,58 @@
+---
+ drivers/net/can/Kconfig        |   20 ++++++++++++++++++++
+ drivers/net/can/Makefile       |    1 +
+ drivers/net/can/mscan/Makefile |    7 +++++++
+ 3 files changed, 28 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -74,6 +74,26 @@ config CAN_PEAK_PCI
+ 	  This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
+ 	  2 channel) from PEAK Systems (http://www.peak-system.com).
+ 
++config CAN_MSCAN
++	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
++	tristate "Support for a Freescale MSCAN based chips"
++	---help---
++	  The Motorola Scalable Controller Area Network (MSCAN) definition
++	  is based on the MSCAN12 definition which is the specific
++	  implementation of the Motorola Scalable CAN concept targeted for
++	  the Motorola MC68HC12 Microcontroller Family.
++
++config CAN_MPC52XX
++	tristate "Freescale MPC5200 onboard CAN controller"
++	depends on CAN_MSCAN && (PPC_MPC52xx || PPC_52xx)
++	default n
++	---help---
++	  If you say yes here you get support for Freescale MPC5200
++	  onboard dualCAN controller.
++
++	  This driver can also be built as a module.  If so, the module
++	  will be called mpc52xx_can.
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+ can-dev-y			:= dev.o sysfs.o
+ 
+ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
++obj-$(CONFIG_CAN_MSCAN)		+= mscan/
+Index: linux-2.6.25.6.OLD/drivers/net/can/mscan/Makefile
+===================================================================
+--- /dev/null
++++ linux-2.6.25.6.OLD/drivers/net/can/mscan/Makefile
+@@ -0,0 +1,7 @@
++#
++#  Makefile for Freescale MSCAN drivers
++#
++
++obj-$(CONFIG_CAN_MPC52XX)	+= mscan-mpc52xx.o
++
++mscan-mpc52xx-objs	:= mscan.o mpc52xx_can.o

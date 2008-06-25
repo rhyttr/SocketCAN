@@ -1,0 +1,32 @@
+---
+ drivers/net/can/Kconfig          |    7 +++++++
+ drivers/net/can/sja1000/Makefile |    1 +
+ 2 files changed, 8 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -39,6 +39,13 @@ config CAN_EMS_PCI
+ 	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
+ 	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+ 
++config CAN_IXXAT_PCI
++	tristate "IXXAT PCI Card"
++	depends on PCI && CAN_SJA1000
++	---help---
++	  This driver is for the IXXAT PC-I 04/PCI card (1 or 2 channel)
++	  from the IXXAT Automation GmbH (http://www.ixxat.de).
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/sja1000/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+@@ -5,3 +5,4 @@
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ 
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
++obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o

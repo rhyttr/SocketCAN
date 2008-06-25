@@ -1,0 +1,48 @@
+---
+ drivers/net/can/Kconfig          |   11 +++++++++++
+ drivers/net/can/Makefile         |    2 ++
+ drivers/net/can/sja1000/Makefile |    5 +++++
+ 3 files changed, 18 insertions(+)
+
+Index: linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Kconfig
++++ linux-2.6.25.6.OLD/drivers/net/can/Kconfig
+@@ -21,6 +21,17 @@ config CAN_DEV
+ 	  support. This is the standard library for CAN drivers.
+ 	  If unsure, say Y.
+ 
++config CAN_SJA1000
++ 	depends on CAN_DEV
++	tristate "Philips SJA1000"
++	---help---
++	  The SJA1000 is one of the top CAN controllers out there. As it
++	  has a multiplexed interface it fits directly to 8051
++	  microcontrollers or into the PC I/O port space. The SJA1000
++	  is a full CAN controller, with shadow registers for RX and TX.
++	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
++	  with a single (simple) filter setup.
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+===================================================================
+--- /dev/null
++++ linux-2.6.25.6.OLD/drivers/net/can/sja1000/Makefile
+@@ -0,0 +1,5 @@
++#
++#  Makefile for Philips SJA1000 CAN Controller drivers.
++#
++
++obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+Index: linux-2.6.25.6.OLD/drivers/net/can/Makefile
+===================================================================
+--- linux-2.6.25.6.OLD.orig/drivers/net/can/Makefile
++++ linux-2.6.25.6.OLD/drivers/net/can/Makefile
+@@ -6,3 +6,5 @@ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+ 
+ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+ can-dev-y			:= dev.o sysfs.o
++
++obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
