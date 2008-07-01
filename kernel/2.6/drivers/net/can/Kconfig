@@ -113,6 +113,16 @@ config CAN_KVASER_PCI
 	This driver is for the the PCIcanx and PCIcan cards (1, 2 or
 	4 channel) from Kvaser (http://www.kvaser.com).
 
+config CAN_SOFTING
+	tristate "Softing Gmbh CAN generic support"
+	depends on CAN_DEV
+	---help---
+	  generic softing CAN cards
+
+config CAN_SOFTING_CS
+	tristate "Softing CAN pcmcia cards"
+	depends on CAN_SOFTING && PCMCIA
+
 config CAN_MSCAN
 	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
 	tristate "Support for a Freescale MSCAN based chips"
