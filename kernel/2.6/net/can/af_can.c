@@ -268,11 +268,18 @@ static int can_create(struct socket *sock, int protocol)
  *  -ENOBUFS on full driver queue (see net_xmit_errno())
  *  -ENOMEM when local loopback failed at calling skb_clone()
  *  -EPERM when trying to send on a non-CAN interface
+ *  -EINVAL when the skb->data does not contain a valid CAN frame
  */
 int can_send(struct sk_buff *skb, int loop)
 {
 	struct sk_buff *newskb = NULL;
+	struct can_frame *cf = (struct can_frame *) skb->data;
 	int err;
+
+	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
+		kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	if (skb->dev->type != ARPHRD_CAN) {
 		kfree_skb(skb);
@@ -681,6 +688,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 #endif
 {
 	struct dev_rcv_lists *d;
+	struct can_frame *cf = (struct can_frame *) skb->data;
 	int matches;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
@@ -693,6 +701,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 		kfree_skb(skb);
 		return 0;
 	}
+
+	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
 
 	/* update statistics */
 	can_stats.rx_frames++;
