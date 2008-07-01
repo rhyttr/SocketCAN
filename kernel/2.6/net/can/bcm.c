@@ -379,9 +379,9 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 	if (head->nframes) {
 		/* can_frames starting here */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-		firstframe = (struct can_frame *) skb_tail_pointer(skb);
+		firstframe = (struct can_frame *)skb_tail_pointer(skb);
 #else
-		firstframe = (struct can_frame *) skb->tail;
+		firstframe = (struct can_frame *)skb->tail;
 #endif
 
 		memcpy(skb_put(skb, datalen), frames, datalen);
@@ -1552,7 +1552,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
 		break;
 
 	case TX_SEND:
-		/* we need at exactly one can_frame behind the msg head */
+		/* we need exactly one can_frame behind the msg head */
 		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
 			ret = -EINVAL;
 		else

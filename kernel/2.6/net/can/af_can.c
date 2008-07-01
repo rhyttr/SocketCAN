@@ -273,7 +273,7 @@ static int can_create(struct socket *sock, int protocol)
 int can_send(struct sk_buff *skb, int loop)
 {
 	struct sk_buff *newskb = NULL;
-	struct can_frame *cf = (struct can_frame *) skb->data;
+	struct can_frame *cf = (struct can_frame *)skb->data;
 	int err;
 
 	if (skb->len != sizeof(struct can_frame) || cf->can_dlc > 8) {
@@ -688,7 +688,7 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 #endif
 {
 	struct dev_rcv_lists *d;
-	struct can_frame *cf = (struct can_frame *) skb->data;
+	struct can_frame *cf = (struct can_frame *)skb->data;
 	int matches;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
