@@ -19,11 +19,33 @@ test -x /sbin/ifconfig || exit 0
 test -x /sbin/modprobe || exit 0
 
 CAN_IF="can0 can1"
-VCAN_IF="vcan0 vcan1"
-PROBE=""
+VCAN_IF="vcan0 vcan1 vcan2 vcan3"
+PROBE="vcan"
+CREATE_VCANS=4
+
+if [ $CREATE_VCANS -gt 0 ] ; then
+	# Exit if vcan tool is not installed
+	test -x /sbin/vcan || exit 0
+fi
 
 case "$1" in
     start|force-reload)
+	if [ -n "$PROBE" ] ; then
+	    echo -n "Extra probing CAN modules:"
+	    for MODULE in $PROBE; do
+		/sbin/modprobe $MODULE
+		echo -n " "$MODULE
+	    done
+	    echo "."
+	fi
+	if [ $CREATE_VCANS -gt 0 ] ; then
+	    echo -n "Creating "$CREATE_VCANS" virtual CAN interfaces: "
+	    for IF in `seq 1 $CREATE_VCANS`; do
+		/sbin/vcan create
+		echo -n "."
+	    done
+	    echo " done."
+	fi
 	if [ -n "$CAN_IF" ] ; then
 	    echo -n "Enabling CAN interfaces:"
 	    for IF in $CAN_IF; do
@@ -37,14 +59,6 @@ case "$1" in
 	    for IF in $VCAN_IF; do
 		/sbin/ifconfig $IF up
 		echo -n " "$IF
-	    done
-	    echo "."
-	fi
-	if [ -n "$PROBE" ] ; then
-	    echo -n "Extra probing LLCF modules:"
-	    for MODULE in $PROBE; do
-		/sbin/modprobe $MODULE
-		echo -n " "$MODULE
 	    done
 	    echo "."
 	fi
