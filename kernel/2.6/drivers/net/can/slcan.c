@@ -350,7 +350,11 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 	 *       14 Oct 1994  Dmitry Gorodchanin.
 	 */
 	sl->tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 	actual = sl->tty->driver->write(sl->tty, sl->xbuff, strlen(sl->xbuff));
+#else
+	actual = sl->tty->ops->write(sl->tty, sl->xbuff, strlen(sl->xbuff));
+#endif
 #ifdef SLC_CHECK_TRANSMIT
 	sl->dev->trans_start = jiffies;
 #endif
@@ -382,7 +386,11 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 		return;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 	actual = tty->driver->write(tty, sl->xhead, sl->xleft);
+#else
+	actual = tty->ops->write(tty, sl->xhead, sl->xleft);
+#endif
 	sl->xleft -= actual;
 	sl->xhead += actual;
 }
@@ -406,7 +414,11 @@ static void slc_tx_timeout(struct net_device *dev)
 			goto out;
 		}
 		printk(KERN_WARNING "%s: transmit timed out, %s?\n", dev->name,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 		       (sl->tty->driver->chars_in_buffer(sl->tty) || sl->xleft)
+#else
+		       (tty_chars_in_buffer(sl->tty) || sl->xleft)
+#endif
 		       ? "bad line quality" : "driver error");
 		sl->xleft = 0;
 		sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
@@ -705,6 +717,11 @@ static int slcan_open(struct tty_struct *tty)
 
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)
+	if (tty->ops->write == NULL)
+		return -EOPNOTSUPP;
+#endif
 
 	/* RTnetlink lock is misused here to serialize concurrent
 	   opens of slcan channels. There are better ways, but it is
