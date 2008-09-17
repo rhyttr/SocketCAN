@@ -862,7 +862,11 @@ static int slcan_ioctl(struct tty_struct *tty, struct file *file,
 	}
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 static struct tty_ldisc	slc_ldisc = {
+#else
+static struct tty_ldisc_ops slc_ldisc = {
+#endif
 	.owner 		= THIS_MODULE,
 	.magic 		= TTY_LDISC_MAGIC,
 	.name 		= "slcan",
