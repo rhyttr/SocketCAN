@@ -232,7 +232,7 @@ static int raw_notifier(struct notifier_block *nb,
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-	if (dev_net(dev) != &init_net)
+	if (!net_eq(dev_net(dev), &init_net))
 		return NOTIFY_DONE;
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 	if (dev->nd_net != &init_net)
