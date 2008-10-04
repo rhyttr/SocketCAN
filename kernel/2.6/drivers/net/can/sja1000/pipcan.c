@@ -80,7 +80,7 @@ static int __init pc_probe(struct platform_device *pdev)
 
 	priv->read_reg = pc_read_reg;
 	priv->write_reg = pc_write_reg;
-	priv->can.can_sys_clock = PIPCAN_CAN_CLOCK;
+	priv->can.bittiming.clock = PIPCAN_CAN_CLOCK;
 	priv->ocr = PIPCAN_OCR;
 	priv->cdr = PIPCAN_CDR;
 

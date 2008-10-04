@@ -267,7 +267,7 @@ static int __devinit ems_pcmcia_add_card(struct pcmcia_device *pdev,
 		if (ems_pcmcia_check_chan(dev)) {
 			priv->read_reg  = ems_pcmcia_read_reg;
 			priv->write_reg = ems_pcmcia_write_reg;
-			priv->can.can_sys_clock = EMS_PCMCIA_CAN_CLOCK;
+			priv->can.bittiming.clock = EMS_PCMCIA_CAN_CLOCK;
 			priv->ocr = EMS_PCMCIA_OCR;
 			priv->cdr = EMS_PCMCIA_CDR;
 			priv->flags |= SJA1000_CUSTOM_IRQ_HANDLER;

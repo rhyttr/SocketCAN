@@ -267,7 +267,7 @@ static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
 	priv->read_reg = kvaser_pci_read_reg;
 	priv->write_reg = kvaser_pci_write_reg;
 
-	priv->can.can_sys_clock = KVASER_PCI_CAN_CLOCK;
+	priv->can.bittiming.clock = KVASER_PCI_CAN_CLOCK;
 
 	priv->ocr = KVASER_PCI_OCR;
 	priv->cdr = KVASER_PCI_CDR;

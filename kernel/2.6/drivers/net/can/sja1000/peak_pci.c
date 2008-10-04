@@ -217,7 +217,7 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	priv->write_reg = peak_pci_write_reg;
 	priv->post_irq = peak_pci_post_irq;
 
-	priv->can.can_sys_clock = PEAK_PCI_CAN_CLOCK;
+	priv->can.bittiming.clock = PEAK_PCI_CAN_CLOCK;
 
 	priv->ocr = PEAK_PCI_OCR;
 

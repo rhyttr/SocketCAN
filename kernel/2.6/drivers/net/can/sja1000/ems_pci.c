@@ -272,7 +272,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
 			priv->read_reg  = ems_pci_read_reg;
 			priv->write_reg = ems_pci_write_reg;
 			priv->post_irq  = ems_pci_post_irq;
-			priv->can.can_sys_clock = EMS_PCI_CAN_CLOCK;
+			priv->can.bittiming.clock = EMS_PCI_CAN_CLOCK;
 			priv->ocr = EMS_PCI_OCR;
 			priv->cdr = EMS_PCI_CDR;
 

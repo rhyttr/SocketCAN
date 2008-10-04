@@ -71,7 +71,6 @@
 #include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
 RCSID("$Id: sja1000.c 531 2007-10-19 07:38:29Z hartkopp $");
 
-
 #define DRV_NAME "sja1000"
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
@@ -133,12 +132,22 @@ static const char *ecc_types[] = {
 };
 #endif
 
+static struct can_bittiming_const sja1000_bittiming_const = {
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 64,
+	.brp_inc = 1,
+};
+
 static int debug;
 
 module_param(debug, int, S_IRUGO | S_IWUSR);
 
 MODULE_PARM_DESC(debug, "Set debug mask (default: 0)");
-
 
 static int sja1000_probe_chip(struct net_device *dev)
 {
@@ -295,30 +304,18 @@ static int sja1000_get_state(struct net_device *dev, enum can_state *state)
 	return 0;
 }
 
-static int sja1000_set_bittime(struct net_device *dev, struct can_bittime *bt)
+static int sja1000_set_bittiming(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
+	struct can_bittiming *bt = &priv->can.bittiming;
 	u8 btr0, btr1;
 
-	switch (bt->type) {
-	case CAN_BITTIME_BTR:
-		btr0 = bt->btr.btr0;
-		btr1 = bt->btr.btr1;
-		break;
+	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
+	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
+		(((bt->phase_seg2 - 1) & 0x7) << 4) |
+	  ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) << 7);
 
-	case CAN_BITTIME_STD:
-		btr0 = ((bt->std.brp - 1) & 0x3f) |
-		    (((bt->std.sjw - 1) & 0x3) << 6);
-		btr1 = ((bt->std.prop_seg +
-			 bt->std.phase_seg1 - 1) & 0xf) |
-		    (((bt->std.phase_seg2 - 1) & 0x7) << 4) |
-		    ((bt->std.sam & 1) << 7);
-		break;
-
-	default:
-		return -EINVAL;
-	}
-	DBG("%s: BTR0 0x%02x BTR1 0x%02x\n", dev->name, btr0, btr1);
+	dev_info(ND2D(dev), "BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
 	priv->write_reg(dev, REG_BTR0, btr0);
 	priv->write_reg(dev, REG_BTR1, btr1);
@@ -676,6 +673,11 @@ static int sja1000_open(struct net_device *dev)
 	/* set chip into reset mode */
 	set_reset_mode(dev);
 
+	/* determine and set bittime */
+	err = can_set_bittiming(dev);
+	if (err)
+		return err;
+
 	/* register interrupt handler, if not done by the device driver */
 	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
@@ -758,7 +760,8 @@ int register_sja1000dev(struct net_device *dev)
 
 	dev->hard_start_xmit = sja1000_start_xmit;
 
-	priv->can.do_set_bittime = sja1000_set_bittime;
+	priv->can.bittiming_const = &sja1000_bittiming_const;
+	priv->can.do_set_bittiming = sja1000_set_bittiming;
 	priv->can.do_get_state = sja1000_get_state;
 	priv->can.do_set_mode = sja1000_set_mode;
 	priv->dev = dev;

@@ -119,7 +119,7 @@ static struct net_device *ixxat_pci_add_chan(struct pci_dev *pdev,
 	priv->read_reg = ixxat_pci_read_reg;
 	priv->write_reg = ixxat_pci_write_reg;
 
-	priv->can.can_sys_clock = IXXAT_PCI_CAN_CLOCK;
+	priv->can.bittiming.clock = IXXAT_PCI_CAN_CLOCK;
 
 	priv->ocr = IXXAT_PCI_OCR;
 	priv->cdr = IXXAT_PCI_CDR;

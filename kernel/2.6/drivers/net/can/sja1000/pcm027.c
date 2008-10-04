@@ -89,7 +89,7 @@ static int pcm027_probe(struct platform_device *pdev)
 
 	priv->read_reg = pcm027_read_reg;
 	priv->write_reg = pcm027_write_reg;
-	priv->can.can_sys_clock = PCM027_CAN_CLOCK;
+	priv->can.bittiming.clock = PCM027_CAN_CLOCK;
 	priv->ocr = PCM027_OCR;
 	priv->cdr = PCM027_CDR;
 
