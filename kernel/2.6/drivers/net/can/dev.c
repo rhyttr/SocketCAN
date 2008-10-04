@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2005 Marc Kleine-Budde, Pengutronix
  * Copyright (C) 2006 Andrey Volkov, Varma Electronics
+ * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the version 2 of the GNU General Public License
@@ -31,169 +32,193 @@
 
 MODULE_DESCRIPTION(MOD_DESC);
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Marc Kleine-Budde <mkl@pengutronix.de>, "
-	      "Andrey Volkov <avolkov@varma-el.com>");
-
-static int restart_ms;
-
-module_param(restart_ms, int, S_IRUGO | S_IWUSR);
-
-MODULE_PARM_DESC(restart_ms, "Restart time after bus-off in ms (default 0)");
-
+MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 
 /*
- * Abstract:
- *   Bit rate calculated with next formula:
- *   bitrate = frq/(brp*(1 + prop_seg+ phase_seg1 + phase_seg2))
+ * Bit-timing calculation derived from:
  *
- *   This calc function based on work of Florian Hartwich and Armin Bassemi
- *   "The Configuration of the CAN Bit Timing"
- *   (http://www.semiconductors.bosch.de/pdf/CiA99Paper.pdf)
- *
- *  Parameters:
- *  [in]
- *    bittime_nsec - expected bit time in nanosecs
- *
- *  [out]
- *    bittime      - calculated time segments, for meaning of
- * 		     each field read CAN standard.
+ * Code based on LinCAN sources and H8S2638 project
+ * Copyright 2004-2006 Pavel Pisa - DCE FELK CVUT cz
+ * Copyright 2005      Stanislav Marek
+ * email: pisa@cmp.felk.cvut.cz
  */
-
-#define DEFAULT_MAX_BRP	64U
-#define DEFAULT_MAX_SJW	4U
-
-/* All below values in tq units */
-#define MAX_BITTIME	25U
-#define MIN_BITTIME	8U
-#define MAX_PROP_SEG	8U
-#define MAX_PHASE_SEG1	8U
-#define MAX_PHASE_SEG2	8U
-
-int can_calc_bittime(struct can_priv *can, u32 bitrate,
-		     struct can_bittime_std *bittime)
+static int can_update_spt(const struct can_bittiming_const *btc,
+			  int sampl_pt, int tseg, int *tseg1, int *tseg2)
 {
-	int best_error = -1;	/* Ariphmetic error */
-	int df, best_df = -1;	/* oscillator's tolerance range,
-				   greater is better */
-	u32 quanta;		/* in tq units */
-	u32 brp, phase_seg1, phase_seg2, sjw, prop_seg;
-	u32 brp_min, brp_max, brp_expected;
-	u64 tmp;
+	*tseg2 = tseg + 1 - (sampl_pt * (tseg + 1)) / 1000;
+	if (*tseg2 < btc->tseg2_min)
+		*tseg2 = btc->tseg2_min;
+	if (*tseg2 > btc->tseg2_max)
+		*tseg2 = btc->tseg2_max;
+	*tseg1 = tseg - *tseg2;
+	if (*tseg1 > btc->tseg1_max) {
+		*tseg1 = btc->tseg1_max;
+		*tseg2 = tseg - *tseg1;
+	}
+	return 1000 * (tseg + 1 - *tseg2) / (tseg + 1);
+}
 
-	/* bitrate range [1baud,1MiB/s] */
-	if (bitrate == 0 || bitrate > 1000000UL)
-		return -EINVAL;
+static int can_calc_bittiming(struct net_device *dev)
+{
+	struct can_priv *priv = netdev_priv(dev);
+	struct can_bittiming *bt = &priv->bittiming;
+	const struct can_bittiming_const *btc = priv->bittiming_const;
+	long rate, best_rate = 0;
+	long best_error = 1000000000, error = 0;
+	int best_tseg = 0, best_brp = 0, brp = 0;
+	int tsegall, tseg = 0, tseg1 = 0, tseg2 = 0;
+	int spt_error = 1000, spt = 0, sampl_pt;
+	uint64_t v64;
 
-	tmp = (u64) can->can_sys_clock * 1000;
-	do_div(tmp, bitrate);
-	brp_expected = (u32) tmp;
+	if (!priv->bittiming_const)
+		return -ENOTSUPP;
 
-	brp_min = brp_expected / (1000 * MAX_BITTIME);
-	if (brp_min == 0)
-		brp_min = 1;
-	if (brp_min > can->max_brp)
-		return -ERANGE;
-
-	brp_max = (brp_expected + 500 * MIN_BITTIME) / (1000 * MIN_BITTIME);
-	if (brp_max == 0)
-		brp_max = 1;
-	if (brp_max > can->max_brp)
-		brp_max = can->max_brp;
-
-	for (brp = brp_min; brp <= brp_max; brp++) {
-		quanta = brp_expected / (brp * 1000);
-		if (quanta < MAX_BITTIME
-		    && quanta * brp * 1000 != brp_expected)
-			quanta++;
-		if (quanta < MIN_BITTIME || quanta > MAX_BITTIME)
-			continue;
-
-		phase_seg2 = min((quanta - 3) / 2, MAX_PHASE_SEG2);
-		for (sjw = can->max_sjw; sjw > 0; sjw--) {
-			for (; phase_seg2 > sjw; phase_seg2--) {
-				u32 err1, err2;
-				phase_seg1 =
-				    phase_seg2 % 2 ? phase_seg2 -
-				    1 : phase_seg2;
-				prop_seg = quanta - 1 - phase_seg2 - phase_seg1;
-				/*
-				 * FIXME: support of longer lines (i.e. bigger
-				 * prop_seg) is more prefered than support of
-				 * cheap oscillators (i.e. bigger
-				 * df/phase_seg1/phase_seg2)
-				 */
-				if (prop_seg < phase_seg1)
-					continue;
-				if (prop_seg > MAX_PROP_SEG)
-					goto next_brp;
-
-				err1 = phase_seg1 * brp * 500 * 1000 /
-				    (13 * brp_expected -
-				     phase_seg2 * brp * 1000);
-				err2 = sjw * brp * 50 * 1000 / brp_expected;
-
-				df = min(err1, err2);
-				if (df >= best_df) {
-					unsigned error =
-						abs(brp_expected * 10 /
-						    (brp * (1 + prop_seg +
-							    phase_seg1 +
-							    phase_seg2)) -
-						    10000);
-
-					if (error > 10 || error > best_error)
-						continue;
-
-					if (error == best_error
-					    && prop_seg < bittime->prop_seg)
-						continue;
-
-					best_error = error;
-					best_df = df;
-					bittime->brp = brp;
-					bittime->prop_seg = prop_seg;
-					bittime->phase_seg1 = phase_seg1;
-					bittime->phase_seg2 = phase_seg2;
-					bittime->sjw = sjw;
-					bittime->sam =
-						(bittime->phase_seg1 > 3);
-				}
-			}
-		}
-next_brp:;
+	/* Use CIA recommended sample points */
+	if (bt->sample_point) {
+		sampl_pt = bt->sample_point;
+	} else {
+		if (bt->bitrate > 800000)
+			sampl_pt = 750;
+		else if (bt->bitrate > 500000)
+			sampl_pt = 800;
+		else
+			sampl_pt = 875;
 	}
 
-	if (best_error < 0)
-		return -EDOM;
+	/* tseg even = round down, odd = round up */
+	for (tseg = (btc->tseg1_max + btc->tseg2_max) * 2 + 1;
+	     tseg >= (btc->tseg1_min + btc->tseg2_min) * 2; tseg--) {
+		tsegall = 1 + tseg / 2;
+		/* Compute all possible tseg choices (tseg=tseg1+tseg2) */
+		brp = bt->clock / (tsegall * bt->bitrate) + tseg % 2;
+		/* chose brp step which is possible in system */
+		brp = (brp / btc->brp_inc) * btc->brp_inc;
+		if ((brp < btc->brp_min) || (brp > btc->brp_max))
+			continue;
+		rate = bt->clock / (brp * tsegall);
+		error = bt->bitrate - rate;
+		/* tseg brp biterror */
+		if (error < 0)
+			error = -error;
+		if (error > best_error)
+			continue;
+		best_error = error;
+		if (error == 0) {
+			spt = can_update_spt(btc, sampl_pt, tseg / 2,
+					     &tseg1, &tseg2);
+			error = sampl_pt - spt;
+			if (error < 0)
+				error = -error;
+			if (error > spt_error)
+				continue;
+			spt_error = error;
+		}
+		best_tseg = tseg / 2;
+		best_brp = brp;
+		best_rate = rate;
+		if (error == 0)
+			break;
+	}
+
+	if (!spt)
+		spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
+
+	v64 = (u64)best_brp * 1000000000UL;
+	do_div(v64, bt->clock);
+	bt->tq = (u32)v64;
+	bt->prop_seg = 0;
+	bt->phase_seg1 = tseg1;
+	bt->phase_seg2 = tseg2;
+	bt->sjw = 1;
+	bt->brp = best_brp;
+
+	if (best_error) {
+		error = best_error * 1000;
+		error /= bt->bitrate;
+		dev_warn(ND2D(dev), "bitrate error %ld.%ld%%\n",
+			 error / 10, error % 10);
+	}
+
 	return 0;
 }
 
-int can_set_bitrate(struct net_device *dev, u32 bitrate)
+int can_sample_point(struct can_bittiming *bt)
+{
+	return ((bt->prop_seg + bt->phase_seg1 + 1) * 1000) /
+		(bt->prop_seg + bt->phase_seg1 + bt->phase_seg2 + 1);
+}
+
+int can_fixup_bittiming(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
-	int err = -ENOTSUPP;
+	struct can_bittiming *bt = &priv->bittiming;
+	const struct can_bittiming_const *btc = priv->bittiming_const;
+	int tseg1, alltseg;
+	u32 bitrate;
+	u64 brp64;
 
-	if (priv->state != CAN_STATE_STOPPED)
-		return -EBUSY;
+	if (!priv->bittiming_const)
+		return -ENOTSUPP;
 
-	if (priv->do_set_bittime) {
-		if (priv->do_set_bittime) {
-			struct can_bittime bittime;
-			err = can_calc_bittime(priv, bitrate, &bittime.std);
-			if (err)
-				goto out;
-			bittime.type = CAN_BITTIME_STD;
-			err = priv->do_set_bittime(dev, &bittime);
-			if (!err) {
-				priv->bitrate = bitrate;
-				priv->bittime = bittime;
-			}
-		}
-	}
-out:
-	return err;
+	tseg1 = bt->prop_seg + bt->phase_seg1;
+	if (bt->sjw > btc->sjw_max ||
+	    tseg1 < btc->tseg1_min || tseg1 > btc->tseg1_max ||
+	    bt->phase_seg2 < btc->tseg2_min || bt->phase_seg2 > btc->tseg2_max)
+		return -EINVAL;
+
+	brp64 = (u64)bt->clock * (u64)bt->tq;
+	if (btc->brp_inc > 1)
+		do_div(brp64, btc->brp_inc);
+	brp64 += 500000000UL - 1;
+	do_div(brp64, 1000000000UL); /* the practicable BRP */
+	if (btc->brp_inc > 1)
+		brp64 *= btc->brp_inc;
+	bt->brp = (u32)brp64;
+
+	if (bt->brp < btc->brp_min || bt->brp > btc->brp_max)
+		return -EINVAL;
+
+	alltseg = bt->prop_seg + bt->phase_seg1 + bt->phase_seg2 + 1;
+	bitrate = bt->clock / (bt->brp * alltseg);
+	bt->bitrate = bitrate;
+
+	return 0;
 }
-EXPORT_SYMBOL(can_set_bitrate);
+
+int can_set_bittiming(struct net_device *dev)
+{
+	struct can_priv *priv = netdev_priv(dev);
+	int err;
+
+	/* Check if the CAN device needs bit-timing parameters */
+	if (priv->do_set_bittiming) {
+
+		/* Check if bit-timing parameters have already been set */
+		if (priv->bittiming.tq && priv->bittiming.bitrate)
+			return 0;
+
+		/* Check if bit-timing parameters have been pre-defined */
+		if (!priv->bittiming.tq && !priv->bittiming.bitrate)
+			return -EINVAL;
+
+		/* Non-expert mode? Check if the bitrate has been pre-defined */
+		if (!priv->bittiming.tq)
+			/* Determine bit-timing parameters */
+			err = can_calc_bittiming(dev);
+		else
+			/* Check bit-timing params and calculate proper brp */
+			err = can_fixup_bittiming(dev);
+		if (err)
+			return err;
+
+		/* Finally, set the bit-timing registers */
+		err = priv->do_set_bittiming(dev);
+		if (err)
+			return err;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(can_set_bittiming);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static struct net_device_stats *can_get_stats(struct net_device *dev)
@@ -235,12 +260,7 @@ struct net_device *alloc_candev(int sizeof_priv)
 
 	priv = netdev_priv(dev);
 
-	/* Default values can be overwritten by the device driver */
-	priv->restart_ms = restart_ms;
-	priv->bitrate = CAN_BITRATE_UNCONFIGURED;
 	priv->state = CAN_STATE_STOPPED;
-	priv->max_brp = DEFAULT_MAX_BRP;
-	priv->max_sjw = DEFAULT_MAX_SJW;
 	spin_lock_init(&priv->irq_lock);
 
 	init_timer(&priv->timer);
@@ -448,12 +468,6 @@ static int can_netdev_notifier_call(struct notifier_block *nb,
 
 	switch (state) {
 	case NETDEV_REGISTER:
-		/* set default bit timing */
-		if (priv->do_set_bittime &&
-		    priv->bitrate == CAN_BITRATE_UNCONFIGURED) {
-			if (can_set_bitrate(dev, CAN_BITRATE_DEFAULT))
-				dev_err(ND2D(dev), "failed to set bitrate\n");
-		}
 #ifdef CONFIG_SYSFS
 		can_create_sysfs(dev);
 #endif

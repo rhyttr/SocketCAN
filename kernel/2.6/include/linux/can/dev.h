@@ -17,43 +17,29 @@
 #include <linux/can/error.h>
 
 /*
- * CAN bitrate
+ * CAN bitrate and bit-timing
  */
-#define CAN_BITRATE_UNCONFIGURED	((__u32) 0xFFFFFFFFU)
-#define CAN_BITRATE_UNKNOWN		0
-#define CAN_BITRATE_DEFAULT		500000
-
-/*
- * CAN custom bit time
- */
-enum can_bittimes {
-	CAN_BITTIME_STD,
-	CAN_BITTIME_BTR
+struct can_bittiming {
+	u32 bitrate;
+	u32 sample_point;
+	u32 tq;
+	u32 prop_seg;
+	u32 phase_seg1;
+	u32 phase_seg2;
+	u32 sjw;
+	u32 clock;
+	u32 brp;
 };
 
-/* TSEG1 of controllers usually is a sum of synch_seg (always 1),
- * prop_seg and phase_seg1, TSEG2 = phase_seg2 */
-
-struct can_bittime_std {
-	__u32 brp;        /* baud rate prescaler */
-	__u8  prop_seg;   /* from 1 to 8 */
-	__u8  phase_seg1; /* from 1 to 8 */
-	__u8  phase_seg2; /* from 1 to 8 */
-	__u8  sjw:7;      /* from 1 to 4 */
-	__u8  sam:1;      /* 1 - enable triple sampling */
-};
-
-struct can_bittime_btr {
-	__u8  btr0;
-	__u8  btr1;
-};
-
-struct can_bittime {
-	enum can_bittimes type;
-	union {
-		struct can_bittime_std std;
-		struct can_bittime_btr btr;
-	};
+struct can_bittiming_const {
+	u32 tseg1_min;
+	u32 tseg1_max;
+	u32 tseg2_min;
+	u32 tseg2_max;
+	u32 sjw_max;
+	u32 brp_min;
+	u32 brp_max;
+	u32 brp_inc;
 };
 
 /*
@@ -68,8 +54,9 @@ enum can_mode {
 /*
  * CAN controller mode
  */
-#define CAN_CTRLMODE_LOOPBACK   0x1
-#define CAN_CTRLMODE_LISTENONLY 0x2
+#define CAN_CTRLMODE_LOOPBACK	0x1
+#define CAN_CTRLMODE_LISTENONLY	0x2
+#define CAN_CTRLMODE_3_SAMPLES	0x4 /* Triple sampling mode */
 
 /*
  * CAN operational and error states
@@ -87,14 +74,14 @@ enum can_state {
  * CAN device statistics
  */
 struct can_device_stats {
-	int error_warning;
-	int data_overrun;
-	int wakeup;
-	int bus_error;
-	int error_passive;
-	int arbitration_lost;
-	int restarts;
-	int bus_error_at_init;
+	unsigned long error_warning;
+	unsigned long data_overrun;
+	unsigned long wakeup;
+	unsigned long bus_error;
+	unsigned long error_passive;
+	unsigned long arbitration_lost;
+	unsigned long restarts;
+	unsigned long bus_error_at_init;
 };
 
 /*
@@ -108,25 +95,8 @@ struct can_priv {
 #endif
 	struct can_device_stats can_stats;
 
-	/*
-	 * CAN bus oscillator frequency, in Hz, BE CAREFUL! SOME
-	 * CONTROLLERS (LIKE SJA1000) FOOLISH ABOUT THIS FRQ (for
-	 * sja1000 as ex. this clock must be xtal clock divided by 2).
-	 */
-	u32 can_sys_clock;
-	/*
-	 * By default max_brp is equal 64, but for a Freescale TouCAN,
-	 * as ex., it can be 255.
-	 */
-	u32 max_brp;
-	/*
-	 * For the mostly all controllers, max_sjw is equal 4, but some,
-	 * hmm, CAN implementations hardwared it to 1.
-	 */
-	u8 max_sjw;
-
-	u32 bitrate;
-	struct can_bittime bittime;
+	struct can_bittiming bittiming;
+	struct can_bittiming_const *bittiming_const;
 
 	spinlock_t irq_lock;
 	/* Please hold this lock when touching net_stats/can_stats */
@@ -140,8 +110,7 @@ struct can_priv {
 
 	struct sk_buff *echo_skb[CAN_ECHO_SKB_MAX];
 
-	int (*do_set_bittime)(struct net_device *dev,
-			      struct can_bittime *br);
+	int (*do_set_bittiming)(struct net_device *dev);
 	int (*do_get_state)(struct net_device *dev, u32 *state);
 	int (*do_set_mode)(struct net_device *dev, u32 mode);
 	int (*do_set_ctrlmode)(struct net_device *dev, u32 ctrlmode);
@@ -161,8 +130,9 @@ struct can_priv {
 struct net_device *alloc_candev(int sizeof_priv);
 void free_candev(struct net_device *dev);
 
+int can_set_bittiming(struct net_device *dev);
+
 int can_restart_now(struct net_device *dev);
-int can_set_bitrate(struct net_device *dev, u32 bitrate);
 
 void can_bus_off(struct net_device *dev);
 
@@ -170,5 +140,7 @@ void can_close_cleanup(struct net_device *dev);
 
 void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx);
 void can_get_echo_skb(struct net_device *dev, int idx);
+
+int can_sample_point(struct can_bittiming *bt);
 
 #endif /* CAN_DEVICE_H */
