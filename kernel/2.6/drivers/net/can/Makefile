@@ -16,6 +16,7 @@ export CONFIG_CAN_I82527_OLD=m
 export CONFIG_CAN_SJA1000=m
 export CONFIG_CAN_SOFTING=m
 export CONFIG_CAN_SOFTING_CS=m
+export CONFIG_CAN_MCP251X=m
 
 modules modules_install clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)
@@ -37,5 +38,6 @@ obj-$(CONFIG_CAN_SJA1000_OLD)	+= old/sja1000/
 obj-$(CONFIG_CAN_I82527_OLD)	+= old/i82527/
 obj-$(CONFIG_CAN_MSCAN_OLD)	+= old/mscan/
 obj-$(CONFIG_CAN_CCAN_OLD)	+= old/ccan/
+obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
 
 endif
