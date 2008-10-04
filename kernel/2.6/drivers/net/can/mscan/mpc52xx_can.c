@@ -57,7 +57,7 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct net_device *dev;
 	struct mscan_platform_data *pdata = pdev->dev.platform_data;
-	struct can_priv *can;
+	struct can_priv *priv;
 	u32 mem_size;
 	int ret = -ENODEV;
 
@@ -67,7 +67,7 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 	dev = alloc_mscandev();
 	if (!dev)
 		return -ENOMEM;
-	can = netdev_priv(dev);
+	priv = netdev_priv(dev);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev->irq = platform_get_irq(pdev, 0);
@@ -90,7 +90,7 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 		goto fail_map;
 	}
 
-	can->can_sys_clock = pdata->clock_frq;
+	priv->bittiming.clock = pdata->clock_frq;
 
 	platform_set_drvdata(pdev, dev);
 

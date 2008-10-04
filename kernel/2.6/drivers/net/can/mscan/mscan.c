@@ -74,6 +74,17 @@ RCSID("$Id$");
 				 BTR1_TSEG2_MASK)
 #define BTR1_SET_SAM(sam)	(((sam) & 1) << BTR1_SAM_SHIFT)
 
+static struct can_bittiming_const mscan_bittiming_const = {
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 64,
+	.brp_inc = 1,
+};
+
 struct mscan_state {
 	u8 mode;
 	u8 canrier;
@@ -588,27 +599,19 @@ static int mscan_do_set_mode(struct net_device *dev, enum can_mode mode)
 	return ret;
 }
 
-static int mscan_do_set_bittime(struct net_device *dev, struct can_bittime *bt)
+static int mscan_do_set_bittiming(struct net_device *dev)
 {
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct mscan_priv *priv = netdev_priv(dev);
+	struct can_bittiming *bt = &priv->can.bittiming;
 	u8 btr0, btr1;
 
-	switch (bt->type) {
-	case CAN_BITTIME_BTR:
-		btr0 = bt->btr.btr0;
-		btr1 = bt->btr.btr1;
-		break;
+	btr0 = BTR0_SET_BRP(bt->brp) | BTR0_SET_SJW(bt->sjw);
+	btr1 = (BTR1_SET_TSEG1(bt->prop_seg + bt->phase_seg1) |
+		BTR1_SET_TSEG2(bt->phase_seg2) |
+		BTR1_SET_SAM(priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES));
 
-	case CAN_BITTIME_STD:
-		btr0 = BTR0_SET_BRP(bt->std.brp) | BTR0_SET_SJW(bt->std.sjw);
-		btr1 = (BTR1_SET_TSEG1(bt->std.prop_seg + bt->std.phase_seg1) |
-			BTR1_SET_TSEG2(bt->std.phase_seg2) |
-			BTR1_SET_SAM(bt->std.sam));
-		break;
-
-	default:
-		return -EINVAL;
-	}
+	dev_info(ND2D(dev), "BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
 	out_8(&regs->canbtr0, btr0);
 	out_8(&regs->canbtr1, btr1);
@@ -621,6 +624,11 @@ static int mscan_open(struct net_device *dev)
 	int ret;
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+
+	/* determine and set bittime */
+	ret = can_set_bittiming(dev);
+	if (ret)
+		return ret;
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	napi_enable(&priv->napi);
@@ -741,7 +749,8 @@ struct net_device *alloc_mscandev(void)
 	dev->weight = 8;
 #endif
 
-	priv->can.do_set_bittime = mscan_do_set_bittime;
+	priv->can.bittiming_const = &mscan_bittiming_const;
+	priv->can.do_set_bittiming = mscan_do_set_bittiming;
 	priv->can.do_set_mode = mscan_do_set_mode;
 
 	for (i = 0; i < TX_QUEUE_SIZE; i++) {
