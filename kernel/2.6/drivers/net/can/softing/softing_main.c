@@ -467,27 +467,22 @@ static int netdev_stop(struct net_device *ndev)
 
 #define out_of_range(x, min, max) (((x) < min) || ((x) > max))
 
-static int candev_set_bittime(struct net_device *ndev, struct can_bittime *bt)
+static int candev_set_bittiming(struct net_device *ndev)
 {
-	switch (bt->type) {
-	case CAN_BITTIME_STD:
-		/*SJW is test via max_sjw */
-		if (out_of_range(bt->std.sjw, 1, 4))
-			return -EIO;
-		if (out_of_range(bt->std.phase_seg1 + bt->std.prop_seg, 1, 16))
-			return -EIO;
-		if (out_of_range(bt->std.phase_seg2, 1, 8))
-			return -EIO;
-		/*BRP is test via max_brp */
-		if (ndev->flags & IFF_UP)
-			return -EBUSY;
-		break;
-	case CAN_BITTIME_BTR:
-	default:
-		mod_alert("%s, type %i not supported", ndev->name, bt->type);
-		return -EINVAL;
-		break;
-	}
+	struct softing_priv *priv = netdev_priv(ndev);
+	struct can_bittiming *bt = &priv->can.bittiming;
+
+	/*SJW is test via max_sjw */
+	if (out_of_range(bt->sjw, 1, 4))
+		return -EIO;
+	if (out_of_range(bt->phase_seg1 + bt->prop_seg, 1, 16))
+		return -EIO;
+	if (out_of_range(bt->phase_seg2, 1, 8))
+		return -EIO;
+	/*BRP is test via max_brp */
+	if (ndev->flags & IFF_UP)
+		return -EBUSY;
+
 	return 0;
 }
 
@@ -895,9 +890,24 @@ static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 	priv = netdev_priv(ndev);
 	priv->netdev		= ndev;
 	priv->card		= card;
-	priv->can.can_sys_clock = 8000000UL;
-	priv->can.max_brp	= card->desc->max_brp;
-	priv->can.max_sjw	= card->desc->max_sjw;
+
+	priv->can.bittiming.bitrate = 250000UL; /* default bitrate */
+	priv->can.bittiming.clock = 8000000UL;
+//	priv->can.bittiming.clock = card->desc->freq * 1000000 / 2;
+
+	/* point to private card description dependent bittiming */
+	priv->can.bittiming_const = &priv->softing_bittiming;
+
+	/* fill card description dependent bittiming */
+	priv->softing_bittiming.tseg1_min = 1;
+	priv->softing_bittiming.tseg1_max = 16;
+	priv->softing_bittiming.tseg2_min = 1;
+	priv->softing_bittiming.tseg2_max = 8;
+	priv->softing_bittiming.sjw_max = card->desc->max_sjw;
+	priv->softing_bittiming.brp_min = 1;
+	priv->softing_bittiming.brp_max = card->desc->max_brp;
+	priv->softing_bittiming.brp_inc = 1;
+
 	priv->sample		= 1;
 	priv->chip		= chip_id;
 	priv->output = softing_default_output(card, priv);
@@ -907,11 +917,11 @@ static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 	ndev->open		= netdev_open;
 	ndev->stop		= netdev_stop;
 	ndev->hard_start_xmit	= netdev_start_xmit;
-	priv->can.do_set_bittime = candev_set_bittime;
+	priv->can.do_set_bittiming = candev_set_bittiming;
 	priv->can.do_get_state	= candev_get_state;
 	priv->can.do_set_mode	= candev_set_mode;
 
-	if (can_set_bitrate(ndev, 250000UL))
+	if (can_set_bittiming(ndev))
 		mod_alert("bitrate failed");
 
 	return priv;

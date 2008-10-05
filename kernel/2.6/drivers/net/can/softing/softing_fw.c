@@ -507,24 +507,27 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 		return ret;
 	}
 	if (bus0) {
+		can_set_bittiming(card->bus[0]->netdev);
 		mod_trace("%s opening at %u kbit"
 			  " %u %u %u %u %u %u", card->bus[0]->netdev->name,
-			  card->bus[0]->can.bitrate / 1000,
-			  card->bus[0]->can.bittime.std.brp,
-			  card->bus[0]->can.bittime.std.sjw,
-			  card->bus[0]->can.bittime.std.prop_seg,
-			  card->bus[0]->can.bittime.std.phase_seg1,
-			  card->bus[0]->can.bittime.std.phase_seg2,
-			  card->bus[0]->can.bittime.std.sam);
+			  card->bus[0]->can.bittiming.bitrate / 1000,
+			  card->bus[0]->can.bittiming.brp,
+			  card->bus[0]->can.bittiming.sjw,
+			  card->bus[0]->can.bittiming.prop_seg,
+			  card->bus[0]->can.bittiming.phase_seg1,
+			  card->bus[0]->can.bittiming.phase_seg2,
+			  (card->bus[0]->can.ctrlmode &
+			   CAN_CTRLMODE_3_SAMPLES)?1:0);
 		/*init chip */
-		card->dpram.fct->param[1] = card->bus[0]->can.bittime.std.brp;
-		card->dpram.fct->param[2] = card->bus[0]->can.bittime.std.sjw;
+		card->dpram.fct->param[1] = card->bus[0]->can.bittiming.brp;
+		card->dpram.fct->param[2] = card->bus[0]->can.bittiming.sjw;
 		card->dpram.fct->param[3] =
-			 card->bus[0]->can.bittime.std.phase_seg1 +
-			 card->bus[0]->can.bittime.std.prop_seg;
+			 card->bus[0]->can.bittiming.phase_seg1 +
+			 card->bus[0]->can.bittiming.prop_seg;
 		card->dpram.fct->param[4] =
-			 card->bus[0]->can.bittime.std.phase_seg2;
-		card->dpram.fct->param[5] = card->bus[0]->can.bittime.std.sam;
+			 card->bus[0]->can.bittiming.phase_seg2;
+		card->dpram.fct->param[5] = (card->bus[0]->can.ctrlmode &
+					     CAN_CTRLMODE_3_SAMPLES)?1:0;
 		if (softing_fct_cmd(card, 1, 0, "initialize_chip[0]"))
 			goto failed;
 		/*set mode */
@@ -547,24 +550,27 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 			goto failed;
 	}
 	if (bus1) {
+		can_set_bittiming(card->bus[1]->netdev);
 		mod_trace("%s opening at %u kbit"
 			  " %u %u %u %u %u %u", card->bus[1]->netdev->name,
-			  card->bus[0]->can.bitrate / 1000,
-			  card->bus[1]->can.bittime.std.brp,
-			  card->bus[1]->can.bittime.std.sjw,
-			  card->bus[1]->can.bittime.std.prop_seg,
-			  card->bus[1]->can.bittime.std.phase_seg1,
-			  card->bus[1]->can.bittime.std.phase_seg2,
-			  card->bus[1]->can.bittime.std.sam);
+			  card->bus[1]->can.bittiming.bitrate / 1000,
+			  card->bus[1]->can.bittiming.brp,
+			  card->bus[1]->can.bittiming.sjw,
+			  card->bus[1]->can.bittiming.prop_seg,
+			  card->bus[1]->can.bittiming.phase_seg1,
+			  card->bus[1]->can.bittiming.phase_seg2,
+			  (card->bus[1]->can.ctrlmode &
+			   CAN_CTRLMODE_3_SAMPLES)?1:0);
 		/*init chip2 */
-		card->dpram.fct->param[1] = card->bus[1]->can.bittime.std.brp;
-		card->dpram.fct->param[2] = card->bus[1]->can.bittime.std.sjw;
+		card->dpram.fct->param[1] = card->bus[1]->can.bittiming.brp;
+		card->dpram.fct->param[2] = card->bus[1]->can.bittiming.sjw;
 		card->dpram.fct->param[3] =
-			 card->bus[1]->can.bittime.std.phase_seg1 +
-			 card->bus[1]->can.bittime.std.prop_seg;
+			 card->bus[1]->can.bittiming.phase_seg1 +
+			 card->bus[1]->can.bittiming.prop_seg;
 		card->dpram.fct->param[4] =
-			 card->bus[1]->can.bittime.std.phase_seg2;
-		card->dpram.fct->param[5] = card->bus[1]->can.bittime.std.sam;
+			 card->bus[1]->can.bittiming.phase_seg2;
+		card->dpram.fct->param[5] = (card->bus[1]->can.ctrlmode &
+					     CAN_CTRLMODE_3_SAMPLES)?1:0;
 		if (softing_fct_cmd(card, 2, 0, "initialize_chip[1]"))
 			goto failed;
 		/*set mode2 */

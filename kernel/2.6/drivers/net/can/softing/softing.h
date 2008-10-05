@@ -21,6 +21,7 @@ struct softing_priv {
 	struct can_priv can;	/* must be the first member! */
 	struct net_device *netdev;
 	struct softing *card;
+	struct can_bittiming_const softing_bittiming;
 	struct {
 		int pending;
 		/* variables wich hold the circular buffer */
