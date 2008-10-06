@@ -471,15 +471,6 @@ static int netdev_stop(struct net_device *ndev)
 	return 0;
 }
 
-static int candev_set_bittiming(struct net_device *ndev)
-{
-	/* all limits are tested in {can}/dev.c
-	 * but we _need_ a function here
-	 * so, always return ok
-	 */
-	return 0;
-}
-
 static int candev_get_state(struct net_device *ndev, enum can_state *state)
 {
 	struct softing_priv *priv = netdev_priv(ndev);
@@ -897,7 +888,6 @@ static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 	ndev->open		= netdev_open;
 	ndev->stop		= netdev_stop;
 	ndev->hard_start_xmit	= netdev_start_xmit;
-	priv->can.do_set_bittiming = candev_set_bittiming;
 	priv->can.do_get_state	= candev_get_state;
 	priv->can.do_set_mode	= candev_set_mode;
 
