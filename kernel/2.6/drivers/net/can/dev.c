@@ -190,16 +190,16 @@ int can_set_bittiming(struct net_device *dev)
 	struct can_priv *priv = netdev_priv(dev);
 	int err;
 
-	/* Check if the CAN device needs bit-timing parameters */
-	if (priv->do_set_bittiming) {
+	/* Check if bit-timing parameters have been pre-defined */
+	if (!priv->bittiming.tq && !priv->bittiming.bitrate)
+		return -EINVAL;
+
+	/* Check if the CAN device has bit-timing parameters */
+	if (priv->bittiming_const) {
 
 		/* Check if bit-timing parameters have already been set */
 		if (priv->bittiming.tq && priv->bittiming.bitrate)
 			return 0;
-
-		/* Check if bit-timing parameters have been pre-defined */
-		if (!priv->bittiming.tq && !priv->bittiming.bitrate)
-			return -EINVAL;
 
 		/* Non-expert mode? Check if the bitrate has been pre-defined */
 		if (!priv->bittiming.tq)
@@ -210,12 +210,15 @@ int can_set_bittiming(struct net_device *dev)
 			err = can_fixup_bittiming(dev);
 		if (err)
 			return err;
+	}
 
+	if (priv->do_set_bittiming) {
 		/* Finally, set the bit-timing registers */
 		err = priv->do_set_bittiming(dev);
 		if (err)
 			return err;
 	}
+
 	return 0;
 }
 EXPORT_SYMBOL(can_set_bittiming);
