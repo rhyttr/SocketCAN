@@ -473,11 +473,6 @@ static int netdev_stop(struct net_device *ndev)
 
 static int candev_set_bittiming(struct net_device *ndev)
 {
-	/* do not allow to change in run-time,
-	 * the softing cards need to get down first
-	 */
-	if (ndev->flags & IFF_UP)
-		return -EBUSY;
 	/* all limits are tested in {can}/dev.c
 	 * but we _need_ a function here
 	 * so, always return ok
@@ -744,11 +739,11 @@ CARD_SHOW(freq		, id.freq);
 CARD_SHOW(txpending	, tx.pending);
 
 static const struct softing_attribute card_attr_proto [] = {
-	declare_attr(serial	, 0644, show_serial	, 0),
-	declare_attr(firmware	, 0644, show_firmware	, 0),
-	declare_attr(hardware	, 0644, show_hardware	, 0),
-	declare_attr(license	, 0644, show_license	, 0),
-	declare_attr(freq	, 0644, show_freq	, 0),
+	declare_attr(serial	, 0444, show_serial	, 0),
+	declare_attr(firmware	, 0444, show_firmware	, 0),
+	declare_attr(hardware	, 0444, show_hardware	, 0),
+	declare_attr(license	, 0444, show_license	, 0),
+	declare_attr(freq	, 0444, show_freq	, 0),
 	declare_attr(txpending	, 0644, show_txpending	, 0),
 };
 
