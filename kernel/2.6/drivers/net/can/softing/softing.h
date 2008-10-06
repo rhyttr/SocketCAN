@@ -21,20 +21,22 @@ struct softing_priv {
 	struct can_priv can;	/* must be the first member! */
 	struct net_device *netdev;
 	struct softing *card;
-	struct can_bittiming_const softing_bittiming;
 	struct {
 		int pending;
 		/* variables wich hold the circular buffer */
 		int echo_put;
 		int echo_get;
 	} tx;
+	struct can_bittiming_const btr_const;
 	int index;
-	u8 sample;
 	u8 output;
 	u16 chip;
 	struct attribute_group sysfs;
 };
 #define netdev2softing(netdev)	((struct softing_priv *)netdev_priv(netdev))
+
+/* the 'all cards have the same' fields definition */
+extern const struct can_bittiming_const softing_btr_const;
 
 struct softing_desc {
 	unsigned int manf;

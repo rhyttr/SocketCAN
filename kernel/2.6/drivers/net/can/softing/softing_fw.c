@@ -31,6 +31,17 @@
 
 #define fw_dir "softing-4.6/"
 
+const struct can_bittiming_const softing_btr_const = {
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 8,
+	.sjw_max = 4, /* overruled */
+	.brp_min = 1,
+	.brp_max = 32, /* overruled */
+	.brp_inc = 1,
+};
+
 static const struct softing_desc carddescs[] = {
 {
 	.name = "CANcard",
@@ -507,17 +518,6 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 		return ret;
 	}
 	if (bus0) {
-		can_set_bittiming(card->bus[0]->netdev);
-		mod_trace("%s opening at %u kbit"
-			  " %u %u %u %u %u %u", card->bus[0]->netdev->name,
-			  card->bus[0]->can.bittiming.bitrate / 1000,
-			  card->bus[0]->can.bittiming.brp,
-			  card->bus[0]->can.bittiming.sjw,
-			  card->bus[0]->can.bittiming.prop_seg,
-			  card->bus[0]->can.bittiming.phase_seg1,
-			  card->bus[0]->can.bittiming.phase_seg2,
-			  (card->bus[0]->can.ctrlmode &
-			   CAN_CTRLMODE_3_SAMPLES)?1:0);
 		/*init chip */
 		card->dpram.fct->param[1] = card->bus[0]->can.bittiming.brp;
 		card->dpram.fct->param[2] = card->bus[0]->can.bittiming.sjw;
@@ -550,17 +550,6 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 			goto failed;
 	}
 	if (bus1) {
-		can_set_bittiming(card->bus[1]->netdev);
-		mod_trace("%s opening at %u kbit"
-			  " %u %u %u %u %u %u", card->bus[1]->netdev->name,
-			  card->bus[1]->can.bittiming.bitrate / 1000,
-			  card->bus[1]->can.bittiming.brp,
-			  card->bus[1]->can.bittiming.sjw,
-			  card->bus[1]->can.bittiming.prop_seg,
-			  card->bus[1]->can.bittiming.phase_seg1,
-			  card->bus[1]->can.bittiming.phase_seg2,
-			  (card->bus[1]->can.ctrlmode &
-			   CAN_CTRLMODE_3_SAMPLES)?1:0);
 		/*init chip2 */
 		card->dpram.fct->param[1] = card->bus[1]->can.bittiming.brp;
 		card->dpram.fct->param[2] = card->bus[1]->can.bittiming.sjw;
