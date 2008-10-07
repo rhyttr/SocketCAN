@@ -29,10 +29,6 @@
 
 #include "softing.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 25)
-	/* clear statistics */
-#define strict_strtoul simple_strtoul
-#endif
 /* this is the worst thing on the softing API
  * 2 busses are driven together, I don't know how
  * to recover a single of them.
@@ -808,7 +804,7 @@ static ssize_t store_output(struct device *dev
 	struct softing_priv *priv = netdev2softing(ndev);
 	struct softing *card = priv->card;
 
-	int v = strict_strtol(buf, 0, 0);
+	u8 v = simple_strtoul(buf, NULL, 10) & 0xFFU;
 
 	if (mutex_lock_interruptible(&card->fw.lock))
 		return -ERESTARTSYS;
