@@ -120,14 +120,13 @@ static int can_calc_bittiming(struct net_device *dev)
 			break;
 	}
 
-	if (!spt)
-		spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
+	spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
 
 	v64 = (u64)best_brp * 1000000000UL;
 	do_div(v64, bt->clock);
 	bt->tq = (u32)v64;
-	bt->prop_seg = 0;
-	bt->phase_seg1 = tseg1;
+	bt->prop_seg = tseg1 / 2;
+	bt->phase_seg1 = tseg1 - bt->prop_seg;
 	bt->phase_seg2 = tseg2;
 	bt->sjw = 1;
 	bt->brp = best_brp;
