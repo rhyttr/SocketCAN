@@ -22,9 +22,11 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
-#include <linux/rtnetlink.h>
 #include <linux/can.h>
 #include <linux/can/dev.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#include <net/rtnetlink.h>
+#endif
 
 #include "sysfs.h"
 
@@ -457,16 +459,22 @@ static int can_netdev_notifier_call(struct notifier_block *nb,
 				    void *ndev)
 {
 	struct net_device *dev = ndev;
-	struct can_priv *priv;
 
 	if (dev->type != ARPHRD_CAN)
 		return 0;
 
-	priv = netdev_priv(dev);
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+	/* omit virtual CAN software network devices */
+	if (dev->rtnl_link_ops) {
+		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
+		if (!strcmp(ops->kind, "vcan"))
+			return 0;
+	}
+#else
 	/* software CAN devices like 'vcan' do not have private data */
-	if (!priv)
+	if (!dev->priv)
 		return 0;
+#endif
 
 	switch (state) {
 	case NETDEV_REGISTER:
