@@ -1,14 +1,14 @@
 /*
  *
+ * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
+ *
  * MCP2510 support and bug fixes by Christian Pellegrin
  * <chripell@evolware.org>
  *
  * Copyright 2007 Raymarine UK, Ltd. All Rights Reserved.
  * Written under contract by:
  *   Chris Elston, Katalix Systems, Ltd.
- */
-
-/*
+ *
  * Based on Microchip MCP251x CAN controller driver written by
  * David Vrabel, Copyright 2006 Arcom Control Systems Ltd.
  *
@@ -16,34 +16,23 @@
  * - Sascha Hauer, Marc Kleine-Budde, Pengutronix
  * - Simon Kallweit, intefo AG
  * Copyright 2007
- */
-
-/*
- * The code contained herein is licensed under the GNU General Public
- * License. You may obtain a copy of the GNU General Public License
- * Version 2 or later at the following locations:
  *
- * http://www.opensource.org/licenses/gpl-license.html
- * http://www.gnu.org/copyleft/gpl.html
- */
-
-/*
- * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
- */
-
-/*
- * Notes:
- * This driver interacts with 2 subsystems.
- * - To the SPI subsystem it is a 'protocol driver'
- * - To the CAN subsystem it is a 'network driver'
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation
  *
- * Because it is an SPI device, it's probing is handled via the SPI device
- * mechanisms (which are very similar to platform devices).
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- */
-
-/*
- * Platform file must specify something like:
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *
+ * Your platform definition file should specify something like:
  *
  * static struct mcp251x_platform_data mcp251x_info = {
  *	 .oscillator_frequency = 8000000,
@@ -54,17 +43,18 @@
  * };
  *
  * static struct spi_board_info spi_board_info[] = {
- *     {
- *		 .modalias	 = "mcp251x",
- *		 .platform_data	 = &mcp251x_info,
- *		 .irq		 = IRQ_EINT13,
- *		 .max_speed_hz	 = 2*1000*1000,
- *		 .chip_select	 = 2,
- *	 },
+ *         {
+ *                 .modalias      = "mcp251x",
+ *                 .platform_data = &mcp251x_info,
+ *                 .irq           = IRQ_EINT13,
+ *                 .max_speed_hz  = 2*1000*1000,
+ *                 .chip_select   = 2,
+ *         },
  * };
  *
- * (See Documentation/spi/spi-summary and
- * include/linux/can/mcp251x.h for more info)
+ * Please see mcp251x.h for a description of the fields in
+ * struct mcp251x_platform_data.
+ *
  */
 
 #include <linux/device.h>
@@ -163,18 +153,10 @@ static int enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
 module_param(enable_dma, int, S_IRUGO);
 MODULE_PARM_DESC(enable_dma, "Enable SPI DMA. Default: 0 (Off)");
 
-static int loopback; /* Loopback testing. Default: 0 (Off) */
-module_param(loopback, int, S_IRUGO);
-MODULE_PARM_DESC(loopback, "Loop back frames (for testing). Default: 0 (Off)");
-
-static int speed = 100; /* Default bit-rate */
-module_param(speed, int, S_IRUGO);
-MODULE_PARM_DESC(speed, "Default bit-rate in kbit/s");
-
 static struct can_bittiming_const mcp251x_bittiming_const = {
-	.tseg1_min = 1,
+	.tseg1_min = 3,
 	.tseg1_max = 16,
-	.tseg2_min = 1,
+	.tseg2_min = 2,
 	.tseg2_max = 8,
 	.sjw_max = 4,
 	.brp_min = 1,
@@ -600,12 +582,14 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
 
 static void mcp251x_set_normal_mode(struct spi_device *spi)
 {
+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+
 	/* Enable interrupts */
 	mcp251x_write_reg(spi, CANINTE,
 		CANINTE_ERRIE | CANINTE_TX2IE | CANINTE_TX1IE |
 		CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE);
 
-	if (loopback) {
+	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		/* Put device into loopback mode */
 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
 	} else {
@@ -730,7 +714,7 @@ static int mcp251x_do_set_bittiming(struct net_device *net)
 	mcp251x_write_bits(spi, CANCTRL, CANCTRL_REQOP_MASK,
 			   CANCTRL_REQOP_CONF);
 
-	mcp251x_write_reg(spi, CNF1, ((bt->sjw - 1) << 6) | bt->brp);
+	mcp251x_write_reg(spi, CNF1, ((bt->sjw - 1) << 6) | (bt->brp - 1));
 	mcp251x_write_reg(spi, CNF2, CNF2_BTLMODE |
 			  ((bt->phase_seg1 - 1) << 3) |
 			  (bt->prop_seg - 1));
@@ -990,7 +974,6 @@ static struct net_device *alloc_mcp251x_netdev(int sizeof_priv)
 	net->tx_timeout		= mcp251x_tx_timeout;
 	net->watchdog_timeo	= HZ;
 
-	priv->can.bittiming.bitrate = speed * 1000;
 	priv->can.bittiming_const = &mcp251x_bittiming_const;
 	priv->can.do_set_bittiming = mcp251x_do_set_bittiming;
 	priv->can.do_get_state	  = mcp251x_do_get_state;
@@ -1026,8 +1009,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	priv->spi = spi;
 	mutex_init(&priv->spi_lock);
 
-	/* Not sure why / 4... mcp251x pre-divides by 2 */
-	priv->can.bittiming.clock = pdata->oscillator_frequency / 4;
+	priv->can.bittiming.clock = pdata->oscillator_frequency / 2;
 
 	/* If requested, allocate DMA buffers */
 	if (enable_dma) {
@@ -1097,8 +1079,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 
 	ret = register_netdev(net);
 	if (ret >= 0) {
-		dev_info(&spi->dev, "probed%s\n",
-			(loopback) ? " (loopback)" : "");
+		dev_info(&spi->dev, "probed\n");
 		return ret;
 	}
 
