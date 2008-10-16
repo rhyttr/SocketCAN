@@ -169,7 +169,7 @@ static ssize_t printf_can_state(struct net_device *dev, char *buf)
 	int err = 0;
 
 	if (priv->do_get_state) {
-		int err = priv->do_get_state(dev, &state);
+		err = priv->do_get_state(dev, &state);
 		if (err)
 			goto out;
 		priv->state = state;
