@@ -35,11 +35,11 @@
  * Your platform definition file should specify something like:
  *
  * static struct mcp251x_platform_data mcp251x_info = {
- *	 .oscillator_frequency = 8000000,
- *	 .board_specific_setup = &mcp251x_setup,
- *	 .model = CAN_MCP251X_MCP2510,
- *	 .power_enable = mcp251x_power_enable,
- *	 .transceiver_enable = NULL,
+ *         .oscillator_frequency = 8000000,
+ *         .board_specific_setup = &mcp251x_setup,
+ *         .model = CAN_MCP251X_MCP2510,
+ *         .power_enable = mcp251x_power_enable,
+ *         .transceiver_enable = NULL,
  * };
  *
  * static struct spi_board_info spi_board_info[] = {
@@ -535,7 +535,8 @@ static void mcp251x_hw_wakeup(struct spi_device *spi)
 	mcp251x_write_bits(spi, CANINTF, CANINTF_WAKIF, CANINTF_WAKIF);
 
 	/* Wait until the device is awake */
-	wait_for_completion(&priv->awake);
+	if (!wait_for_completion_timeout(&priv->awake, HZ))
+		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
 }
 
 static int mcp251x_hard_start_xmit(struct sk_buff *skb, struct net_device *net)
@@ -583,6 +584,7 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
 static void mcp251x_set_normal_mode(struct spi_device *spi)
 {
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+	unsigned long timeout;
 
 	/* Enable interrupts */
 	mcp251x_write_reg(spi, CANINTE,
@@ -597,9 +599,47 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL);
 
 		/* Wait for the device to enter normal mode */
-		while (mcp251x_read_reg(spi, CANSTAT) & 0xE0)
+		timeout = jiffies + HZ;
+		while (mcp251x_read_reg(spi, CANSTAT) & 0xE0) {
 			udelay(10);
+			if (time_after(jiffies, timeout)) {
+				dev_err(&spi->dev, "MCP251x didn't"
+					" enter in normal mode\n");
+				break;
+			}
+		}
 	}
+}
+
+static int mcp251x_do_set_bittiming(struct net_device *net)
+{
+	struct mcp251x_priv *priv = netdev_priv(net);
+	struct can_bittiming *bt = &priv->can.bittiming;
+	struct spi_device *spi = priv->spi;
+	u8 state;
+
+	dev_dbg(&spi->dev, "%s: BRP = %d, PropSeg = %d, PS1 = %d,"
+		" PS2 = %d, SJW = %d\n", __func__, bt->brp,
+		bt->prop_seg, bt->phase_seg1, bt->phase_seg2,
+		bt->sjw);
+
+	/* Store original mode and set mode to config */
+	state = mcp251x_read_reg(spi, CANCTRL);
+	state = mcp251x_read_reg(spi, CANSTAT) & CANCTRL_REQOP_MASK;
+	mcp251x_write_bits(spi, CANCTRL, CANCTRL_REQOP_MASK,
+			   CANCTRL_REQOP_CONF);
+
+	mcp251x_write_reg(spi, CNF1, ((bt->sjw - 1) << 6) | (bt->brp - 1));
+	mcp251x_write_reg(spi, CNF2, CNF2_BTLMODE |
+			  ((bt->phase_seg1 - 1) << 3) |
+			  (bt->prop_seg - 1));
+	mcp251x_write_bits(spi, CNF3, CNF3_PHSEG2_MASK,
+			   (bt->phase_seg2 - 1));
+
+	/* Restore original state */
+	mcp251x_write_bits(spi, CANCTRL, CANCTRL_REQOP_MASK, state);
+
+	return 0;
 }
 
 static void mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
@@ -607,10 +647,13 @@ static void mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
 {
 	int ret;
 
-	/* Set initial baudrate */
+	/* Set initial baudrate. Make sure that registers are updated
+	   always by explicitly calling mcp251x_do_set_bittiming */
 	ret = can_set_bittiming(net);
 	if (ret)
 		dev_err(&spi->dev, "unable to set initial baudrate!\n");
+	else
+		mcp251x_do_set_bittiming(net);
 
 	/* Enable RX0->RX1 buffer roll over and disable filters */
 	mcp251x_write_bits(spi, RXBCTRL(0),
@@ -640,6 +683,8 @@ static void mcp251x_hw_reset(struct spi_device *spi)
 
 	if (ret < 0)
 		dev_dbg(&spi->dev, "%s: failed: ret = %d\n", __func__, ret);
+	/* wait for reset to finish */
+	mdelay(10);
 }
 
 static int mcp251x_open(struct net_device *net)
@@ -696,37 +741,6 @@ static int mcp251x_stop(struct net_device *net)
 	return 0;
 }
 
-static int mcp251x_do_set_bittiming(struct net_device *net)
-{
-	struct mcp251x_priv *priv = netdev_priv(net);
-	struct can_bittiming *bt = &priv->can.bittiming;
-	struct spi_device *spi = priv->spi;
-	u8 state;
-
-	dev_dbg(&spi->dev, "%s: BRP = %d, PropSeg = %d, PS1 = %d,"
-		" PS2 = %d, SJW = %d\n", __func__, bt->brp,
-		bt->prop_seg, bt->phase_seg1, bt->phase_seg2,
-		bt->sjw);
-
-	/* Store original mode and set mode to config */
-	state = mcp251x_read_reg(spi, CANCTRL);
-	state = mcp251x_read_reg(spi, CANSTAT) & CANCTRL_REQOP_MASK;
-	mcp251x_write_bits(spi, CANCTRL, CANCTRL_REQOP_MASK,
-			   CANCTRL_REQOP_CONF);
-
-	mcp251x_write_reg(spi, CNF1, ((bt->sjw - 1) << 6) | (bt->brp - 1));
-	mcp251x_write_reg(spi, CNF2, CNF2_BTLMODE |
-			  ((bt->phase_seg1 - 1) << 3) |
-			  (bt->prop_seg - 1));
-	mcp251x_write_bits(spi, CNF3, CNF3_PHSEG2_MASK,
-			   (bt->phase_seg2 - 1));
-
-	/* Restore original state */
-	mcp251x_write_bits(spi, CANCTRL, CANCTRL_REQOP_MASK, state);
-
-	return 0;
-}
-
 static int mcp251x_do_get_state(struct net_device *net, enum can_state	*state)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
@@ -768,7 +782,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 						 irq_work);
 	struct spi_device *spi = priv->spi;
 	struct net_device *net = priv->net;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	u8 intf;
 	u8 txbnctrl;
 	/* the next limitation is needed so we give some time to the
@@ -778,13 +791,12 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 
 	if (priv->after_suspend) {
 		/* Wait whilst the device wakes up */
-		udelay(200 * (128 * USEC_PER_SEC /
-			      pdata->oscillator_frequency));
+		mdelay(10);
 		mcp251x_hw_reset(spi);
 		mcp251x_setup(net, priv, spi);
 		if (priv->after_suspend & AFTER_SUSPEND_UP) {
-			/* clear since we lost tx buffer */
 			netif_device_attach(net);
+			/* clear since we lost tx buffer */
 			if (priv->tx_skb) {
 				net->stats.tx_errors++;
 				dev_kfree_skb(priv->tx_skb);
@@ -815,8 +827,7 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 
 		if (priv->wake) {
 			/* Wait whilst the device wakes up */
-			udelay(200 * (128 * USEC_PER_SEC /
-				      pdata->oscillator_frequency));
+			mdelay(10);
 			priv->wake = 0;
 		}
 
@@ -975,7 +986,6 @@ static struct net_device *alloc_mcp251x_netdev(int sizeof_priv)
 	net->watchdog_timeo	= HZ;
 
 	priv->can.bittiming_const = &mcp251x_bittiming_const;
-	priv->can.do_set_bittiming = mcp251x_do_set_bittiming;
 	priv->can.do_get_state	  = mcp251x_do_get_state;
 	priv->can.do_set_mode	  = mcp251x_do_set_mode;
 
@@ -1159,7 +1169,6 @@ static int mcp251x_can_resume(struct spi_device *spi)
 {
 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-	struct net_device *net = priv->net;
 
 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
 		pdata->power_enable(1);
@@ -1168,10 +1177,9 @@ static int mcp251x_can_resume(struct spi_device *spi)
 		if (priv->after_suspend & AFTER_SUSPEND_UP) {
 			if (pdata->transceiver_enable)
 				pdata->transceiver_enable(1);
-			mcp251x_hw_wakeup(spi);
-
-			netif_device_attach(net);
-		}
+			queue_work(priv->wq, &priv->irq_work);
+		} else
+			priv->after_suspend = 0;
 	}
 	return 0;
 }
