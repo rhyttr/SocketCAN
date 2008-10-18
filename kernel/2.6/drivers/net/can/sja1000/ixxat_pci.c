@@ -32,7 +32,7 @@
 
 #include "sja1000.h"
 
-#define DRV_NAME  "can-ixxat-pci"
+#define DRV_NAME  "ixxat_pci"
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de");
 MODULE_DESCRIPTION("Socket-CAN driver for IXXAT PC-I 04/PCI PCI cards");

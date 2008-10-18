@@ -27,7 +27,7 @@
 
 #include "sja1000.h"
 
-#define DRV_NAME "can-pipcan"
+#define DRV_NAME "pipcan"
 
 MODULE_AUTHOR("David Müller <d.mueller@elsoft.ch>");
 MODULE_DESCRIPTION("Socket-CAN driver for MPL PIPCAN module");

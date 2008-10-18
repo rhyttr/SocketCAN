@@ -35,7 +35,7 @@
 
 #include "sja1000.h"
 
-#define DRV_NAME  "can-peak-pci"
+#define DRV_NAME  "peak_pci"
 
 MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 MODULE_DESCRIPTION("Socket-CAN driver for PEAK PCAN PCI cards");

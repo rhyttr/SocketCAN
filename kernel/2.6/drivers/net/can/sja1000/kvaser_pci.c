@@ -46,7 +46,7 @@
 
 #include "sja1000.h"
 
-#define DRV_NAME  "can-kvaser-pci"
+#define DRV_NAME  "kvaser_pci"
 
 MODULE_AUTHOR("Per Dalen <per.dalen@cnw.se>");
 MODULE_DESCRIPTION("Socket-CAN driver for KVASER PCAN PCI cards");

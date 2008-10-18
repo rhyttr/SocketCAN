@@ -33,7 +33,7 @@
 
 #include "sja1000.h"
 
-#define DRV_NAME  "can-ems-pci"
+#define DRV_NAME  "ems_pci"
 
 MODULE_AUTHOR("Sebastian Haas <haas@ems-wuenche.com>");
 MODULE_DESCRIPTION("Socket-CAN driver for EMS CPC-PCI/PCIe CAN cards");
