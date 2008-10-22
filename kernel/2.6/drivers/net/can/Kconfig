@@ -59,6 +59,16 @@ config CAN_SJA1000
 
 	  This driver will use the new device interface.
 
+config CAN_SJA1000_PLATFORM
+	depends on CAN_SJA1000
+	tristate "generic Platform Bus based SJA1000 driver"
+	---help---
+	  This driver adds support for the SJA1000 chips connected to
+	  the "platform bus" (Linux abstraction for directly to the
+	  processor attached devices).  Which can be found on various
+	  boards from Phytec (http://www.phytec.de) like the PCM027,
+	  PCM038.
+
 config CAN_EMS_PCI
 	tristate "EMS CPC-PCI and CPC-PCIe Card"
 	depends on PCI && CAN_SJA1000
