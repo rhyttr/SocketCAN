@@ -91,13 +91,6 @@ config CAN_PEAK_PCI
 	This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
 	2 channel) from PEAK Systems (http://www.peak-system.com).
 
-config CAN_PCM027
-        depends on CAN_SJA1000 && MACH_PCM027
-	tristate "Phytec pcm027 can driver (SJA1000)"
-	help
-	This driver adds support for the SJA1000 chip on the PCM027 board
-	from Phytec (http://www.phytec.de).
-
 config CAN_PIPCAN
 	depends on CAN_SJA1000
 	tristate "MPL PIPCAN CAN module driver (SJA1000)"
