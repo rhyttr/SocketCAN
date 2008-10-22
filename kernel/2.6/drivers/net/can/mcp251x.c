@@ -74,7 +74,7 @@
 #include <linux/freezer.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
-#include <linux/can/mcp251x.h>
+#include <linux/can/platform/mcp251x.h>
 
 /* SPI interface instruction set */
 #define INSTRUCTION_WRITE		0x02
