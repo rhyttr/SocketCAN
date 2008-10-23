@@ -1,5 +1,5 @@
-#ifndef __MCP251X_H__
-#define __MCP251X_H__
+#ifndef __CAN_PLATFORM_MCP251X_H__
+#define __CAN_PLATFORM_MCP251X_H__
 
 /*
  *
@@ -31,4 +31,4 @@ struct mcp251x_platform_data {
 	int (*power_enable) (int enable);
 };
 
-#endif /* __MCP251X_H__ */
+#endif /* __CAN_PLATFORM_MCP251X_H__ */
