@@ -149,9 +149,9 @@
 
 #define DEVICE_NAME "mcp251x"
 
-static int enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
-module_param(enable_dma, int, S_IRUGO);
-MODULE_PARM_DESC(enable_dma, "Enable SPI DMA. Default: 0 (Off)");
+static int mcp251x_enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
+module_param(mcp251x_enable_dma, int, S_IRUGO);
+MODULE_PARM_DESC(mcp251x_enable_dma, "Enable SPI DMA. Default: 0 (Off)");
 
 static struct can_bittiming_const mcp251x_bittiming_const = {
 	.tseg1_min = 3,
@@ -209,7 +209,7 @@ static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
 
 	spi_message_init(&m);
 
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		t.tx_dma = priv->spi_tx_dma;
 		t.rx_dma = priv->spi_rx_dma;
 		m.is_dma_mapped = 1;
@@ -249,7 +249,7 @@ static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
 
 	spi_message_init(&m);
 
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		t.tx_dma = priv->spi_tx_dma;
 		t.rx_dma = priv->spi_rx_dma;
 		m.is_dma_mapped = 1;
@@ -287,7 +287,7 @@ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
 
 	spi_message_init(&m);
 
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		t.tx_dma = priv->spi_tx_dma;
 		t.rx_dma = priv->spi_rx_dma;
 		m.is_dma_mapped = 1;
@@ -362,7 +362,7 @@ static int mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
 
 		spi_message_init(&m);
 
-		if (enable_dma) {
+		if (mcp251x_enable_dma) {
 			t.tx_dma = priv->spi_tx_dma;
 			t.rx_dma = priv->spi_rx_dma;
 			m.is_dma_mapped = 1;
@@ -461,7 +461,7 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
 
 		spi_message_init(&m);
 
-		if (enable_dma) {
+		if (mcp251x_enable_dma) {
 			t.tx_dma = priv->spi_tx_dma;
 			t.rx_dma = priv->spi_rx_dma;
 			m.is_dma_mapped = 1;
@@ -766,14 +766,16 @@ static void mcp251x_tx_work_handler(struct work_struct *ws)
 	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
 						 tx_work);
 	struct spi_device *spi = priv->spi;
-	struct can_frame *frame = (struct can_frame *)priv->tx_skb->data;
+	struct can_frame *frame;;
 
 	dev_dbg(&spi->dev, "%s\n", __func__);
 
-	if (frame->can_dlc > CAN_FRAME_MAX_DATA_LEN)
-		frame->can_dlc = CAN_FRAME_MAX_DATA_LEN;
-
-	mcp251x_hw_tx(spi, frame, 0);
+	if (priv->tx_skb) {
+		frame = (struct can_frame *)priv->tx_skb->data;
+		if (frame->can_dlc > CAN_FRAME_MAX_DATA_LEN)
+			frame->can_dlc = CAN_FRAME_MAX_DATA_LEN;
+		mcp251x_hw_tx(spi, frame, 0);
+	}
 }
 
 static void mcp251x_irq_work_handler(struct work_struct *ws)
@@ -1022,7 +1024,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	priv->can.bittiming.clock = pdata->oscillator_frequency / 2;
 
 	/* If requested, allocate DMA buffers */
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		spi->dev.coherent_dma_mask = DMA_32BIT_MASK;
 
 		/* Minimum coherent DMA allocation is PAGE_SIZE, so allocate
@@ -1037,12 +1039,12 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 				(PAGE_SIZE / 2));
 		} else {
 			/* Fall back to non-DMA */
-			enable_dma = 0;
+			mcp251x_enable_dma = 0;
 		}
 	}
 
 	/* Allocate non-DMA buffers */
-	if (!enable_dma) {
+	if (!mcp251x_enable_dma) {
 		priv->spi_tx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
 		if (!priv->spi_tx_buf) {
 			ret = -ENOMEM;
@@ -1087,6 +1089,9 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	mcp251x_hw_reset(spi);
 	mcp251x_hw_sleep(spi);
 
+	if (pdata->transceiver_enable)
+		pdata->transceiver_enable(0);
+
 	ret = register_netdev(net);
 	if (ret >= 0) {
 		dev_info(&spi->dev, "probed\n");
@@ -1095,14 +1100,14 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 
 	free_irq(spi->irq, net);
 error_irq:
-	if (!enable_dma)
+	if (!mcp251x_enable_dma)
 		kfree(priv->spi_rx_buf);
 error_rx_buf:
-	if (!enable_dma)
+	if (!mcp251x_enable_dma)
 		kfree(priv->spi_tx_buf);
 error_tx_buf:
 	free_candev(net);
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		dma_free_coherent(&spi->dev, PAGE_SIZE,
 			priv->spi_tx_buf, priv->spi_tx_dma);
 	}
@@ -1123,7 +1128,7 @@ static int __devexit mcp251x_can_remove(struct spi_device *spi)
 	flush_workqueue(priv->wq);
 	destroy_workqueue(priv->wq);
 
-	if (enable_dma) {
+	if (mcp251x_enable_dma) {
 		dma_free_coherent(&spi->dev, PAGE_SIZE,
 			priv->spi_tx_buf, priv->spi_tx_dma);
 	} else {
