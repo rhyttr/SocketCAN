@@ -36,6 +36,8 @@ MODULE_DESCRIPTION(MOD_DESC);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 
+#define CAN_CALC_MAX_ERROR 50 /* in one-tenth of a percent */
+
 /*
  * Bit-timing calculation derived from:
  *
@@ -122,6 +124,19 @@ static int can_calc_bittiming(struct net_device *dev)
 			break;
 	}
 
+	if (best_error) {
+		/* Error in one-tenth of a percent */
+		error = (best_error * 1000) / bt->bitrate;
+		if (error > CAN_CALC_MAX_ERROR) {
+			dev_err(ND2D(dev), "bitrate error %ld.%ld%% too high\n",
+				error / 10, error % 10);
+			return -EDOM;
+		} else {
+			dev_warn(ND2D(dev), "bitrate error %ld.%ld%%\n",
+				 error / 10, error % 10);
+		}
+	}
+
 	spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
 
 	v64 = (u64)best_brp * 1000000000UL;
@@ -132,13 +147,6 @@ static int can_calc_bittiming(struct net_device *dev)
 	bt->phase_seg2 = tseg2;
 	bt->sjw = 1;
 	bt->brp = best_brp;
-
-	if (best_error) {
-		error = best_error * 1000;
-		error /= bt->bitrate;
-		dev_warn(ND2D(dev), "bitrate error %ld.%ld%%\n",
-			 error / 10, error % 10);
-	}
 
 	return 0;
 }
