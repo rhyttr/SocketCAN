@@ -359,7 +359,7 @@ static void ems_pcmcia_config(struct pcmcia_device *dev)
 	req.AccessSpeed = 0;
 
 	csval = pcmcia_request_window(&dev, &req, &dev->win);
-	if (csval != CS_SUCCESS) {
+	if (csval) {
 		cs_error(dev, RequestWindow, csval);
 		return;
 	}
@@ -368,20 +368,20 @@ static void ems_pcmcia_config(struct pcmcia_device *dev)
 	mem.CardOffset = dev->conf.ConfigBase;
 
 	csval = pcmcia_map_mem_page(dev->win, &mem);
-	if (csval != CS_SUCCESS) {
+	if (csval) {
 		cs_error(dev, MapMemPage, csval);
 		return;
 	}
 
 	csval = pcmcia_request_irq(dev, &dev->irq);
-	if (csval != CS_SUCCESS) {
+	if (csval) {
 		cs_error(dev, RequestIRQ, csval);
 		return;
 	}
 
 	/* This actually configures the PCMCIA socket */
 	csval = pcmcia_request_configuration(dev, &dev->conf);
-	if (csval != CS_SUCCESS) {
+	if (csval) {
 		cs_error(dev, RequestConfiguration, csval);
 		return;
 	}
