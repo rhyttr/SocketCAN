@@ -782,7 +782,7 @@ static void mcp251x_tx_work_handler(struct work_struct *ws)
 	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
 						 tx_work);
 	struct spi_device *spi = priv->spi;
-	struct can_frame *frame;;
+	struct can_frame *frame;
 
 	dev_dbg(&spi->dev, "%s\n", __func__);
 
