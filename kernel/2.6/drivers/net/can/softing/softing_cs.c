@@ -173,7 +173,7 @@ dev_config(struct pcmcia_device *pcmcia, struct softing_cs *csdev)
 
 	/* get current Vcc */
 	ret = pcmcia_get_configuration_info(pcmcia, &config);
-	if (ret != CS_SUCCESS)
+	if (ret)
 		goto cs_failed;
 
 	cf = &cfg.parse.cftable_entry;
@@ -239,7 +239,7 @@ dev_config(struct pcmcia_device *pcmcia, struct softing_cs *csdev)
 			}
 			/* reserve IO, but don't enable it. */
 			ret = pcmcia_request_io(pcmcia, &csdev->io);
-			if (ret != CS_SUCCESS) {
+			if (ret) {
 				mod_alert("pcmcia_request_io() mismatch\n");
 				goto do_next;
 			}
@@ -258,7 +258,7 @@ dev_config(struct pcmcia_device *pcmcia, struct softing_cs *csdev)
 				req.Size = 0x1000;
 			req.AccessSpeed = 0;
 			ret = pcmcia_request_window(&pcmcia, &req, &csdev->win);
-			if (ret != CS_SUCCESS) {
+			if (ret) {
 				mod_alert("pcmcia_request_window() mismatch\n");
 				goto do_next;
 			}
