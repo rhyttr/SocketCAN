@@ -687,6 +687,22 @@ static void mcp251x_hw_reset(struct spi_device *spi)
 	mdelay(10);
 }
 
+static int mcp251x_hw_probe(struct spi_device *spi)
+{
+	int st1, st2;
+
+	mcp251x_hw_reset(spi);
+
+	st1 = mcp251x_read_reg(spi, CANSTAT) & 0xEE;
+	st2 = mcp251x_read_reg(spi, CANCTRL) & 0x17;
+
+	dev_dbg(&spi->dev, "%s: 0x%02x - 0x%02x\n", __func__,
+		st1, st2);
+
+	/* check for power up default values */
+	return (st1 == 0x80 && st2 == 0x07) ? 1 : 0;
+}
+
 static int mcp251x_open(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
@@ -1086,7 +1102,10 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	}
 	disable_irq(spi->irq);
 
-	mcp251x_hw_reset(spi);
+	if (!mcp251x_hw_probe(spi)) {
+		dev_info(&spi->dev, "Probe failed\n");
+		goto error_probe;
+	}
 	mcp251x_hw_sleep(spi);
 
 	if (pdata->transceiver_enable)
@@ -1097,7 +1116,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 		dev_info(&spi->dev, "probed\n");
 		return ret;
 	}
-
+error_probe:
 	free_irq(spi->irq, net);
 error_irq:
 	if (!mcp251x_enable_dma)
