@@ -851,7 +851,7 @@ static int slcan_ioctl(struct tty_struct *tty, struct file *file,
 	case SIOCSIFHWADDR:
 		return -EINVAL;
 
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 	/* Allow stty to read, but not set, the serial port */
 	case TCGETS:
 	case TCGETA:
@@ -859,6 +859,10 @@ static int slcan_ioctl(struct tty_struct *tty, struct file *file,
 
 	default:
 		return -ENOIOCTLCMD;
+#else
+	default:
+		return tty_mode_ioctl(tty, file, cmd, arg);
+#endif
 	}
 }
 
