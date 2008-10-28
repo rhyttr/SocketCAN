@@ -49,6 +49,7 @@
 #ifndef SJA1000DEV_H
 #define SJA1000DEV_H
 
+#include <linux/version.h>
 #include <linux/can/dev.h>
 #include <linux/can/platform/sja1000.h>
 
