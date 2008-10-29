@@ -73,7 +73,6 @@ struct softing {
 	} fw;
 	struct {
 		int nr;
-		int shared;
 		int requested;
 		struct tasklet_struct bh;
 		int svc_count;

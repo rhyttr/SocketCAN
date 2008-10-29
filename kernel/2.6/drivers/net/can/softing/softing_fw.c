@@ -616,7 +616,7 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 	card->dpram.info->bus_state2 = 0;
 	mod_info("ok for %s, %s/%s\n", card->bus[0]->netdev->name,
 		 card->bus[1]->netdev->name, card->id.name);
-	if (!card->irq.shared) {
+	if (card->desc->generation < 2) {
 		card->dpram.irq->to_host = 0;
 		/* flush the DPRAM caches */
 		wmb();

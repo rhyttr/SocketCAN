@@ -43,11 +43,8 @@
 #include "softing.h"
 
 struct softing_cs {
-	struct io_req_t  io ;
-	struct irq_req_t irq;
-	window_handle_t  win;
-	config_req_t	  conf;
 	struct softing	 softing;
+	win_req_t win;
 };
 #define softing2cs(x) container_of((x), struct softing_cs, softing)
 
@@ -136,233 +133,146 @@ static const __devinitdata struct lookup pcmcia_mem_attr[] = {
 	{ 0, 0, },
 };
 
-static int __devinit
-dev_config(struct pcmcia_device *pcmcia, struct softing_cs *csdev)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28)
+/* backported */
+struct pcmcia_cfg_mem {
+	tuple_t tuple;
+	cisparse_t parse;
+	u8 buf[256];
+	cistpl_cftable_entry_t dflt;
+};
+static int pcmcia_loop_config(struct pcmcia_device *p_dev,
+		       int	(*conf_check)	(struct pcmcia_device *p_dev,
+						 cistpl_cftable_entry_t *cfg,
+						 cistpl_cftable_entry_t *dflt,
+						 unsigned int vcc,
+						 void *priv_data),
+		       void *priv_data)
 {
+	struct pcmcia_cfg_mem *cfg_mem;
+
+	tuple_t *tuple;
+	int ret = -ENODEV;
+	unsigned int vcc;
+
+	cfg_mem = kzalloc(sizeof(*cfg_mem), GFP_KERNEL);
+	if (cfg_mem == NULL)
+		return -ENOMEM;
+
+	/* get the current Vcc setting */
+	vcc = p_dev->socket->socket.Vcc;
+
+	tuple = &cfg_mem->tuple;
+	tuple->TupleData = cfg_mem->buf;
+	tuple->TupleDataMax = sizeof(cfg_mem->buf)-1;
+	tuple->TupleOffset = 0;
+	tuple->DesiredTuple = CISTPL_CFTABLE_ENTRY;
+	tuple->Attributes = 0;
+
+	ret = pcmcia_get_first_tuple(p_dev, tuple);
+	while (!ret) {
+		cistpl_cftable_entry_t *cfg = &cfg_mem->parse.cftable_entry;
+
+		if (pcmcia_get_tuple_data(p_dev, tuple))
+			goto next_entry;
+
+		if (pcmcia_parse_tuple(p_dev, tuple, &cfg_mem->parse))
+			goto next_entry;
+
+		/* default values */
+		p_dev->conf.ConfigIndex = cfg->index;
+		if (cfg->flags & CISTPL_CFTABLE_DEFAULT)
+			cfg_mem->dflt = *cfg;
+
+		ret = conf_check(p_dev, cfg, &cfg_mem->dflt, vcc, priv_data);
+		if (!ret)
+			break;
+
+next_entry:
+		ret = pcmcia_get_next_tuple(p_dev, tuple);
+	}
+	kfree(cfg_mem);
+	return ret;
+}
+#endif
+
+static int dev_conf_check(struct pcmcia_device *pdev,
+	cistpl_cftable_entry_t *cf, cistpl_cftable_entry_t *def_cf,
+	unsigned int vcc, void *priv_data)
+{
+	struct softing_cs *csdev = priv_data;
 	struct softing *sdev = &csdev->softing;
-	cistpl_cftable_entry_t *cf;
 	int ret;
-	int last_ret = 0;
-	int last_fn  = 0;
-	struct {
-		tuple_t tuple;
-		unsigned char buff[64];
-		cisparse_t parse;
-	} cfg;
-	config_info_t config;
-	cistpl_cftable_entry_t def_cf = { 0, };
-	win_req_t req;
-	memreq_t map;
 
-	mod_info("%s", pcmcia->devname);
-
-	cfg.tuple.Attributes		= 0;
-	cfg.tuple.TupleData		= (cisdata_t *)cfg.buff;
-	cfg.tuple.TupleDataMax	= sizeof(cfg.buff);
-	cfg.tuple.TupleOffset	= 0;
-	/* Get configuration register information */
-	cfg.tuple.DesiredTuple	= CISTPL_CONFIG;
-	if (pcmcia_get_first_tuple(pcmcia, &cfg.tuple))
-		goto cs_failed;
-	if (pcmcia_get_tuple_data(pcmcia, &cfg.tuple))
-		goto cs_failed;
-	if (pcmcia_parse_tuple(pcmcia, &cfg.tuple, &cfg.parse))
-		goto cs_failed;
-	csdev->conf.ConfigBase = cfg.parse.config.base;
-	csdev->conf.Present	  = cfg.parse.config.rmask[0];
-
-	/* get current Vcc */
-	ret = pcmcia_get_configuration_info(pcmcia, &config);
-	if (ret)
-		goto cs_failed;
-
-	cf = &cfg.parse.cftable_entry;
-	cfg.tuple.DesiredTuple	= CISTPL_CFTABLE_ENTRY;
-
-	if (pcmcia_get_first_tuple(pcmcia, &cfg.tuple))
-		goto cs_failed;
-	do {
-		if (pcmcia_get_tuple_data(pcmcia, &cfg.tuple)
-			|| pcmcia_parse_tuple(pcmcia, &cfg.tuple, &cfg.parse))
-			goto do_next;
-		if (cf->flags & CISTPL_CFTABLE_DEFAULT)
-			def_cf = *cf;
-		if (!cf->index)
-			goto do_next;
-		csdev->conf.ConfigIndex = cf->index;
-		/* power settings (Vcc & Vpp) */
-		if (cf->vcc.present & (1 << CISTPL_POWER_VNOM)) {
-			if (config.Vcc !=
-				cf->vcc.param[CISTPL_POWER_VNOM]/10000) {
-				mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
-				goto do_next;
-			}
-		} else if (def_cf.vcc.present & (1 << CISTPL_POWER_VNOM)) {
-			if (config.Vcc !=
-				def_cf.vcc.param[CISTPL_POWER_VNOM]/10000) {
-				mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
-				goto do_next;
-			}
-		}
-		if (cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
-			config.Vpp1
-				= config.Vpp2
-				= cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
-
-		else if (def_cf.vpp1.present & (1 << CISTPL_POWER_VNOM))
-			config.Vpp1
-				= config.Vpp2
-				= def_cf.vpp1.param[CISTPL_POWER_VNOM] / 10000;
-
-		/* interrupt ? */
-		if (cf->irq.IRQInfo1 || def_cf.irq.IRQInfo1)
-			csdev->conf.Attributes |= CONF_ENABLE_IRQ;
-		/* IO window */
-		csdev->io.NumPorts1
-			= csdev->io.NumPorts2
-			= 0;
-		if ((cf->io.nwin > 0) || (def_cf.io.nwin > 0)) {
-			cistpl_io_t *io = (cf->io.nwin) ? &cf->io : &def_cf.io;
-			csdev->io.Attributes1 = IO_DATA_PATH_WIDTH_AUTO;
-			if (!(io->flags & CISTPL_IO_8BIT))
-				csdev->io.Attributes1 = IO_DATA_PATH_WIDTH_16;
-			if (!(io->flags & CISTPL_IO_16BIT))
-				csdev->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
-			csdev->io.IOAddrLines
-				= io->flags & CISTPL_IO_LINES_MASK;
-			csdev->io.BasePort1 = io->win[0].base;
-			csdev->io.NumPorts1 = io->win[0].len ;
-			if (io->nwin > 1) {
-				csdev->io.Attributes2 = csdev->io.Attributes1;
-				csdev->io.BasePort2	 = io->win[1].base;
-				csdev->io.NumPorts2	 = io->win[1].base;
-			}
-			/* reserve IO, but don't enable it. */
-			ret = pcmcia_request_io(pcmcia, &csdev->io);
-			if (ret) {
-				mod_alert("pcmcia_request_io() mismatch\n");
-				goto do_next;
-			}
-		}
-		/* Memory window */
-		if ((cf->mem.nwin > 0) || (def_cf.mem.nwin > 0)) {
-			cistpl_mem_t *mem
-				= (cf->mem.nwin) ? &cf->mem : &def_cf.mem;
-			req.Attributes = ((sdev->desc->generation >= 2)
-					? WIN_DATA_WIDTH_16 : WIN_DATA_WIDTH_8)
-				| WIN_MEMORY_TYPE_CM
-				| WIN_ENABLE;
-			req.Base = mem->win[0].host_addr;
-			req.Size = mem->win[0].len;
-			if (req.Size < 0x1000)
-				req.Size = 0x1000;
-			req.AccessSpeed = 0;
-			ret = pcmcia_request_window(&pcmcia, &req, &csdev->win);
-			if (ret) {
-				mod_alert("pcmcia_request_window() mismatch\n");
-				goto do_next;
-			}
-			if (sdev->desc->generation < 2) {
-				csdev->win->ctl.flags
-					= MAP_ACTIVE | MAP_USE_WAIT;
-				csdev->win->ctl.speed = 3;
-			}
-			map.Page = 0;
-			map.CardOffset = mem->win[0].card_addr;
-			if (pcmcia_map_mem_page(csdev->win, &map)) {
-				mod_alert("pcmcia_map_mem_page() mismatch\n");
-				goto do_next_win;
-			}
-		} else {
-			mod_info("no memory window in tuple %u", cf->index);
+	if (!cf->index)
+		goto do_next;
+	/* power settings (Vcc & Vpp) */
+	if (cf->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+		if (vcc != cf->vcc.param[CISTPL_POWER_VNOM]/10000) {
+			mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
 			goto do_next;
 		}
-		break;
-do_next_win:
-		pcmcia_release_window(csdev->win);
-do_next:
-		pcmcia_disable_device(pcmcia);
-		if (pcmcia_get_next_tuple(pcmcia, &cfg.tuple))
-			goto cs_failed;
-	} while (1);
-
-	if (csdev->conf.Attributes & CONF_ENABLE_IRQ) {
-		/*csdev->irq.Handler  = dev_interrupt_nshared;
-		csdev->irq.Instance = card;
-		csdev->irq.Attributes |= IRQ_HANDLE_PRESENT;
-		*/
-		if (pcmcia_request_irq(pcmcia, &csdev->irq))
-			goto cs_failed;
-	}
-
-	if (pcmcia_request_configuration(pcmcia, &csdev->conf))
-		goto cs_failed;
-
-	/* Finally, report what we've done */
-	printk(KERN_INFO "[%s] %s: index 0x%02x",
-			THIS_MODULE->name,
-			pcmcia->devname,
-			csdev->conf.ConfigIndex);
-	printk(", Vcc %d.%01d", config.Vcc/10, config.Vcc%10);
-	if (config.Vpp1)
-		printk(", Vpp %d.%d", config.Vpp1/10, config.Vpp1%10);
-	if (csdev->conf.Attributes & CONF_ENABLE_IRQ) {
-		printk(", irq %d", csdev->irq.AssignedIRQ);
-		sdev->irq.nr = csdev->irq.AssignedIRQ;
-	}
-	if (csdev->io.NumPorts1) {
-		int tmp;
-		const char *p;
-		printk(", io 0x%04x-0x%04x"
-				, pcmcia->io.BasePort1
-				, csdev->io.BasePort1+csdev->io.NumPorts1-1);
-		tmp = csdev->io.Attributes1;
-		if (tmp) {
-			do {
-				p = lookup_mask(pcmcia_io_attr, &tmp);
-				if (p)
-					printk(" %s", p);
-			} while (p);
+	} else if (def_cf->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+		if (vcc != def_cf->vcc.param[CISTPL_POWER_VNOM]/10000) {
+			mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
+			goto do_next;
 		}
 	}
-	if (csdev->io.NumPorts2) {
-		int tmp;
-		const char *p;
-		printk(" & 0x%04x-0x%04x"
-			, csdev->io.BasePort2
-			, csdev->io.BasePort2+csdev->io.NumPorts2-1);
-		tmp = csdev->io.Attributes2;
-		if (tmp)
-			do {
-				p = lookup_mask(pcmcia_io_attr, &tmp);
-				if (p)
-					printk(" %s", p);
-			} while (p);
+	if (cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
+		pdev->conf.Vpp
+			= cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+
+	else if (def_cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
+		pdev->conf.Vpp
+			= def_cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+
+	/* interrupt ? */
+	if (cf->irq.IRQInfo1 || def_cf->irq.IRQInfo1)
+		pdev->conf.Attributes |= CONF_ENABLE_IRQ;
+
+	/* IO window */
+	pdev->io.NumPorts1
+		= pdev->io.NumPorts2
+		= 0;
+	/* Memory window */
+	if ((cf->mem.nwin > 0) || (def_cf->mem.nwin > 0)) {
+		memreq_t map;
+		cistpl_mem_t *mem
+			= (cf->mem.nwin) ? &cf->mem : &def_cf->mem;
+		/* softing specific: choose 8 or 16bit access */
+		csdev->win.Attributes = ((sdev->desc->generation >= 2)
+				? WIN_DATA_WIDTH_16 : WIN_DATA_WIDTH_8)
+			| WIN_MEMORY_TYPE_CM
+			| WIN_ENABLE;
+		csdev->win.Base = mem->win[0].host_addr;
+		csdev->win.Size = mem->win[0].len;
+		csdev->win.AccessSpeed = 0;
+		ret = pcmcia_request_window(&pdev, &csdev->win, &pdev->win);
+		if (ret) {
+			mod_alert("pcmcia_request_window() mismatch\n");
+			goto do_next;
+		}
+		/* softing specific: choose slower access for old cards */
+		if (sdev->desc->generation < 2) {
+			pdev->win->ctl.flags
+				= MAP_ACTIVE | MAP_USE_WAIT;
+			pdev->win->ctl.speed = 3;
+		}
+		map.Page = 0;
+		map.CardOffset = mem->win[0].card_addr;
+		if (pcmcia_map_mem_page(pdev->win, &map)) {
+			mod_alert("pcmcia_map_mem_page() mismatch\n");
+			goto do_next_win;
+		}
+	} else {
+		mod_info("no memory window in tuple %u", cf->index);
+		goto do_next;
 	}
-	if (csdev->win) {
-		int tmp;
-		const char *p;
-		sdev->dpram.phys = req.Base;
-		sdev->dpram.size = req.Size;
-		printk(", mem 0x%08lx-0x%08lx"
-				, sdev->dpram.phys
-				, sdev->dpram.phys + sdev->dpram.size-1);
-		tmp = req.Attributes;
-		if (tmp)
-			do {
-				p = lookup_mask(pcmcia_mem_attr, &tmp);
-				if (p)
-					printk(" %s", p);
-			} while (p);
-	}
-	printk("\n");
 	return 0;
-
-cs_failed:
-	cs_error(pcmcia, last_fn, last_ret);
-	pcmcia_release_window(csdev->win);
-	pcmcia_disable_device(pcmcia);
-	return EINVAL;
+do_next_win:
+do_next:
+	pcmcia_disable_device(pdev);
+	return -ENODEV;
 }
 
 static void driver_remove(struct pcmcia_device *pcmcia)
@@ -372,7 +282,6 @@ static void driver_remove(struct pcmcia_device *pcmcia)
 	mod_trace("%s,device'%s'", card->id.name, pcmcia->devname);
 	rm_softing(card);
 	/* release pcmcia stuff */
-	pcmcia_release_window(cs->win);
 	pcmcia_disable_device(pcmcia);
 	/* free bits */
 	kfree(cs);
@@ -382,22 +291,21 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 {
 	struct softing_cs *cs;
 	struct softing		*card;
-	int ret = 0;
 
 	mod_trace("on %s", pcmcia->devname);
 
 	/* Create new softing device */
 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
-	if (!cs) {
-		ret = ENOMEM;
+	if (!cs)
 		goto no_mem;
-	}
+	/* setup links */
 	card = &cs->softing;
 	pcmcia->priv = card;
+	card->dev = &pcmcia->dev;
+	/* properties */
 	card->id.manf = pcmcia->manf_id;
 	card->id.prod = pcmcia->card_id;
 	card->desc = softing_lookup_desc(card->id.manf, card->id.prod);
-	card->dev = &pcmcia->dev;
 	if (card->desc->generation >= 2) {
 		card->fn.reset = card_reset_via_dpram;
 	} else {
@@ -406,35 +314,67 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 	}
 
 	card->nbus = 2;
-	card->irq.shared = (card->desc->generation >= 2);
-	/* presets */
-	cs->irq.Attributes
-		= card->irq.shared
-		? IRQ_TYPE_DYNAMIC_SHARING : IRQ_TYPE_EXCLUSIVE;
-	cs->irq.IRQInfo1	 = IRQ_LEVEL_ID;
-	cs->irq.Handler	 = 0;
-	cs->conf.Attributes = 0;
-	cs->conf.IntType	  = INT_MEMORY_AND_IO;
+	/* pcmcia presets */
+	pcmcia->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+	pcmcia->irq.IRQInfo1 = IRQ_LEVEL_ID;
+	pcmcia->irq.Handler	= 0;
+	pcmcia->conf.Attributes = 0;
+	pcmcia->conf.IntType = INT_MEMORY_AND_IO;
 
-	ret = dev_config(pcmcia, cs);
-	if (ret)
+	if (pcmcia_loop_config(pcmcia, dev_conf_check, cs))
 		goto config_failed;
+
+	if (pcmcia_request_irq(pcmcia, &pcmcia->irq))
+		goto config_failed;
+
+	if (pcmcia_request_configuration(pcmcia, &pcmcia->conf))
+		goto config_failed;
+
+	card->dpram.phys = cs->win.Base;
+	card->dpram.size = cs->win.Size;
 
 	if (card->dpram.size != 0x1000) {
 		mod_alert("dpram size 0x%lx mismatch\n", card->dpram.size);
 		goto wrong_dpram;
 	}
 
-	if (!mk_softing(card))
-		return 0;
-	/* else */
+	/* Finally, report what we've done */
+	printk(KERN_INFO "[%s] %s: index 0x%02x",
+			THIS_MODULE->name,
+			pcmcia->devname,
+			pcmcia->conf.ConfigIndex);
+	if (pcmcia->conf.Vpp)
+		printk(", Vpp %d.%d", pcmcia->conf.Vpp/10, pcmcia->conf.Vpp%10);
+	if (pcmcia->conf.Attributes & CONF_ENABLE_IRQ) {
+		printk(", irq %d", pcmcia->irq.AssignedIRQ);
+		card->irq.nr = pcmcia->irq.AssignedIRQ;
+	}
+	if (pcmcia->win) {
+		int tmp;
+		const char *p;
+		printk(", mem 0x%08lx-0x%08lx"
+			, card->dpram.phys
+			, card->dpram.phys + card->dpram.size-1);
+		tmp = cs->win.Attributes;
+		while (tmp) {
+			p = lookup_mask(pcmcia_mem_attr, &tmp);
+			if (p)
+				printk(" %s", p);
+		}
+	}
+	printk("\n");
+
+	if (mk_softing(card))
+		goto softing_failed;
+	return 0;
+
+softing_failed:
 wrong_dpram:
-	pcmcia_release_window(cs->win);
 config_failed:
 	kfree(cs);
 no_mem:
 	pcmcia_disable_device(pcmcia);
-	return ret ? ret : EINVAL;
+	return -ENODEV;
 }
 
 static struct pcmcia_device_id driver_ids[] = {

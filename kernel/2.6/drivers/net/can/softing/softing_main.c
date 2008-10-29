@@ -515,17 +515,14 @@ int softing_card_irq(struct softing *card, int enable)
 	if (!card->irq.requested && (card->irq.nr)) {
 		irqreturn_t(*fn) (int, void *);
 		unsigned int flags;
-		flags = IRQF_DISABLED;	/*| IRQF_TRIGGER_LOW; */
+		flags = IRQF_DISABLED | IRQF_SHARED;/*| IRQF_TRIGGER_LOW; */
 		fn = dev_interrupt_nshared;
-		if (card->irq.shared) {
-			flags |= IRQF_SHARED;
+		if (card->desc->generation >= 2)
 			fn = dev_interrupt_shared;
-		}
 		ret = request_irq(card->irq.nr, fn, flags, card->id.name, card);
 		if (ret) {
-			mod_alert("%s, request_irq(%u) failed, %s shared"
+			mod_alert("%s, request_irq(%u) failed"
 				, card->id.name, card->irq.nr
-				, (card->irq.shared ? "" : "not")
 				);
 			return ret;
 		}
