@@ -199,7 +199,7 @@ static int __devinit ixxat_pci_init_one(struct pci_dev *pdev,
 		goto failure_iounmap;
 
 	/* Check if second channel is available */
-	if (readb(base_addr + CHANNEL_OFFSET + REG_MOD) == 0x21 &&
+	if ((readb(base_addr + CHANNEL_OFFSET + REG_MOD) & 0xa1) == 0x21 &&
 	    readb(base_addr + CHANNEL_OFFSET + REG_SR) == 0x0c &&
 	    readb(base_addr + CHANNEL_OFFSET + REG_IR) == 0xe0) {
 		board->dev[1] = ixxat_pci_add_chan(pdev,
