@@ -20,6 +20,7 @@ export CONFIG_CAN_MCP251X=m
 export CONFIG_CAN=m
 export CONFIG_CAN_RAW=m
 export CONFIG_CAN_BCM=m
+export CONFIG_CAN_ISOTP=m
 
 modules modules_install clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@ TOPDIR=$(TOPDIR)

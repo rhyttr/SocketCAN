@@ -14,6 +14,7 @@ modules modules_install clean:
 export CONFIG_CAN=m
 export CONFIG_CAN_RAW=m
 export CONFIG_CAN_BCM=m
+export CONFIG_CAN_ISOTP=m
 
 else
 
@@ -27,5 +28,8 @@ can-raw-objs		:= raw.o
 
 obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
 can-bcm-objs		:= bcm.o
+
+obj-$(CONFIG_CAN_ISOTP)	+= can-isotp.o
+can-isotp-objs		:= isotp.o
 
 endif
