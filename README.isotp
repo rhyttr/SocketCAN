@@ -122,7 +122,7 @@ Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
 
   CAN IDs and addresses are given and expected in hexadecimal values.
 
-  Example (dump CAN Frames on Host2):
+  Example (dump CAN Frames on Host1):
   isotpdump -s 123 -d 321 -c -ta can1
 
 
@@ -146,7 +146,7 @@ Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
 
   CAN IDs and addresses are given and expected in hexadecimal values.
 
-  Example (dump reassembled ISO-TP PDUs on Host2):
+  Example (dump reassembled ISO-TP PDUs on Host1):
   isotpsniffer -s 123 -d 321 -c -ta can1
 
 
