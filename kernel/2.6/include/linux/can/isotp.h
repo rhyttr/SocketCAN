@@ -3,7 +3,7 @@
  *
  * Definitions for isotp CAN sockets
  *
- * $Id: isotp.h 817 2008-08-21 11:36:10Z hartko $
+ * $Id$
  *
  * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
  * Copyright (c) 2008 Volkswagen Group Electronic Research

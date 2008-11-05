@@ -73,7 +73,7 @@
 #endif
 
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
-RCSID("$Id: isotp.c 825 2008-09-02 07:55:11Z hartko $");
+RCSID("$Id$");
 
 #define CAN_ISOTP_VERSION "20080902-alpha"
 static __initdata const char banner[] =
