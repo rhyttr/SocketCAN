@@ -75,9 +75,9 @@ RCSID("$Id$");
 #define BTR1_SET_SAM(sam)	(((sam) & 1) << BTR1_SAM_SHIFT)
 
 static struct can_bittiming_const mscan_bittiming_const = {
-	.tseg1_min = 1,
+	.tseg1_min = 4,
 	.tseg1_max = 16,
-	.tseg2_min = 1,
+	.tseg2_min = 2,
 	.tseg2_max = 8,
 	.sjw_max = 4,
 	.brp_min = 1,
