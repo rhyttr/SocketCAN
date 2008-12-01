@@ -79,8 +79,9 @@ RCSID("$Id$");
 		     (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
 		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
+#define CAN_BCM_VERSION CAN_VERSION
 static __initdata const char banner[] = KERN_INFO
-	"can: broadcast manager protocol (" CAN_VERSION_STRING ")\n";
+	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
 
 MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 MODULE_LICENSE("Dual BSD/GPL");
