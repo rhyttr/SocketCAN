@@ -75,12 +75,12 @@ RCSID("$Id$");
 #define BCM_CAN_DLC_MASK 0x0F /* clean private flags in can_dlc by masking */
 
 /* get best masking value for can_rx_register() for a given single can_id */
-#define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
-			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
+#define REGMASK(id) ((id & CAN_EFF_FLAG) ? \
+		     (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
+		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
-#define CAN_BCM_VERSION "20080415"
 static __initdata const char banner[] = KERN_INFO
-	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
+	"can: broadcast manager protocol (" CAN_VERSION_STRING ")\n";
 
 MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 MODULE_LICENSE("Dual BSD/GPL");

@@ -75,7 +75,7 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define CAN_ISOTP_VERSION "20080902-alpha"
+#define CAN_ISOTP_VERSION "20081130-alpha"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION ")\n";
 
@@ -92,8 +92,9 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 #undef DBG
 #define DBG(fmt, args...) 
 
-#define SINGLE_MASK(id) (id & CAN_EFF_FLAG) ? \
-	(CAN_EFF_MASK|CAN_EFF_FLAG) : CAN_SFF_MASK
+#define SINGLE_MASK(id) ((id & CAN_EFF_FLAG) ? \
+			 (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
+			 (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
 /* N_PCI type values in bits 7-4 of N_PCI bytes */
 #define N_PCI_SF 0x00	/* single frame */
@@ -814,6 +815,10 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		return -EINVAL;
 
 	if (addr->can_addr.tp.rx_id == addr->can_addr.tp.tx_id)
+		return -EADDRNOTAVAIL;
+
+	if ((addr->can_addr.tp.rx_id | addr->can_addr.tp.tx_id) &
+	    (CAN_ERR_FLAG | CAN_RTR_FLAG))
 		return -EADDRNOTAVAIL;
 
 	if (!addr->can_ifindex)
