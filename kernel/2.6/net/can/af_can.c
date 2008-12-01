@@ -450,10 +450,10 @@ static struct hlist_head *find_rcv_list(canid_t *can_id, canid_t *mask,
 
 	/* extra filterlists for the subscription of a single non-RTR can_id */
 	if (((*mask & CAN_EFF_RTR_FLAGS) == CAN_EFF_RTR_FLAGS)
-	    && !(*can_id & CAN_RTR_FLAG)){
+	    && !(*can_id & CAN_RTR_FLAG)) {
 
 		if (*can_id & CAN_EFF_FLAG) {
-			if (*mask == (CAN_EFF_MASK | CAN_EFF_RTR_FLAGS)){
+			if (*mask == (CAN_EFF_MASK | CAN_EFF_RTR_FLAGS)) {
 				/* RFC: a future use-case for hash-tables? */
 				return &d->rx[RX_EFF];
 			}
