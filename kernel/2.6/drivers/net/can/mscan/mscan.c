@@ -402,7 +402,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 #ifdef DEBUG
 			for (i = 0;
 			     i < frame->can_dlc && !(frame->can_id &
-						     CAN_FLAG_RTR); i++)
+						     CAN_RTR_FLAG); i++)
 				printk(KERN_DEBUG "%2x ", frame->data[i]);
 			printk(KERN_DEBUG "\n");
 #endif
