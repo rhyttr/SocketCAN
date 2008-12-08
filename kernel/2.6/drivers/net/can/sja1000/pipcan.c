@@ -88,6 +88,7 @@ static int __init pc_probe(struct platform_device *pdev)
 	dev->base_addr = res->start;
 
 	dev_set_drvdata(&pdev->dev, dev);
+	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	/* deactivate RST */
 	outb(inb(PIPCAN_RST) & ~0x01, PIPCAN_RST);
@@ -166,6 +167,7 @@ static int __init pc_init(void)
 	}
 
 	/* fill in resources */
+	memset(&r, 0, sizeof(r));
 	r[0].start = addr;
 	r[0].end = addr + PIPCAN_IOSIZE - 1;
 	r[0].name = DRV_NAME;
