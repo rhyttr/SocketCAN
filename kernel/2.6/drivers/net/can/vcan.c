@@ -176,15 +176,20 @@ static struct net_device_stats *vcan_get_stats(struct net_device *dev)
 	return stats;
 }
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
+static const struct net_device_ops vcan_netdev_ops = {
+	.ndo_start_xmit = vcan_tx,
+};
+#endif
 
 static void vcan_setup(struct net_device *dev)
 {
-	dev->type              = ARPHRD_CAN;
-	dev->mtu               = sizeof(struct can_frame);
-	dev->hard_header_len   = 0;
-	dev->addr_len          = 0;
-	dev->tx_queue_len      = 0;
-	dev->flags             = IFF_NOARP;
+	dev->type		= ARPHRD_CAN;
+	dev->mtu		= sizeof(struct can_frame);
+	dev->hard_header_len	= 0;
+	dev->addr_len		= 0;
+	dev->tx_queue_len	= 0;
+	dev->flags		= IFF_NOARP;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #define IFF_ECHO IFF_LOOPBACK
@@ -193,19 +198,23 @@ static void vcan_setup(struct net_device *dev)
 	if (echo)
 		dev->flags |= IFF_ECHO;
 
-	dev->hard_start_xmit   = vcan_tx;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
+	dev->netdev_ops		= &vcan_netdev_ops;
+#else
+	dev->hard_start_xmit	= vcan_tx;
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	dev->destructor        = free_netdev;
+	dev->destructor		= free_netdev;
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-	dev->get_stats         = vcan_get_stats;
+	dev->get_stats		= vcan_get_stats;
 #endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 static struct rtnl_link_ops vcan_link_ops __read_mostly = {
-       .kind           = "vcan",
-       .setup          = vcan_setup,
+	.kind	= "vcan",
+	.setup	= vcan_setup,
 };
 
 static __init int vcan_init_module(void)
