@@ -646,17 +646,12 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
 				  &err);
-	if (!skb) {
-		dev_put(dev);
-		return err;
-	}
+	if (!skb)
+		goto put_dev;
 
 	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-	if (err < 0) {
-		kfree_skb(skb);
-		dev_put(dev);
-		return err;
-	}
+	if (err < 0)
+		goto free_skb;
 	skb->dev = dev;
 	skb->sk  = sk;
 
@@ -665,9 +660,16 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	dev_put(dev);
 
 	if (err)
-		return err;
+		goto send_failed;
 
 	return size;
+
+free_skb:
+	kfree_skb(skb);
+put_dev:
+	dev_put(dev);
+send_failed:
+	return err;
 }
 
 static int raw_recvmsg(struct socket *sock, struct msghdr *msg, int size,
