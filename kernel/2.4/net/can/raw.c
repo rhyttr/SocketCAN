@@ -640,6 +640,9 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 	} else
 		ifindex = ro->ifindex;
 
+	if (size != sizeof(struct can_frame))
+		return -EINVAL;
+
 	dev = dev_get_by_index(&init_net, ifindex);
 	if (!dev)
 		return -ENXIO;

@@ -42,7 +42,13 @@ static inline void setup_timer(struct timer_list * timer,
 #define sk_refcnt		refcnt
 
 /* Force a compilation error if condition is true */
+#ifndef BUILD_BUG_ON
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
+#endif
+
+#ifndef BUG_ON
+#define BUG_ON(condition) do { if (unlikely((condition)!=0)) BUG(); } while(0)
+#endif
 
 #undef container_of
 /*

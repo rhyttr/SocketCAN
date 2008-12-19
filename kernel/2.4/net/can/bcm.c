@@ -66,8 +66,9 @@ RCSID("$Id$");
 #define BCM_CAN_DLC_MASK 0x0F /* clean private flags in can_dlc by masking */
 
 /* get best masking value for can_rx_register() for a given single can_id */
-#define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
-			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
+#define REGMASK(id) ((id & CAN_EFF_FLAG) ? \
+		     (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
+		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
 #define CAN_BCM_VERSION CAN_VERSION
 static __initdata const char banner[] = KERN_INFO
@@ -333,7 +334,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 
 	if (head->nframes) {
 		/* can_frames starting here */
-		firstframe = (struct can_frame *) skb->tail;
+		firstframe = (struct can_frame *)skb->tail;
 
 		memcpy(skb_put(skb, datalen), frames, datalen);
 
@@ -826,6 +827,10 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		for (i = 0; i < msg_head->nframes; i++) {
 			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
+
+			if (op->frames[i].can_dlc > 8)
+				err = -EINVAL;
+
 			if (err < 0)
 				return err;
 
@@ -858,6 +863,10 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		for (i = 0; i < msg_head->nframes; i++) {
 			err = memcpy_fromiovec((u8 *)&op->frames[i],
 					       msg->msg_iov, CFSIZ);
+
+			if (op->frames[i].can_dlc > 8)
+				err = -EINVAL;
+
 			if (err < 0) {
 				if (op->frames != &op->sframe)
 					kfree(op->frames);
@@ -1169,8 +1178,11 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
 
 	skb->dev = dev;
 	skb->sk  = sk;
-	can_send(skb, 1); /* send with loopback */
+	err = can_send(skb, 1); /* send with loopback */
 	dev_put(dev);
+
+	if (err)
+		return err;
 
 	return CFSIZ + MHSIZ;
 }
@@ -1189,6 +1201,10 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	if (!bo->bound)
 		return -ENOTCONN;
+
+	/* check for valid message length from userspace */
+	if (size < MHSIZ || (size - MHSIZ) % CFSIZ)
+		return -EINVAL;
 
 	/* check for alternative ifindex for this bcm_op */
 
@@ -1264,8 +1280,8 @@ static int bcm_sendmsg(struct socket *sock, struct msghdr *msg, int size,
 		break;
 
 	case TX_SEND:
-		/* we need at least one can_frame */
-		if (msg_head.nframes < 1)
+		/* we need exactly one can_frame behind the msg head */
+		if ((msg_head.nframes != 1) || (size != CFSIZ + MHSIZ))
 			ret = -EINVAL;
 		else
 			ret = bcm_tx_send(msg, ifindex, sk);
