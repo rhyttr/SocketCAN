@@ -79,6 +79,11 @@ MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+#error This code only supports Kernel versions _below_ 2.6.22
+#error For 2.6.22+ Kernels please use bcm.c instead of bcm-prior-2-6-22.c
+#endif
+
 /* easy access to can_frame payload */
 static inline u64 GET_U64(const struct can_frame *cp)
 {
