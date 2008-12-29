@@ -635,13 +635,14 @@ static enum hrtimer_restart bcm_rx_thr_handler(struct hrtimer *hrtimer)
 {
 	struct bcm_op *op = container_of(hrtimer, struct bcm_op, thrtimer);
 
+	tasklet_schedule(&op->thrtsklet);
+
 	if (bcm_rx_thr_flush(op, 0)) {
-		tasklet_schedule(&op->thrtsklet);
 		hrtimer_forward(hrtimer, ktime_get(), op->kt_ival2);
 		return HRTIMER_RESTART;
 	} else {
 		/* rearm throttle handling */
-		op->kt_lastmsg = ktime_get();
+		op->kt_lastmsg = ktime_set(0, 0);
 		return HRTIMER_NORESTART;
 	}
 }
