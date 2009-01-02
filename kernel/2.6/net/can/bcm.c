@@ -371,7 +371,7 @@ static void bcm_tx_timeout_tsklet(unsigned long data)
 	msg_head.nframes = 0;
 
 	bcm_send_to_user(op, &msg_head, NULL, 0);
-} 
+}
 
 /*
  * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
@@ -558,7 +558,7 @@ static void bcm_rx_timeout_tsklet(unsigned long data)
 	msg_head.nframes = 0;
 
 	bcm_send_to_user(op, &msg_head, NULL, 0);
-} 
+}
 
 /*
  * bcm_rx_timeout_handler - when the (cyclic) CAN frame receiption timed out
@@ -625,7 +625,7 @@ static void bcm_rx_thr_tsklet(unsigned long data)
 
 	/* push the changed data to the userspace */
 	bcm_rx_thr_flush(op, 1);
-} 
+}
 
 /*
  * bcm_rx_thr_handler - the time for blocked content updates is over now:
