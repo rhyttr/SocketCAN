@@ -117,7 +117,7 @@ static void raw_rcv(struct sk_buff *skb, void *data)
 	struct sockaddr_can *addr;
 
 	/* check the received tx sock reference */
-	if ((!ro->recv_own_msgs) && (skb->sk == sk))
+	if (!ro->recv_own_msgs && skb->sk == sk)
 		return;
 
 	/* clone the given skb to be able to enqueue it into the rcv queue */
