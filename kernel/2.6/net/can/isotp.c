@@ -466,20 +466,16 @@ static void isotp_rcv(struct sk_buff *skb, void *data)
 	cf = (struct can_frame *) skb->data;
 
 	/* if enabled: check receiption of my configured extended address */
-	if (ae && cf->data[0] != so->opt.ext_address) {
-		kfree_skb(skb);
+	if (ae && cf->data[0] != so->opt.ext_address)
 		return;
-	}
 
 	n_pci_type = cf->data[ae] & 0xF0;
 
 	if (so->opt.flags & CAN_ISOTP_HALF_DUPLEX) {
 		/* check rx/tx path half duplex expectations */
 		if ((so->tx.state != ISOTP_IDLE && n_pci_type != N_PCI_FC) ||
-		    (so->rx.state != ISOTP_IDLE && n_pci_type == N_PCI_FC)) {
-			kfree_skb(skb);
+		    (so->rx.state != ISOTP_IDLE && n_pci_type == N_PCI_FC))
 			return;
-		}
 	}
 
 	switch (n_pci_type) {
@@ -503,8 +499,6 @@ static void isotp_rcv(struct sk_buff *skb, void *data)
 		isotp_rcv_cf(sk, cf, ae, skb);
 		break;
 	}
-
-	kfree_skb(skb);
 }
 
 static void isotp_fill_dataframe(struct can_frame *cf, struct isotp_sock *so,
