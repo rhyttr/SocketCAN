@@ -48,7 +48,7 @@ void softing_flush_echo_skb(struct softing_priv *priv)
 /*no locks are grabbed, so be sure to have the spin spinlock*/
 static int netdev_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	struct softing_priv *priv = (struct softing_priv *)dev->priv;
+	struct softing_priv *priv = (struct softing_priv *)netdev_priv(dev);
 	struct softing *card = priv->card;
 	int ret;
 	int bhlock;
