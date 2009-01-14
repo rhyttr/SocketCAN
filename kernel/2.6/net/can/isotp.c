@@ -75,9 +75,9 @@
 #include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define CAN_ISOTP_VERSION "20081130-alpha"
+#define CAN_ISOTP_VERSION CAN_VERSION
 static __initdata const char banner[] =
-	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION ")\n";
+	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
 
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -132,6 +132,7 @@ struct isotp_sock {
 	canid_t rxid;
 	ktime_t tx_gap;
 	struct hrtimer rxtimer, txtimer;
+	struct tasklet_struct txtsklet;
 	struct can_isotp_options opt;
 	struct can_isotp_fc_options rxfc, txfc;
 	struct tpcon rx, tx;
@@ -548,15 +549,13 @@ static void isotp_create_fframe(struct can_frame *cf, struct isotp_sock *so,
 	so->tx.state = ISOTP_WAIT_FIRST_FC;
 }
 
-static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
+static void isotp_tx_timer_tsklet(unsigned long data)
 {
-	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
-					     txtimer);
+	struct isotp_sock *so = (struct isotp_sock *)data;
 	struct sock *sk = &so->sk;
 	struct sk_buff *skb;
 	struct net_device *dev;
 	struct can_frame *cf;
-	enum hrtimer_restart ret;
 	int ae = (so->opt.flags & CAN_ISOTP_EXTEND_ADDR)? 1:0;
 
 	switch (so->tx.state) {
@@ -577,8 +576,6 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 		/* reset tx state */
 		so->tx.state = ISOTP_IDLE;
 		wake_up_interruptible(&so->wait);
-
-		ret = HRTIMER_NORESTART;
 		break;
 
 	case ISOTP_SENDING:
@@ -589,12 +586,12 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 
 		dev = dev_get_by_index(&init_net, so->ifindex);
 		if (!dev)
-			return HRTIMER_NORESTART;
+			break;
 
 		skb = alloc_skb(sizeof(*cf), gfp_any());
 		if (!skb) {
 			dev_put(dev);
-			return HRTIMER_NORESTART;
+			break;
 		}
 
 		cf = (struct can_frame *)skb->data;
@@ -618,25 +615,34 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 			DBG("we are done\n");
 			so->tx.state = ISOTP_IDLE;
 			wake_up_interruptible(&so->wait);
-			return HRTIMER_NORESTART;
+			break;
 		}
 
 		if (so->txfc.bs && so->tx.bs >= so->txfc.bs) {
 			/* stop and wait for FC */
 			DBG("BS stop and wait for FC\n");
 			so->tx.state = ISOTP_WAIT_FC;
-			hrtimer_forward(hrtimer, ktime_get(), ktime_set(1,0));
+			hrtimer_start(&so->txtimer,
+				      ktime_add(ktime_get(), ktime_set(1,0)),
+				      HRTIMER_MODE_ABS);
 		} else
-			hrtimer_forward(hrtimer, ktime_get(), so->tx_gap);
-
-		ret = HRTIMER_RESTART;
+			hrtimer_start(&so->txtimer,
+				      ktime_add(ktime_get(), so->tx_gap),
+				      HRTIMER_MODE_ABS);
 		break;
 
 	default:
 		BUG_ON(1);
 	}
+}
 
-	return ret;
+static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
+{
+	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
+					     txtimer);
+	tasklet_schedule(&so->txtsklet);
+
+	return HRTIMER_NORESTART;
 }
 
 static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
@@ -770,6 +776,7 @@ static int isotp_release(struct socket *sock)
 
 	hrtimer_cancel(&so->txtimer);
 	hrtimer_cancel(&so->rxtimer);
+	tasklet_kill(&so->txtsklet);
 
 	/* remove current filters & unregister */
 	if (so->bound) {
@@ -1043,6 +1050,8 @@ static int isotp_init(struct sock *sk)
 	so->rxtimer.function = isotp_rx_timer_handler;
 	hrtimer_init(&so->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	so->txtimer.function = isotp_tx_timer_handler;
+
+	tasklet_init(&so->txtsklet, isotp_tx_timer_tsklet, (unsigned long)so);
 
 	init_waitqueue_head(&so->wait);
 
