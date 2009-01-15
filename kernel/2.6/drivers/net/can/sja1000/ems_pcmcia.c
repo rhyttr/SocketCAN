@@ -257,6 +257,7 @@ static int __devinit ems_pcmcia_add_card(struct pcmcia_device *pdev,
 		card->net_dev[i] = dev;
 		priv = netdev_priv(dev);
 		priv->priv = card;
+		SET_NETDEV_DEV(dev, &pdev->dev);
 
 		dev->irq = pdev->irq.AssignedIRQ;
 		dev->base_addr = (unsigned long)(card->base_addr
