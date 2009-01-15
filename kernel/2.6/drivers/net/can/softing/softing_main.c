@@ -209,7 +209,11 @@ static int softing_dev_svc_once(struct softing *card)
 		if (cmd & CMD_BUS2)
 			bus = card->bus[1];
 
-		stats = bus->netdev->get_stats(bus->netdev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+		stats = can_get_stats(bus->netdev);
+#else
+		stats = &bus->netdev->stats;
+#endif
 		if (cmd & CMD_ERR) {
 			u8 can_state;
 			u8 state;

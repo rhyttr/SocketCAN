@@ -198,6 +198,16 @@ static struct net_device* can_create_netdev(int dev_num, int hw_regs);
 static int  can_set_drv_name(void);
 int set_reset_mode(struct net_device *dev);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+static struct net_device_stats *can_get_stats(struct net_device *dev)
+{
+	struct can_priv *priv = netdev_priv(dev);
+
+	/* TODO: read statistics from chip */
+	return &priv->stats;
+}
+#endif
+
 static int sja1000_probe_chip(unsigned long base)
 {
 	if (base && (hw_readreg(base, 0) == 0xFF)) {
@@ -497,7 +507,11 @@ static void chipset_init_trx(struct net_device *dev)
 static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct can_priv  *priv	= netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cf	= (struct can_frame*)skb->data;
 	unsigned long base	= dev->base_addr;
 	uint8_t	fi;
@@ -589,7 +603,11 @@ static int can_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void can_tx_timeout(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 
 	stats->tx_errors++;
 
@@ -669,7 +687,11 @@ static void can_restart_now(struct net_device *dev)
 
 static void can_rx(struct net_device *dev)
 {
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	unsigned long base = dev->base_addr;
 	struct can_frame *cf;
 	struct sk_buff	*skb;
@@ -727,16 +749,6 @@ static void can_rx(struct net_device *dev)
 	stats->rx_bytes += dlc;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-static struct net_device_stats *can_get_stats(struct net_device *dev)
-{
-	struct can_priv *priv = netdev_priv(dev);
-
-	/* TODO: read statistics from chip */
-	return &priv->stats;
-}
-#endif
-
 /*
  * SJA1000 interrupt handler
  */
@@ -748,7 +760,11 @@ static irqreturn_t can_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev	= (struct net_device*)dev_id;
 	struct can_priv *priv	= netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	unsigned long base	= dev->base_addr;
 	uint8_t isrc, status, ecc, alc;
 	int n = 0;
@@ -1028,9 +1044,6 @@ void can_netdev_setup(struct net_device *dev)
 	dev->open			= can_open;
 	dev->stop			= can_close;
 	dev->hard_start_xmit		= can_start_xmit;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-	dev->get_stats			= can_get_stats;
-#endif
 
 	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;

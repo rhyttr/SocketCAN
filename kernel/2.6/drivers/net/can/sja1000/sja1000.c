@@ -361,7 +361,11 @@ static void chipset_init(struct net_device *dev)
 static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cf = (struct can_frame *)skb->data;
 	uint8_t fi;
 	uint8_t dlc;
@@ -408,7 +412,11 @@ static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
 static void sja1000_rx(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cf;
 	struct sk_buff *skb;
 	uint8_t fi;
@@ -468,7 +476,11 @@ static int sja1000_err(struct net_device *dev,
 		       uint8_t isrc, uint8_t status, int n)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cf;
 	struct sk_buff *skb;
 	enum can_state state = priv->can.state;
@@ -609,7 +621,11 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	uint8_t isrc, status;
 	int n = 0;
 

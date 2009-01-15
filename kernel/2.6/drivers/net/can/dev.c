@@ -233,12 +233,13 @@ int can_set_bittiming(struct net_device *dev)
 EXPORT_SYMBOL(can_set_bittiming);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-static struct net_device_stats *can_get_stats(struct net_device *dev)
+struct net_device_stats *can_get_stats(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 
 	return &priv->net_stats;
 }
+EXPORT_SYMBOL(can_get_stats);
 #endif
 
 static void can_setup(struct net_device *dev)
@@ -252,9 +253,6 @@ static void can_setup(struct net_device *dev)
 	/* New-style flags. */
 	dev->flags = IFF_NOARP;
 	dev->features = NETIF_F_NO_CSUM;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-	dev->get_stats = can_get_stats;
-#endif
 }
 
 /*
@@ -303,7 +301,11 @@ void can_flush_echo_skb(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 #ifdef FIXME
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 #endif
 	int i;
 
@@ -379,7 +381,11 @@ EXPORT_SYMBOL(can_get_echo_skb);
 int can_restart_now(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct sk_buff *skb;
 	struct can_frame *cf;
 	int err;

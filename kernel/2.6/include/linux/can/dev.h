@@ -127,6 +127,10 @@ struct can_priv {
 #define IFF_ECHO IFF_LOOPBACK
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+struct net_device_stats *can_get_stats(struct net_device *dev);
+#endif
+
 struct net_device *alloc_candev(int sizeof_priv);
 void free_candev(struct net_device *dev);
 

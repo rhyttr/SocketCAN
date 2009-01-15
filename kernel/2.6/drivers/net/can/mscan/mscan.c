@@ -345,7 +345,11 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 	int quota = min(dev->quota, *budget);
 #endif
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	int npackets = 0;
 	int ret = 1;
 	struct sk_buff *skb;
@@ -495,7 +499,11 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
-	struct net_device_stats *stats = dev->get_stats(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
+	struct net_device_stats *stats = &dev->stats;
+#endif
 	u8 cantier, cantflg, canrflg;
 	irqreturn_t ret = IRQ_NONE;
 

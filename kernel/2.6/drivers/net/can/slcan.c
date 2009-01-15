@@ -162,6 +162,17 @@ struct slcan {
 
 static struct net_device **slcan_devs;
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+/* Netdevice get statistics request */
+static struct net_device_stats *slc_get_stats(struct net_device *dev)
+{
+	struct slcan *sl = netdev_priv(dev);
+
+	return &sl->stats;
+}
+#endif
+
  /************************************************************************
   *			SLCAN ENCAPSULATION FORMAT		  	 *
   ************************************************************************/
@@ -219,7 +230,11 @@ static int asc2nibble(char c)
 /* Send one completely decapsulated can_frame to the network layer */
 static void slc_bump(struct slcan *sl)
 {
-	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = slc_get_stats(sl->dev);
+#else
+	struct net_device_stats *stats = &sl->dev->stats;
+#endif
 	struct sk_buff *skb;
 	struct can_frame cf;
 	int i, dlc_pos, tmp;
@@ -288,7 +303,11 @@ static void slc_bump(struct slcan *sl)
 /* parse tty input stream */
 static void slcan_unesc(struct slcan *sl, unsigned char s)
 {
-	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = slc_get_stats(sl->dev);
+#else
+	struct net_device_stats *stats = &sl->dev->stats;
+#endif
 
 	if ((s == '\r') || (s == '\a')) { /* CR or BEL ends the pdu */
 		if (!test_and_clear_bit(SLF_ERROR, &sl->flags) &&
@@ -316,7 +335,11 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 /* Encapsulate one can_frame and stuff into a TTY queue. */
 static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 {
-	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = slc_get_stats(sl->dev);
+#else
+	struct net_device_stats *stats = &sl->dev->stats;
+#endif
 	int actual, idx, i;
 	char cmd;
 
@@ -371,7 +394,11 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 {
 	int actual;
 	struct slcan *sl = (struct slcan *) tty->disc_data;
-	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = slc_get_stats(sl->dev);
+#else
+	struct net_device_stats *stats = &sl->dev->stats;
+#endif
 
 	/* First make sure we're connected. */
 	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev))
@@ -495,25 +522,12 @@ static int slc_open(struct net_device *dev)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-/* Netdevice get statistics request */
-static struct net_device_stats *slc_get_stats(struct net_device *dev)
-{
-	struct slcan *sl = netdev_priv(dev);
-
-	return (&sl->stats);
-}
-#endif
-
 /* Netdevice register callback */
 static void slc_setup(struct net_device *dev)
 {
 	dev->open		= slc_open;
 	dev->destructor		= free_netdev;
 	dev->stop		= slc_close;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-	dev->get_stats	        = slc_get_stats;
-#endif
 	dev->hard_start_xmit	= slc_xmit;
 
 	dev->hard_header_len	= 0;
@@ -556,7 +570,11 @@ static void slcan_receive_buf(struct tty_struct *tty,
 			      const unsigned char *cp, char *fp, int count)
 {
 	struct slcan *sl = (struct slcan *) tty->disc_data;
-	struct net_device_stats *stats = sl->dev->get_stats(sl->dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = slc_get_stats(sl->dev);
+#else
+	struct net_device_stats *stats = &sl->dev->stats;
+#endif
 
 	if (!sl || sl->magic != SLCAN_MAGIC ||
 	    !netif_running(sl->dev))
