@@ -1084,6 +1084,9 @@ void can_netdev_setup(struct net_device *dev)
 	dev->open			= can_open;
 	dev->stop			= can_close;
 	dev->hard_start_xmit		= can_start_xmit;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	dev->get_stats			= can_get_stats;
+#endif
 
 	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;

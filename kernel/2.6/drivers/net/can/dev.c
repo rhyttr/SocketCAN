@@ -253,6 +253,9 @@ static void can_setup(struct net_device *dev)
 	/* New-style flags. */
 	dev->flags = IFF_NOARP;
 	dev->features = NETIF_F_NO_CSUM;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	dev->get_stats = can_get_stats;
+#endif
 }
 
 /*

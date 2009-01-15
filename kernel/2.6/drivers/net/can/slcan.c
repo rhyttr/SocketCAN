@@ -528,6 +528,9 @@ static void slc_setup(struct net_device *dev)
 	dev->open		= slc_open;
 	dev->destructor		= free_netdev;
 	dev->stop		= slc_close;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	dev->get_stats		= slc_get_stats;
+#endif
 	dev->hard_start_xmit	= slc_xmit;
 
 	dev->hard_header_len	= 0;
