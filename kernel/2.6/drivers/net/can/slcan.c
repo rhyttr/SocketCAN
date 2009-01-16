@@ -694,7 +694,6 @@ static struct slcan *slc_alloc(dev_t line)
 		sl = netdev_priv(dev);
 		if (test_bit(SLF_INUSE, &sl->flags)) {
 			unregister_netdevice(dev);
-			free_netdev(dev); /* new in slcan.c */
 			dev = NULL;
 			slcan_devs[i] = NULL;
 		}
