@@ -782,7 +782,7 @@ int register_sja1000dev(struct net_device *dev)
 	priv->can.do_set_mode = sja1000_set_mode;
 	priv->dev = dev;
 
-	err = register_netdev(dev);
+	err = register_candev(dev);
 	if (err) {
 		printk(KERN_INFO
 		       "%s: registering netdev failed\n", DRV_NAME);
@@ -799,7 +799,7 @@ EXPORT_SYMBOL(register_sja1000dev);
 void unregister_sja1000dev(struct net_device *dev)
 {
 	set_reset_mode(dev);
-	unregister_netdev(dev);
+	unregister_candev(dev);
 }
 EXPORT_SYMBOL(unregister_sja1000dev);
 

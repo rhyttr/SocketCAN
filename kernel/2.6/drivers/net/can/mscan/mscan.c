@@ -719,7 +719,7 @@ int register_mscandev(struct net_device *dev, int clock_src)
 
 	mscan_set_mode(dev, MSCAN_INIT_MODE);
 
-	return register_netdev(dev);
+	return register_candev(dev);
 }
 EXPORT_SYMBOL(register_mscandev);
 
@@ -728,7 +728,7 @@ void unregister_mscandev(struct net_device *dev)
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 	mscan_set_mode(dev, MSCAN_INIT_MODE);
 	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_CANE);
-	unregister_netdev(dev);
+	unregister_candev(dev);
 }
 EXPORT_SYMBOL(unregister_mscandev);
 

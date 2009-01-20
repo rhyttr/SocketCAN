@@ -289,6 +289,30 @@ void free_candev(struct net_device *dev)
 }
 EXPORT_SYMBOL(free_candev);
 
+int register_candev(struct net_device *dev)
+{
+	int err;
+
+	err = register_netdev(dev);
+	if (err)
+		return err;
+
+#ifdef CONFIG_SYSFS
+	can_create_sysfs(dev);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(register_candev);
+
+void unregister_candev(struct net_device *dev)
+{
+#ifdef CONFIG_SYSFS
+	can_remove_sysfs(dev);
+#endif
+	unregister_netdev(dev);
+}
+EXPORT_SYMBOL(unregister_candev);
+
 /*
  * Local echo of CAN messages
  *
@@ -471,57 +495,15 @@ void can_close_cleanup(struct net_device *dev)
 }
 EXPORT_SYMBOL(can_close_cleanup);
 
-static int can_netdev_notifier_call(struct notifier_block *nb,
-				    unsigned long state,
-				    void *ndev)
-{
-	struct net_device *dev = ndev;
-
-	if (dev->type != ARPHRD_CAN)
-		return 0;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	/* omit virtual CAN software network devices */
-	if (dev->rtnl_link_ops) {
-		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
-		if (!strcmp(ops->kind, "vcan"))
-			return 0;
-	}
-#else
-	/* software CAN devices like 'vcan' do not have private data */
-	if (!dev->priv)
-		return 0;
-#endif
-
-	switch (state) {
-	case NETDEV_REGISTER:
-#ifdef CONFIG_SYSFS
-		can_create_sysfs(dev);
-#endif
-		break;
-	case NETDEV_UNREGISTER:
-#ifdef CONFIG_SYSFS
-		can_remove_sysfs(dev);
-#endif
-		break;
-	}
-	return 0;
-}
-
-static struct notifier_block can_netdev_notifier = {
-	.notifier_call = can_netdev_notifier_call,
-};
-
 static __init int can_dev_init(void)
 {
 	printk(KERN_INFO MOD_DESC "\n");
 
-	return register_netdevice_notifier(&can_netdev_notifier);
+	return 0;
 }
 module_init(can_dev_init);
 
 static __exit void can_dev_exit(void)
 {
-	unregister_netdevice_notifier(&can_netdev_notifier);
 }
 module_exit(can_dev_exit);

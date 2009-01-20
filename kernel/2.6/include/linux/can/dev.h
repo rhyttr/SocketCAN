@@ -133,6 +133,8 @@ struct net_device_stats *can_get_stats(struct net_device *dev);
 
 struct net_device *alloc_candev(int sizeof_priv);
 void free_candev(struct net_device *dev);
+int register_candev(struct net_device *dev);
+void unregister_candev(struct net_device *dev);
 
 int can_set_bittiming(struct net_device *dev);
 

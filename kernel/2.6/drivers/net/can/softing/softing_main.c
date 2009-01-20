@@ -900,7 +900,7 @@ static int reg_netdev(struct softing_priv *priv)
 {
 	int ret;
 	netif_carrier_off(priv->netdev);
-	ret = register_netdev(priv->netdev);
+	ret = register_candev(priv->netdev);
 	if (ret) {
 		mod_alert("%s, register failed", priv->card->id.name);
 		goto reg_failed;
@@ -912,7 +912,7 @@ static int reg_netdev(struct softing_priv *priv)
 	}
 	return 0;
 sysfs_failed:
-	unregister_netdev(priv->netdev);
+	unregister_candev(priv->netdev);
 reg_failed:
 	return EINVAL;
 }
@@ -920,7 +920,7 @@ reg_failed:
 static void unreg_netdev(struct softing_priv *priv)
 {
 	rm_netdev_sysfs(priv);
-	unregister_netdev(priv->netdev);
+	unregister_candev(priv->netdev);
 }
 
 void rm_softing(struct softing *card)

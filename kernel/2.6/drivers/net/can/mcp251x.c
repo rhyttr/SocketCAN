@@ -1111,7 +1111,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	if (pdata->transceiver_enable)
 		pdata->transceiver_enable(0);
 
-	ret = register_netdev(net);
+	ret = register_candev(net);
 	if (ret >= 0) {
 		dev_info(&spi->dev, "probed\n");
 		return ret;
@@ -1155,7 +1155,7 @@ static int __devexit mcp251x_can_remove(struct spi_device *spi)
 		kfree(priv->spi_rx_buf);
 	}
 
-	unregister_netdev(net);
+	unregister_candev(net);
 	free_candev(net);
 
 	if (pdata->power_enable)
