@@ -650,11 +650,7 @@ static int mscan_open(struct net_device *dev)
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	napi_enable(&priv->napi);
 #endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
-	ret = request_irq(dev->irq, mscan_isr, SA_SHIRQ, dev->name, dev);
-#else
-	ret = request_irq(dev->irq, mscan_isr, IRQF_SHARED, dev->name, dev);
-#endif
+	ret = request_irq(dev->irq, mscan_isr, 0, dev->name, dev);
 
 	if (ret < 0) {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
