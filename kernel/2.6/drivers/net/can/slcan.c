@@ -253,6 +253,9 @@ static void slc_bump(struct slcan *sl)
 
 	cf.can_dlc = sl->rbuff[dlc_pos] & 0x0F; /* get can_dlc */
 
+	if (cf.can_dlc > 8)
+		return;
+
 	sl->rbuff[dlc_pos] = 0; /* terminate can_id string */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
