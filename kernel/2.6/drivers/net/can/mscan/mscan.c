@@ -110,7 +110,9 @@ struct mscan_priv {
 
 	struct list_head tx_head;
 	struct tx_queue_entry tx_queue[TX_QUEUE_SIZE];
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	struct napi_struct napi;
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	struct napi_struct napi;
 	struct net_device *dev;
 #endif
@@ -228,7 +230,7 @@ static int mscan_start(struct net_device *dev)
 	return 0;
 }
 
-static int mscan_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct can_frame *frame = (struct can_frame *)skb->data;
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
@@ -337,7 +339,10 @@ static int mscan_rx_poll(struct napi_struct *napi, int quota)
 static int mscan_rx_poll(struct net_device *dev, int *budget)
 #endif
 {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	struct mscan_priv *priv = container_of(napi, struct mscan_priv, napi);
+	struct net_device *dev = napi->dev;
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	struct mscan_priv *priv = container_of(napi, struct mscan_priv, napi);
 	struct net_device *dev = priv->dev;
 #else
@@ -471,7 +476,9 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 #endif
 
 	if (!(in_8(&regs->canrflg) & (MSCAN_RXF | MSCAN_ERR_IF))) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+		netif_rx_complete(&priv->napi);
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 		netif_rx_complete(dev, &priv->napi);
 #else
 		netif_rx_complete(dev);
@@ -560,7 +567,9 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 		if (canrflg & ~MSCAN_STAT_MSK) {
 			priv->shadow_canrier = in_8(&regs->canrier);
 			out_8(&regs->canrier, 0);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+			netif_rx_schedule(&priv->napi);
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 			netif_rx_schedule(dev, &priv->napi);
 #else
 			netif_rx_schedule(dev);
@@ -689,6 +698,14 @@ static int mscan_close(struct net_device *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+static const struct net_device_ops mscan_netdev_ops = {
+       .ndo_open               = mscan_open,
+       .ndo_stop               = mscan_close,
+       .ndo_start_xmit         = mscan_start_xmit,
+};
+#endif
+
 int register_mscandev(struct net_device *dev, int clock_src)
 {
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
@@ -743,13 +760,19 @@ struct net_device *alloc_mscandev(void)
 		return NULL;
 	priv = netdev_priv(dev);
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	dev->netdev_ops = &mscan_netdev_ops;
+#else
 	dev->open = mscan_open;
 	dev->stop = mscan_close;
-	dev->hard_start_xmit = mscan_hard_start_xmit;
+	dev->hard_start_xmit = mscan_start_xmit;
+#endif
 
 	dev->flags |= IFF_ECHO;	/* we support local echo */
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	netif_napi_add(dev, &priv->napi, mscan_rx_poll, 8);
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	priv->dev = dev;
 	netif_napi_add(dev, &priv->napi, mscan_rx_poll, 8);
 #else
