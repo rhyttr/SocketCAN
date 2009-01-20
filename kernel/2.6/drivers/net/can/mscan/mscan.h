@@ -233,10 +233,12 @@ struct mscan_regs {
 
 #define MSCAN_WATCHDOG_TIMEOUT	((500*HZ)/1000)
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 struct mscan_platform_data {
 	u8 clock_src;		/* MSCAN_CLKSRC_BUS or MSCAN_CLKSRC_XTAL */
 	u32 clock_frq;		/* can ref. clock, in Hz */
 };
+#endif
 
 struct net_device *alloc_mscandev(void);
 /* @clock_src:
