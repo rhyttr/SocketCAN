@@ -98,7 +98,11 @@ struct bcm_op {
 	unsigned long frames_abs, frames_filtered;
 	struct timeval ival1, ival2;
 	struct timer_list timer, thrtimer;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14)
+	struct skb_timeval rx_stamp;
+#else
 	struct timeval rx_stamp;
+#endif
 	unsigned long j_ival1, j_ival2, j_lastmsg;
 	int rx_ifindex;
 	int count;
@@ -361,7 +365,7 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 
 	if (has_timestamp) {
 		/* restore rx timestamp */
-		skb_set_timestamp(skb, &op->rx_stamp);
+		skb->tstamp = op->rx_stamp;
 	}
 
 	/*
@@ -393,12 +397,12 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
 static void bcm_tx_timeout_handler(unsigned long data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
+	struct bcm_msg_head msg_head;
 
 	if (op->j_ival1 && (op->count > 0)) {
 
 		op->count--;
 		if (!op->count && (op->flags & TX_COUNTEVT)) {
-			struct bcm_msg_head msg_head;
 
 			/* create notification to user */
 			msg_head.opcode  = TX_EXPIRED;
@@ -427,8 +431,6 @@ static void bcm_tx_timeout_handler(unsigned long data)
 			mod_timer(&op->timer, jiffies + op->j_ival2);
 		}
 	}
-
-	return;
 }
 
 /*
@@ -446,6 +448,9 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
 	/* prevent statistics overflow */
 	if (op->frames_filtered > ULONG_MAX/100)
 		op->frames_filtered = op->frames_abs = 0;
+
+	/* this element is not throttled anymore */
+	data->can_dlc &= (BCM_CAN_DLC_MASK|RX_RECV);
 
 	head.opcode  = RX_CHANGED;
 	head.flags   = op->flags;
@@ -465,22 +470,19 @@ static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
  */
 static void bcm_rx_update_and_send(struct bcm_op *op,
 				   struct can_frame *lastdata,
-				   struct can_frame *rxdata)
+				   const struct can_frame *rxdata)
 {
 	unsigned long nexttx = op->j_lastmsg + op->j_ival2;
 
 	memcpy(lastdata, rxdata, CFSIZ);
 
-	/* mark as used */
-	lastdata->can_dlc |= RX_RECV;
+	/* mark as used and throttled by default */
+	lastdata->can_dlc |= (RX_RECV|RX_THR);
 
 	/* throttle bcm_rx_changed ? */
 	if ((op->thrtimer.expires) ||
 	    ((op->j_ival2) && (nexttx > jiffies))) {
 		/* we are already waiting OR we have to start waiting */
-
-		/* mark as 'throttled' */
-		lastdata->can_dlc |= RX_THR;
 
 		if (!(op->thrtimer.expires)) {
 			/* start the timer only the first time */
@@ -489,7 +491,7 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
 
 	} else {
 		/* send RX_CHANGED to the user immediately */
-		bcm_rx_changed(op, rxdata);
+		bcm_rx_changed(op, lastdata);
 	}
 }
 
@@ -498,7 +500,7 @@ static void bcm_rx_update_and_send(struct bcm_op *op,
  *                       received data stored in op->last_frames[]
  */
 static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
-				struct can_frame *rxdata)
+				const struct can_frame *rxdata)
 {
 	/*
 	 * no one uses the MSBs of can_dlc for comparation,
@@ -550,6 +552,7 @@ static void bcm_rx_timeout_handler(unsigned long data)
 	struct bcm_op *op = (struct bcm_op *)data;
 	struct bcm_msg_head msg_head;
 
+	/* create notification to user */
 	msg_head.opcode  = RX_TIMEOUT;
 	msg_head.flags   = op->flags;
 	msg_head.count   = op->count;
@@ -570,6 +573,18 @@ static void bcm_rx_timeout_handler(unsigned long data)
 }
 
 /*
+ * bcm_rx_do_flush - helper for bcm_rx_thr_flush
+ */
+static inline int bcm_rx_do_flush(struct bcm_op *op, int index)
+{
+	if ((op->last_frames) && (op->last_frames[index].can_dlc & RX_THR)) {
+		bcm_rx_changed(op, &op->last_frames[index]);
+		return 1;
+	}
+	return 0;
+}
+
+/*
  * bcm_rx_thr_flush - Check for throttled data and send it to the userspace
  */
 static int bcm_rx_thr_flush(struct bcm_op *op)
@@ -580,22 +595,12 @@ static int bcm_rx_thr_flush(struct bcm_op *op)
 		int i;
 
 		/* for MUX filter we start at index 1 */
-		for (i = 1; i < op->nframes; i++) {
-			if ((op->last_frames) &&
-			    (op->last_frames[i].can_dlc & RX_THR)) {
-				op->last_frames[i].can_dlc &= ~RX_THR;
-				bcm_rx_changed(op, &op->last_frames[i]);
-				updated++;
-			}
-		}
+		for (i = 1; i < op->nframes; i++)
+			updated += bcm_rx_do_flush(op, i);
 
 	} else {
 		/* for RX_FILTER_ID and simple filter */
-		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)) {
-			op->last_frames[0].can_dlc &= ~RX_THR;
-			bcm_rx_changed(op, &op->last_frames[0]);
-			updated++;
-		}
+		updated += bcm_rx_do_flush(op, 0);
 	}
 
 	return updated;
@@ -623,29 +628,21 @@ static void bcm_rx_thr_handler(unsigned long data)
 static void bcm_rx_handler(struct sk_buff *skb, void *data)
 {
 	struct bcm_op *op = (struct bcm_op *)data;
-	struct can_frame rxframe;
+	const struct can_frame *rxframe = (struct can_frame *)skb->data;
 	int i;
 
 	/* disable timeout */
 	del_timer(&op->timer);
 
-	if (skb->len == sizeof(rxframe)) {
-		memcpy(&rxframe, skb->data, sizeof(rxframe));
-		/* save rx timestamp */
-		skb_get_timestamp(skb, &op->rx_stamp);
-		/* save originator for recvfrom() */
-		op->rx_ifindex = skb->dev->ifindex;
-		/* update statistics */
-		op->frames_abs++;
-		kfree_skb(skb);
-
-	} else {
-		kfree_skb(skb);
+	if (op->can_id != rxframe->can_id)
 		return;
-	}
 
-	if (op->can_id != rxframe.can_id)
-		return;
+	/* save rx timestamp */
+	op->rx_stamp = skb->tstamp;
+	/* save originator for recvfrom() */
+	op->rx_ifindex = skb->dev->ifindex;
+	/* update statistics */
+	op->frames_abs++;
 
 	if (op->flags & RX_RTR_FRAME) {
 		/* send reply for RTR-request (placed in op->frames[0]) */
@@ -655,16 +652,14 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 
 	if (op->flags & RX_FILTER_ID) {
 		/* the easiest case */
-		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
-		bcm_rx_starttimer(op);
-		return;
+		bcm_rx_update_and_send(op, &op->last_frames[0], rxframe);
+		goto rx_starttimer;
 	}
 
 	if (op->nframes == 1) {
 		/* simple compare with index 0 */
-		bcm_rx_cmp_to_index(op, 0, &rxframe);
-		bcm_rx_starttimer(op);
-		return;
+		bcm_rx_cmp_to_index(op, 0, rxframe);
+		goto rx_starttimer;
 	}
 
 	if (op->nframes > 1) {
@@ -676,15 +671,17 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
 		 */
 
 		for (i = 1; i < op->nframes; i++) {
-			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
+			if ((GET_U64(&op->frames[0]) & GET_U64(rxframe)) ==
 			    (GET_U64(&op->frames[0]) &
 			     GET_U64(&op->frames[i]))) {
-				bcm_rx_cmp_to_index(op, i, &rxframe);
+				bcm_rx_cmp_to_index(op, i, rxframe);
 				break;
 			}
 		}
-		bcm_rx_starttimer(op);
 	}
+
+rx_starttimer:
+	bcm_rx_starttimer(op);
 }
 
 /*
