@@ -21,11 +21,11 @@ test -x /sbin/modprobe || exit 0
 CAN_IF="can0 can1"
 VCAN_IF="vcan0 vcan1 vcan2 vcan3"
 PROBE="vcan"
-CREATE_VCANS=4
+CREATE_VCANS="vcan0 vcan1 vcan2 vcan3"
 
-if [ $CREATE_VCANS -gt 0 ] ; then
-	# Exit if vcan tool is not installed
-	test -x /sbin/vcan || exit 0
+if [ -n "$CREATE_VCANS" ] ; then
+	# Exit if ip(8) tool is not installed
+	test -x /sbin/ip || exit 0
 fi
 
 case "$1" in
@@ -33,18 +33,18 @@ case "$1" in
 	if [ -n "$PROBE" ] ; then
 	    echo -n "Extra probing CAN modules:"
 	    for MODULE in $PROBE; do
-		/sbin/modprobe $MODULE
+		/sbin/modprobe -q $MODULE
 		echo -n " "$MODULE
 	    done
-	    echo "."
+	    echo
 	fi
-	if [ $CREATE_VCANS -gt 0 ] ; then
-	    echo -n "Creating "$CREATE_VCANS" virtual CAN interfaces: "
-	    for IF in `seq 1 $CREATE_VCANS`; do
-		/sbin/vcan create
-		echo -n "."
+	if [ -n "$CREATE_VCANS" ] ; then
+	    echo -n "Creating virtual CAN interfaces:"
+	    for IF in $CREATE_VCANS; do
+		/sbin/ip link add dev $IF type vcan
+		echo -n " "$IF
 	    done
-	    echo " done."
+	    echo
 	fi
 	if [ -n "$CAN_IF" ] ; then
 	    echo -n "Enabling CAN interfaces:"
@@ -52,7 +52,7 @@ case "$1" in
 		/sbin/ifconfig $IF up
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	if [ -n "$VCAN_IF" ] ; then
 	    echo -n "Enabling virtual CAN interfaces:"
@@ -60,7 +60,7 @@ case "$1" in
 		/sbin/ifconfig $IF up
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	;;
     restart|reload)
@@ -71,7 +71,7 @@ case "$1" in
 		/sbin/ifconfig $IF up
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	if [ -n "$VCAN_IF" ] ; then
 	    echo -n "Restarting virtual CAN interfaces:"
@@ -80,7 +80,7 @@ case "$1" in
 		/sbin/ifconfig $IF up
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	;;
     stop)
@@ -90,7 +90,7 @@ case "$1" in
 		/sbin/ifconfig $IF down
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	if [ -n "$VCAN_IF" ] ; then
 	    echo -n "Shutting down virtual CAN interfaces:"
@@ -98,7 +98,7 @@ case "$1" in
 		/sbin/ifconfig $IF down
 		echo -n " "$IF
 	    done
-	    echo "."
+	    echo
 	fi
 	;;
     *)
