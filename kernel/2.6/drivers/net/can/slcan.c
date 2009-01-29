@@ -238,6 +238,7 @@ static void slc_bump(struct slcan *sl)
 	struct sk_buff *skb;
 	struct can_frame cf;
 	int i, dlc_pos, tmp;
+	unsigned long ultmp;
 	char cmd = sl->rbuff[0];
 
 	if ((cmd != 't') && (cmd != 'T') && (cmd != 'r') && (cmd != 'R'))
@@ -251,16 +252,17 @@ static void slc_bump(struct slcan *sl)
 	if (!((sl->rbuff[dlc_pos] >= '0') && (sl->rbuff[dlc_pos] < '9')))
 		return;
 
-	cf.can_dlc = sl->rbuff[dlc_pos] & 0x0F; /* get can_dlc */
+	cf.can_dlc = sl->rbuff[dlc_pos] - '0'; /* get can_dlc from ASCII val */
 
 	sl->rbuff[dlc_pos] = 0; /* terminate can_id string */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
-	cf.can_id = simple_strtoul(sl->rbuff+1, NULL, 16);
+	ultmp = simple_strtoul(sl->rbuff+1, NULL, 16);
 #else
-	if (strict_strtoul(sl->rbuff+1, 16, (unsigned long *) &cf.can_id))
+	if (strict_strtoul(sl->rbuff+1, 16, &ultmp))
 		return;
 #endif
+	cf.can_id = ultmp;
 
 	if (!(cmd & 0x20)) /* NO tiny chars => extended frame format */
 		cf.can_id |= CAN_EFF_FLAG;
