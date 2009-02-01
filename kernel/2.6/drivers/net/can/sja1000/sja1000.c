@@ -77,61 +77,6 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION(DRV_NAME " CAN netdevice driver");
 
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-#define DBG(args...)   ((debug > 0) ? printk(args) : 0)
-/* logging in interrupt context! */
-#define iDBG(args...)  ((debug > 1) ? printk(args) : 0)
-#define iiDBG(args...) ((debug > 2) ? printk(args) : 0)
-#else
-#define DBG(args...)
-#define iDBG(args...)
-#define iiDBG(args...)
-#endif
-
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-static const char *ecc_errors[] = {
-	NULL,
-	NULL,
-	"ID.28 to ID.28",
-	"start of frame",
-	"bit SRTR",
-	"bit IDE",
-	"ID.20 to ID.18",
-	"ID.17 to ID.13",
-	"CRC sequence",
-	"reserved bit 0",
-	"data field",
-	"data length code",
-	"bit RTR",
-	"reserved bit 1",
-	"ID.4 to ID.0",
-	"ID.12 to ID.5",
-	NULL,
-	"active error flag",
-	"intermission",
-	"tolerate dominant bits",
-	NULL,
-	NULL,
-	"passive error flag",
-	"error delimiter",
-	"CRC delimiter",
-	"acknowledge slot",
-	"end of frame",
-	"acknowledge delimiter",
-	"overload flag",
-	NULL,
-	NULL,
-	NULL
-};
-
-static const char *ecc_types[] = {
-	"bit error",
-	"form error",
-	"stuff error",
-	"other type of error"
-};
-#endif
-
 static struct can_bittiming_const sja1000_bittiming_const = {
 	.tseg1_min = 1,
 	.tseg1_max = 16,
@@ -142,12 +87,6 @@ static struct can_bittiming_const sja1000_bittiming_const = {
 	.brp_max = 64,
 	.brp_inc = 1,
 };
-
-static int debug;
-
-module_param(debug, int, S_IRUGO | S_IWUSR);
-
-MODULE_PARM_DESC(debug, "Set debug mask (default: 0)");
 
 static int sja1000_probe_chip(struct net_device *dev)
 {
@@ -173,10 +112,6 @@ int set_reset_mode(struct net_device *dev)
 	for (i = 0; i < 100; i++) {
 		/* check reset bit */
 		if (status & MOD_RM) {
-			if (i > 1) {
-				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __func__, i);
-			}
 			priv->can.state = CAN_STATE_STOPPED;
 			return 0;
 		}
@@ -200,12 +135,6 @@ static int set_normal_mode(struct net_device *dev)
 	for (i = 0; i < 100; i++) {
 		/* check reset bit */
 		if ((status & MOD_RM) == 0) {
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-			if (i > 1) {
-				iDBG(KERN_INFO "%s: %s looped %d times\n",
-				     dev->name, __func__, i);
-			}
-#endif
 			priv->can.state = CAN_STATE_ACTIVE;
 			/* enable all interrupts */
 			priv->write_reg(dev, REG_IER, IRQ_ALL);
@@ -228,8 +157,6 @@ static void sja1000_start(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 
-	iDBG(KERN_INFO "%s: %s()\n", dev->name, __func__);
-
 	/* leave reset mode */
 	if (priv->can.state != CAN_STATE_STOPPED)
 		set_reset_mode(dev);
@@ -249,7 +176,6 @@ static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
 
 	switch (mode) {
 	case CAN_MODE_START:
-		DBG("%s: CAN_MODE_START requested\n", __func__);
 		if (!priv->open_time)
 			return -EINVAL;
 
@@ -293,13 +219,11 @@ static int sja1000_get_state(struct net_device *dev, enum can_state *state)
 		} else
 			*state = CAN_STATE_ACTIVE;
 	}
-#ifdef CONFIG_CAN_DEBUG_DEVICES
 	/* Check state */
 	if (*state != priv->can.state)
-		dev_err(ND2D(dev),
-			"Oops, state mismatch: hard %d != soft %d\n",
-			*state, priv->can.state);
-#endif
+	  dev_err(ND2D(dev),
+		  "Oops, state mismatch: hard %d != soft %d\n",
+		  *state, priv->can.state);
 	spin_unlock_irq(&priv->can.irq_lock);
 	return 0;
 }
@@ -315,7 +239,7 @@ static int sja1000_set_bittiming(struct net_device *dev)
 		(((bt->phase_seg2 - 1) & 0x7) << 4) |
 	  ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) << 7);
 
-	dev_info(ND2D(dev), "BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
+	dev_info(ND2D(dev), "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
 	priv->write_reg(dev, REG_BTR0, btr0);
 	priv->write_reg(dev, REG_BTR1, btr1);
@@ -472,8 +396,7 @@ static void sja1000_rx(struct net_device *dev)
 	stats->rx_bytes += dlc;
 }
 
-static int sja1000_err(struct net_device *dev,
-		       uint8_t isrc, uint8_t status, int n)
+static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
@@ -498,9 +421,6 @@ static int sja1000_err(struct net_device *dev,
 
 	if (isrc & IRQ_DOI) {
 		/* data overrun interrupt */
-		iiDBG(KERN_INFO "%s: data overrun isrc=0x%02X "
-		      "status=0x%02X\n", dev->name, isrc, status);
-		iDBG(KERN_INFO "%s: DOI #%d#\n", dev->name, n);
 		cf->can_id |= CAN_ERR_CRTL;
 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
 		priv->can.can_stats.data_overrun++;
@@ -509,35 +429,21 @@ static int sja1000_err(struct net_device *dev,
 
 	if (isrc & IRQ_EI) {
 		/* error warning interrupt */
-		iiDBG(KERN_INFO "%s: error warning isrc=0x%02X "
-		      "status=0x%02X\n", dev->name, isrc, status);
-		iDBG(KERN_INFO "%s: EI #%d#\n", dev->name, n);
 		priv->can.can_stats.error_warning++;
 
 		if (status & SR_BS) {
 			state = CAN_STATE_BUS_OFF;
 			cf->can_id |= CAN_ERR_BUSOFF;
 			can_bus_off(dev);
-			iDBG(KERN_INFO "%s: BUS OFF\n", dev->name);
 		} else if (status & SR_ES) {
 			state = CAN_STATE_BUS_WARNING;
-			iDBG(KERN_INFO "%s: error\n", dev->name);
 		} else
 			state = CAN_STATE_ACTIVE;
 	}
 	if (isrc & IRQ_BEI) {
 		/* bus error interrupt */
-		iiDBG(KERN_INFO "%s: bus error isrc=0x%02X "
-		      "status=0x%02X\n", dev->name, isrc, status);
-		iDBG(KERN_INFO "%s: BEI #%d# [%d]\n", dev->name, n,
-		     priv->can.can_stats.bus_error);
 		priv->can.can_stats.bus_error++;
 		ecc = priv->read_reg(dev, REG_ECC);
-		iDBG(KERN_INFO "%s: ECC = 0x%02X (%s, %s, %s)\n",
-		     dev->name, ecc,
-		     (ecc & ECC_DIR) ? "RX" : "TX",
-		     ecc_types[ecc >> ECC_ERR],
-		     ecc_errors[ecc & ECC_SEG]);
 
 		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 
@@ -562,26 +468,15 @@ static int sja1000_err(struct net_device *dev,
 	}
 	if (isrc & IRQ_EPI) {
 		/* error passive interrupt */
-		iiDBG(KERN_INFO "%s: error passive isrc=0x%02X"
-		      " status=0x%02X\n", dev->name, isrc, status);
-		iDBG(KERN_INFO "%s: EPI #%d#\n", dev->name, n);
 		priv->can.can_stats.error_passive++;
-		if (status & SR_ES) {
-			iDBG(KERN_INFO "%s: ERROR PASSIVE\n", dev->name);
+		if (status & SR_ES)
 			state = CAN_STATE_BUS_PASSIVE;
-		} else {
-			iDBG(KERN_INFO "%s: ERROR ACTIVE\n", dev->name);
+		else
 			state = CAN_STATE_ACTIVE;
-		}
 	}
 	if (isrc & IRQ_ALI) {
 		/* arbitration lost interrupt */
-		iiDBG(KERN_INFO "%s: error arbitration lost "
-		      "isrc=0x%02X status=0x%02X\n",
-		      dev->name, isrc, status);
-		iDBG(KERN_INFO "%s: ALI #%d#\n", dev->name, n);
 		alc = priv->read_reg(dev, REG_ALC);
-		iDBG(KERN_INFO "%s: ALC = 0x%02X\n", dev->name, alc);
 		priv->can.can_stats.arbitration_lost++;
 		cf->can_id |= CAN_ERR_LOSTARB;
 		cf->data[0] = alc & 0x1f;
@@ -632,14 +527,14 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 	if (priv->pre_irq)
 		priv->pre_irq(dev);
 
-	iiDBG(KERN_INFO "%s: interrupt\n", dev->name);
-
 	if (priv->can.state == CAN_STATE_STOPPED) {
-		iiDBG(KERN_ERR "%s: %s: controller is in reset mode! "
-		      "MOD=0x%02X IER=0x%02X IR=0x%02X SR=0x%02X!\n",
-		      dev->name, __func__, priv->read_reg(dev, REG_MOD),
-		      priv->read_reg(dev, REG_IER), priv->read_reg(dev, REG_IR),
-		      priv->read_reg(dev, REG_SR));
+		dev_err(ND2D(dev), "%s: controller is in reset mode!"
+			"MOD=0x%02X IER=0x%02X IR=0x%02X SR=0x%02X!\n",
+			__func__,
+			priv->read_reg(dev, REG_MOD),
+			priv->read_reg(dev, REG_IER),
+			priv->read_reg(dev, REG_IR),
+			priv->read_reg(dev, REG_SR));
 		goto out;
 	}
 
@@ -666,12 +561,10 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 		}
 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
 			/* error interrupt */
-			if (sja1000_err(dev, isrc, status, n))
+			if (sja1000_err(dev, isrc, status))
 				break;
 		}
 	}
-	if (n > 1)
-		iDBG(KERN_INFO "%s: handled %d IRQs\n", dev->name, n);
 
 out:
 	if (priv->post_irq)
@@ -806,10 +699,6 @@ EXPORT_SYMBOL(unregister_sja1000dev);
 static __init int sja1000_init(void)
 {
 	printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
-
-	if (debug)
-		printk(KERN_INFO "%s: debug level set to %d.\n",
-		       DRV_NAME, debug);
 
 	return 0;
 }
