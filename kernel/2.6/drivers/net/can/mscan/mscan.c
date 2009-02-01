@@ -408,13 +408,6 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			dev_dbg(ND2D(dev),
 				"received pkt: id: %u dlc: %u data: ",
 				frame->can_id, frame->can_dlc);
-#ifdef DEBUG
-			for (i = 0;
-			     i < frame->can_dlc && !(frame->can_id &
-						     CAN_RTR_FLAG); i++)
-				printk(KERN_DEBUG "%2x ", frame->data[i]);
-			printk(KERN_DEBUG "\n");
-#endif
 
 			out_8(&regs->canrflg, MSCAN_RXF);
 			dev->last_rx = jiffies;
@@ -484,13 +477,8 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 		netif_rx_complete(dev);
 #endif
 		clear_bit(F_RX_PROGRESS, &priv->flags);
-#if 0
-		out_8(&regs->canrier,
-		      in_8(&regs->canrier) | MSCAN_ERR_IF | MSCAN_RXFIE);
-#else
 		if (priv->can.state < CAN_STATE_BUS_OFF)
 			out_8(&regs->canrier, priv->shadow_canrier);
-#endif
 		ret = 0;
 	}
 	return ret;
@@ -554,16 +542,6 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 	canrflg = in_8(&regs->canrflg);
 	if ((canrflg & ~MSCAN_STAT_MSK) &&
 	    !test_and_set_bit(F_RX_PROGRESS, &priv->flags)) {
-#if 0
-		printk(KERN_DEBUG "%s: canrflg=%#02x canrier=%#02x\n",
-		       dev->name, canrflg, in_8(&regs->canrier));
-#endif
-#if 0
-		if (check_set_state(dev, canrflg)) {
-			out_8(&regs->canrflg, MSCAN_CSCIF);
-			ret = IRQ_HANDLED;
-		}
-#endif
 		if (canrflg & ~MSCAN_STAT_MSK) {
 			priv->shadow_canrier = in_8(&regs->canrier);
 			out_8(&regs->canrier, 0);
