@@ -77,7 +77,8 @@ static int sp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	addr = ioremap_nocache(res_mem->start, res_mem->end - res_mem->start + 1);
+	addr = ioremap_nocache(res_mem->start,
+			       res_mem->end - res_mem->start + 1);
 	if (!addr) {
 		err = -ENOMEM;
 		goto exit_release;
