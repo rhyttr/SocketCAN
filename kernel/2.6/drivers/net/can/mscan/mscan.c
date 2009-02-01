@@ -477,7 +477,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 
 	if (!(in_8(&regs->canrflg) & (MSCAN_RXF | MSCAN_ERR_IF))) {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
-		netif_rx_complete(&priv->napi);
+		napi_complete(&priv->napi);
 #elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 		netif_rx_complete(dev, &priv->napi);
 #else
@@ -568,7 +568,7 @@ static irqreturn_t mscan_isr(int irq, void *dev_id)
 			priv->shadow_canrier = in_8(&regs->canrier);
 			out_8(&regs->canrier, 0);
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
-			netif_rx_schedule(&priv->napi);
+			napi_schedule(&priv->napi);
 #elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 			netif_rx_schedule(dev, &priv->napi);
 #else
