@@ -36,6 +36,7 @@ MODULE_DESCRIPTION(MOD_DESC);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 
+#ifdef CONFIG_CAN_CALC_BITTIMING
 #define CAN_CALC_MAX_ERROR 50 /* in one-tenth of a percent */
 
 /*
@@ -150,6 +151,12 @@ static int can_calc_bittiming(struct net_device *dev)
 
 	return 0;
 }
+#else /* !CONFIG_CAN_CALC_BITTIMING */
+static int can_calc_bittiming(struct net_device *dev)
+{
+	return -EINVAL;
+}
+#endif /* CONFIG_CAN_CALC_BITTIMING */
 
 int can_sample_point(struct can_bittiming *bt)
 {

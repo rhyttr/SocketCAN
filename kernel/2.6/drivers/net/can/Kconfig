@@ -46,6 +46,20 @@ config CAN_DEV
 	  support. This is the standard library for CAN drivers.
 	  If unsure, say Y.
 
+config CAN_CALC_BITTIMING
+	tristate "CAN bit-timing calculation"
+	depends on CAN_DEV
+	default Y
+ 	---help---
+	  If enabled, CAN bit-timing parameters will be calculated for the
+	  bit-rate specified via SYSFS file "can_bitrate" when the device
+	  gets started. This works fine for the most common CAN controllers
+	  with standard bit-rates but may fail for exotic bit-rates or CAN
+	  source clock frequencies. Disabling saves some space, but then the
+	  bit-timing parameters must be specified directly using the SYSFS
+	  files "tq, prop_seg, phase_seg1, phase_seg2 and sjw".
+	  If unsure, say Y.
+
 config CAN_SJA1000
  	depends on CAN_DEV
        	tristate "Philips SJA1000"
