@@ -588,6 +588,7 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 		if (!dev)
 			break;
 
+isotp_tx_burst:
 		skb = alloc_skb(sizeof(*cf), gfp_any());
 		if (!skb) {
 			dev_put(dev);
@@ -608,12 +609,12 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 		skb->dev = dev;
 		skb->sk  = sk;
 		can_send(skb, 1);
-		dev_put(dev);
 
 		if (so->tx.idx >= so->tx.len) {
 			/* we are done */
 			DBG("we are done\n");
 			so->tx.state = ISOTP_IDLE;
+			dev_put(dev);
 			wake_up_interruptible(&so->wait);
 			break;
 		}
@@ -622,13 +623,22 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 			/* stop and wait for FC */
 			DBG("BS stop and wait for FC\n");
 			so->tx.state = ISOTP_WAIT_FC;
+			dev_put(dev);
 			hrtimer_start(&so->txtimer,
 				      ktime_add(ktime_get(), ktime_set(1,0)),
 				      HRTIMER_MODE_ABS);
-		} else
-			hrtimer_start(&so->txtimer,
-				      ktime_add(ktime_get(), so->tx_gap),
-				      HRTIMER_MODE_ABS);
+			break;
+		} 
+
+		/* no gap between data frames needed => use burst mode */
+		if (!so->tx_gap.tv64)
+			goto isotp_tx_burst;
+
+		/* start timer to send next data frame with correct delay */
+		dev_put(dev);
+		hrtimer_start(&so->txtimer,
+			      ktime_add(ktime_get(), so->tx_gap),
+			      HRTIMER_MODE_ABS);
 		break;
 
 	default:
