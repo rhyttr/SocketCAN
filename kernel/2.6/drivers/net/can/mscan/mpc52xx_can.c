@@ -260,9 +260,9 @@ module_exit(mpc52xx_can_exit);
 #else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
 #define DRV_NAME "mpc52xx_can"
 
-static struct of_device_id mpc52xx_cdm_ids[] __initdata = {
+static struct of_device_id mpc52xx_cdm_ids[] __devinitdata = {
 	{ .compatible = "fsl,mpc5200-cdm", },
-	{ .compatible = "mpc5200-cdm", }, /* old */
+	{ .compatible = "fsl,mpc5200b-cdm", },
 	{}
 };
 
@@ -488,7 +488,7 @@ static int mpc52xx_can_resume(struct of_device *ofdev)
 
 static struct of_device_id __devinitdata mpc52xx_can_table[] = {
 	{.compatible = "fsl,mpc5200-mscan"},
-	{.compatible = "mpc5200-mscan"}, /* old */
+	{.compatible = "fsl,mpc5200b-mscan"},
 	{},
 };
 
