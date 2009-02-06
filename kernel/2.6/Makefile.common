@@ -4,6 +4,7 @@ EXTRA_CFLAGS += \
 	-I$(TOPDIR)/include \
 	-I$(TOPDIR)/drivers/net/can/hal \
 	\
+	-DCONFIG_CAN_CALC_BITTIMING \
 	-DETH_P_CAN=0x000C \
 	-DARPHRD_CAN=280
 
