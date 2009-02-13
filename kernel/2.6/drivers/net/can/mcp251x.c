@@ -1136,6 +1136,9 @@ static int __devexit mcp251x_can_remove(struct spi_device *spi)
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
 	struct net_device *net = priv->net;
 
+	unregister_candev(net);
+	free_candev(net);
+
 	free_irq(spi->irq, net);
 	priv->force_quit = 1;
 	flush_workqueue(priv->wq);
@@ -1148,9 +1151,6 @@ static int __devexit mcp251x_can_remove(struct spi_device *spi)
 		kfree(priv->spi_tx_buf);
 		kfree(priv->spi_rx_buf);
 	}
-
-	unregister_candev(net);
-	free_candev(net);
 
 	if (pdata->power_enable)
 		pdata->power_enable(0);
