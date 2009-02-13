@@ -887,6 +887,7 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 			if (skb) {
 				frame = (struct can_frame *)
 					skb_put(skb, sizeof(struct can_frame));
+				*(unsigned long long *)&frame->data = 0ULL;
 				frame->can_id = CAN_ERR_FLAG;
 				frame->can_dlc = CAN_ERR_DLC;
 
