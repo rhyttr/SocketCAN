@@ -802,10 +802,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 	struct net_device *net = priv->net;
 	u8 intf;
 	u8 txbnctrl;
-	/* the next limitation is needed so we give some time to the
-	 * tx workqueue */
-#define MAX_LOOPS 10
-	int loops;
 
 	if (priv->after_suspend) {
 		/* Wait whilst the device wakes up */
@@ -828,8 +824,7 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 		return;
 	}
 
-	loops = 0;
-	while (!priv->force_quit && !freezing(current) && loops < MAX_LOOPS) {
+	while (!priv->force_quit && !freezing(current)) {
 		if (priv->restart_tx) {
 			priv->restart_tx = 0;
 			dev_warn(&spi->dev,
@@ -957,7 +952,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 		if (intf & CANINTF_RX1IF)
 			mcp251x_hw_rx(spi, 1);
 
-		loops++;
 	}
 
 	mcp251x_read_reg(spi, CANSTAT);
