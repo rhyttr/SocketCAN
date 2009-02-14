@@ -25,4 +25,8 @@ obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
 obj-$(CONFIG_CAN_PIPCAN) += pipcan.o
 obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
 
+ifeq ($(CONFIG_CAN_DEBUG_DEVICES),y)
+EXTRA_CFLAGS += -DDEBUG
+endif
+
 endif

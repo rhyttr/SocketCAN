@@ -44,4 +44,8 @@ obj-$(CONFIG_CAN_MSCAN_OLD)	+= old/mscan/
 obj-$(CONFIG_CAN_CCAN_OLD)	+= old/ccan/
 obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
 
+ifeq ($(CONFIG_CAN_DEBUG_DEVICES),y)
+EXTRA_CFLAGS += -DDEBUG
+endif
+
 endif

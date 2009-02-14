@@ -465,6 +465,7 @@ int can_restart_now(struct net_device *dev)
 
 	netif_carrier_on(dev);
 
+	dev_dbg(ND2D(dev), "restarted\n");
 	priv->can_stats.restarts++;
 
 	/* send restart message upstream */
@@ -506,6 +507,8 @@ static void can_restart_after(unsigned long data)
 void can_bus_off(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
+
+	dev_dbg(ND2D(dev), "bus-off\n");
 
 	netif_carrier_off(dev);
 

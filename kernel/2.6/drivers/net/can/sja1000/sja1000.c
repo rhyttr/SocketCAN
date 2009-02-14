@@ -221,9 +221,9 @@ static int sja1000_get_state(struct net_device *dev, enum can_state *state)
 	}
 	/* Check state */
 	if (*state != priv->can.state)
-	  dev_err(ND2D(dev),
-		  "Oops, state mismatch: hard %d != soft %d\n",
-		  *state, priv->can.state);
+		dev_err(ND2D(dev),
+			"Oops, state mismatch: hard %d != soft %d\n",
+			*state, priv->can.state);
 	spin_unlock_irq(&priv->can.irq_lock);
 	return 0;
 }
@@ -421,6 +421,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 
 	if (isrc & IRQ_DOI) {
 		/* data overrun interrupt */
+		dev_dbg(ND2D(dev), "data overrun interrupt\n");
 		cf->can_id |= CAN_ERR_CRTL;
 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
 		priv->can.can_stats.data_overrun++;
@@ -430,6 +431,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 	if (isrc & IRQ_EI) {
 		/* error warning interrupt */
 		priv->can.can_stats.error_warning++;
+		dev_dbg(ND2D(dev), "error warning interrupt\n");
 
 		if (status & SR_BS) {
 			state = CAN_STATE_BUS_OFF;
@@ -468,6 +470,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 	}
 	if (isrc & IRQ_EPI) {
 		/* error passive interrupt */
+		dev_dbg(ND2D(dev), "error passive interrupt\n");
 		priv->can.can_stats.error_passive++;
 		if (status & SR_ES)
 			state = CAN_STATE_BUS_PASSIVE;
@@ -476,6 +479,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 	}
 	if (isrc & IRQ_ALI) {
 		/* arbitration lost interrupt */
+		dev_dbg(ND2D(dev), "arbitration lost interrupt\n");
 		alc = priv->read_reg(dev, REG_ALC);
 		priv->can.can_stats.arbitration_lost++;
 		cf->can_id |= CAN_ERR_LOSTARB;
@@ -569,6 +573,9 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 out:
 	if (priv->post_irq)
 		priv->post_irq(dev);
+
+	if (n >= 20)
+		dev_dbg(ND2D(dev), "Many messages handled in ISR");
 
 	return (n) ? IRQ_HANDLED : IRQ_NONE;
 }

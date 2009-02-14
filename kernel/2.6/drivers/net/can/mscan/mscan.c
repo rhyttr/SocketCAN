@@ -232,7 +232,6 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (frame->can_dlc > 8)
 		return -EINVAL;
 
-	dev_dbg(ND2D(dev), "%s\n", __func__);
 	out_8(&regs->cantier, 0);
 
 	i = ~priv->tx_active & MSCAN_TXE;
@@ -258,8 +257,6 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	rtr = frame->can_id & CAN_RTR_FLAG;
 
 	if (frame->can_id & CAN_EFF_FLAG) {
-		dev_dbg(ND2D(dev), "sending extended frame\n");
-
 		can_id = (frame->can_id & CAN_EFF_MASK) << 1;
 		if (rtr)
 			can_id |= 1;
@@ -268,7 +265,6 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		can_id >>= 16;
 		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0) | (3 << 3);
 	} else {
-		dev_dbg(ND2D(dev), "sending standard frame\n");
 		can_id = (frame->can_id & CAN_SFF_MASK) << 5;
 		if (rtr)
 			can_id |= 1 << 4;
@@ -396,15 +392,13 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 				}
 			}
 
-			dev_dbg(ND2D(dev),
-				"received pkt: id: %u dlc: %u data: ",
-				frame->can_id, frame->can_dlc);
-
 			out_8(&regs->canrflg, MSCAN_RXF);
 			dev->last_rx = jiffies;
 			stats->rx_packets++;
 			stats->rx_bytes += frame->can_dlc;
 		} else if (canrflg & MSCAN_ERR_IF) {
+			dev_dbg(ND2D(dev), "error interrupt (canrflg=%#x)\n",
+				canrflg);
 			frame->can_id = CAN_ERR_FLAG;
 
 			if (canrflg & MSCAN_OVRIF) {
@@ -597,7 +591,7 @@ static int mscan_do_set_bittiming(struct net_device *dev)
 		BTR1_SET_TSEG2(bt->phase_seg2) |
 		BTR1_SET_SAM(priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES));
 
-	dev_info(ND2D(dev), "BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
+	dev_info(ND2D(dev), "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
 	out_8(&regs->canbtr0, btr0);
 	out_8(&regs->canbtr1, btr1);
