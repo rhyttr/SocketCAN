@@ -535,7 +535,7 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 	if (priv->pre_irq)
 		priv->pre_irq(dev);
 
-	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < 20)) {
+	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
 		n++;
 		status = priv->read_reg(dev, REG_SR);
 
@@ -566,8 +566,8 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 	if (priv->post_irq)
 		priv->post_irq(dev);
 
-	if (n >= 20)
-		dev_dbg(ND2D(dev), "Many messages handled in ISR");
+	if (n >= SJA1000_MAX_IRQ)
+		dev_dbg(ND2D(dev), "%d messages handled in ISR", n);
 
 	return (n) ? IRQ_HANDLED : IRQ_NONE;
 }

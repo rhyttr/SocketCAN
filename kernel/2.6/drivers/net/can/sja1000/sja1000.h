@@ -46,16 +46,14 @@
  *
  */
 
-#ifndef SJA1000DEV_H
-#define SJA1000DEV_H
+#ifndef SJA1000_DEV_H
+#define SJA1000_DEV_H
 
 #include <linux/version.h>
 #include <linux/can/dev.h>
 #include <linux/can/platform/sja1000.h>
 
-#define TX_TIMEOUT      (50*HZ/1000)	/* 50ms */
-#define RESTART_MS      100	/* restart chip on persistent errors in 100ms */
-#define MAX_BUS_ERRORS  200	/* prevent from flooding bus error interrupts */
+#define SJA1000_MAX_IRQ 20	/* max. number of interrupts handled in ISR */
 
 /* SJA1000 registers - manual section 6.4 (Pelican Mode) */
 #define REG_MOD		0x00
@@ -149,9 +147,7 @@
 /*
  * Flags for sja1000priv.flags
  */
-
 #define SJA1000_CUSTOM_IRQ_HANDLER 0x1
-
 
 /*
  * SJA1000 private data structure
