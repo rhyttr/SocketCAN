@@ -3,9 +3,9 @@ menu "CAN Device Drivers"
 
 config CAN_VCAN
 	tristate "Virtual Local CAN Interface (vcan)"
- 	depends on CAN
+	depends on CAN
 	default N
- 	---help---
+	---help---
 	  Similar to the network loopback devices, vcan offers a
 	  virtual local CAN interface.
 
@@ -26,9 +26,9 @@ config CAN_SLCAN
 
 config CAN_OLD_DRIVERS
 	tristate "Prompt for old CAN drivers (e.g. no sysfs support)"
- 	depends on CAN
+	depends on CAN
 	default N
- 	---help---
+	---help---
 	  The old drivers do not support sysfs nor proper platform device
 	  support. Some of the old drivers might only be configured by
 	  module commandline options.
@@ -39,30 +39,30 @@ endif
 
 config CAN_DEV
 	tristate "Prompt for platform CAN drivers with sysfs support"
- 	depends on CAN
+	depends on CAN
 	default Y
- 	---help---
+	---help---
 	  Enables the common framework for platform CAN drivers with sysfs
 	  support. This is the standard library for CAN drivers.
 	  If unsure, say Y.
 
 config CAN_CALC_BITTIMING
-	tristate "CAN bit-timing calculation"
+	bool "CAN bit-timing calculation"
 	depends on CAN_DEV
 	default Y
- 	---help---
+	---help---
 	  If enabled, CAN bit-timing parameters will be calculated for the
-	  bit-rate specified via SYSFS file "can_bitrate" when the device
-	  gets started. This works fine for the most common CAN controllers
+	  bit-rate specified via SYSFS file "bitrate" when the device gets
+	  started. This works fine for the most common CAN controllers
 	  with standard bit-rates but may fail for exotic bit-rates or CAN
 	  source clock frequencies. Disabling saves some space, but then the
 	  bit-timing parameters must be specified directly using the SYSFS
-	  files "tq, prop_seg, phase_seg1, phase_seg2 and sjw".
+	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
 	  If unsure, say Y.
 
 config CAN_SJA1000
- 	depends on CAN_DEV
-       	tristate "Philips SJA1000"
+	depends on CAN_DEV
+	tristate "Philips SJA1000"
 	---help---
 	  The SJA1000 is one of the top CAN controllers out there. As it
 	  has a multiplexed interface it fits directly to 8051
@@ -79,56 +79,51 @@ config CAN_SJA1000_PLATFORM
 	---help---
 	  This driver adds support for the SJA1000 chips connected to
 	  the "platform bus" (Linux abstraction for directly to the
-	  processor attached devices).  Which can be found on various
+	  processor attached devices).	Which can be found on various
 	  boards from Phytec (http://www.phytec.de) like the PCM027,
 	  PCM038.
 
 config CAN_EMS_PCI
 	tristate "EMS CPC-PCI and CPC-PCIe Card"
 	depends on PCI && CAN_SJA1000
-	help
-
-	This driver is for the one or two channel CPC-PCI and CPC-PCIe
-	cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+	---help---
+	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
+	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
 
 config CAN_EMS_PCMCIA
 	tristate "EMS CPC-CARD Card"
 	depends on PCMCIA && CAN_SJA1000
-	help
-
-	This driver is for the one or two channel CPC-CARD cards from
-	EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+	---help---
+	  This driver is for the one or two channel CPC-CARD cards from
+	  EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
 
 config CAN_IXXAT_PCI
 	tristate "IXXAT PCI Card"
 	depends on PCI && CAN_SJA1000
-	help
-
-	This driver is for the IXXAT PC-I 04/PCI card (1 or 2 channel)
-	from the IXXAT Automation GmbH (http://www.ixxat.de).
+	---help---
+	  This driver is for the IXXAT PC-I 04/PCI card (1 or 2 channel)
+	  from the IXXAT Automation GmbH (http://www.ixxat.de).
 
 config CAN_PEAK_PCI
 	tristate "PEAK PCAN PCI Card"
 	depends on PCI && CAN_SJA1000
-	help
-
-	This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
-	2 channel) from PEAK Systems (http://www.peak-system.com).
+	---help---
+	  This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
+	  2 channel) from PEAK Systems (http://www.peak-system.com).
 
 config CAN_PIPCAN
 	depends on CAN_SJA1000
 	tristate "MPL PIPCAN CAN module driver (SJA1000)"
-	help
-	This driver adds support for the PIPCAN module used on some SBC boards
-	from MPL AG (http://www.mpl.ch).
+	---help---
+	  This driver adds support for the PIPCAN module used on some SBC
+	  boards from MPL AG (http://www.mpl.ch).
 
 config CAN_KVASER_PCI
 	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
 	depends on PCI && CAN_SJA1000
-	help
-
-	This driver is for the the PCIcanx and PCIcan cards (1, 2 or
-	4 channel) from Kvaser (http://www.kvaser.com).
+	---help---
+	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
+	  4 channel) from Kvaser (http://www.kvaser.com).
 
 config CAN_SOFTING
 	tristate "Softing Gmbh CAN generic support"
