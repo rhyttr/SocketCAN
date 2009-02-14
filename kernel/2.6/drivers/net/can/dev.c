@@ -154,6 +154,7 @@ static int can_calc_bittiming(struct net_device *dev)
 #else /* !CONFIG_CAN_CALC_BITTIMING */
 static int can_calc_bittiming(struct net_device *dev)
 {
+	dev_err(ND2D(dev), "bit-timing calculation not available\n");
 	return -EINVAL;
 }
 #endif /* CONFIG_CAN_CALC_BITTIMING */
@@ -207,8 +208,10 @@ int can_set_bittiming(struct net_device *dev)
 	int err;
 
 	/* Check if bit-timing parameters have been pre-defined */
-	if (!priv->bittiming.tq && !priv->bittiming.bitrate)
+	if (!priv->bittiming.tq && !priv->bittiming.bitrate) {
+		dev_err(ND2D(dev), "bit-timing not yet defined\n");
 		return -EINVAL;
+	}
 
 	/* Check if the CAN device has bit-timing parameters */
 	if (priv->bittiming_const) {
