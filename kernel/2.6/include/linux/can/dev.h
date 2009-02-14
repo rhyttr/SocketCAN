@@ -1,17 +1,20 @@
 /*
  * linux/can/dev.h
  *
- * Definitions for CAN controller network devices lib (work in progress)
+ * Definitions for the CAN network device driver interface
  *
  * $Id$
  *
- * Author: Andrey Volkov <avolkov@varma-el.com>
- * Copyright (c) 2006 Varma Electronics Oy
+ * Copyright (C) 2006 Andrey Volkov <avolkov@varma-el.com>
+ *               Varma Electronics Oy
  *
+ * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
+ *
+ * Send feedback to <socketcan-users@lists.berlios.de>
  */
 
-#ifndef CAN_DEVICE_H
-#define CAN_DEVICE_H
+#ifndef CAN_DEV_H
+#define CAN_DEV_H
 
 #include <linux/version.h>
 #include <linux/can/error.h>
@@ -99,8 +102,6 @@ struct can_priv {
 	struct can_bittiming_const *bittiming_const;
 
 	spinlock_t irq_lock;
-	/* Please hold this lock when touching net_stats/can_stats */
-	spinlock_t stats_lock;
 
 	enum can_state state;
 	u32 ctrlmode;
@@ -149,4 +150,4 @@ void can_get_echo_skb(struct net_device *dev, int idx);
 
 int can_sample_point(struct can_bittiming *bt);
 
-#endif /* CAN_DEVICE_H */
+#endif /* CAN_DEV_H */
