@@ -1,30 +1,22 @@
 /*
- * mscan.c
+ * CAN bus driver for the alone generic (as possible as) MSCAN controller.
  *
- * DESCRIPTION:
- *  CAN bus driver for the alone generic (as possible as) MSCAN controller.
+ * Copyright (C) 2005-2006 Andrey Volkov <avolkov@varma-el.com>,
+ *                         Varma Electronics Oy
+ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
  *
- * AUTHOR:
- *  Andrey Volkov <avolkov@varma-el.com>
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation
  *
- * COPYRIGHT:
- *  2005-2006, Varma Electronics Oy
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * LICENCE:
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <linux/kernel.h>
@@ -54,7 +46,6 @@ RCSID("$Id$");
 #define MSCAN_INIT_MODE		(MSCAN_INITRQ | MSCAN_SLPRQ)
 #define MSCAN_POWEROFF_MODE	(MSCAN_CSWAI | MSCAN_SLPRQ)
 #define MSCAN_SET_MODE_RETRIES	255
-
 
 #define BTR0_BRP_MASK		0x3f
 #define BTR0_SJW_SHIFT		6
@@ -769,4 +760,4 @@ EXPORT_SYMBOL(alloc_mscandev);
 
 MODULE_AUTHOR("Andrey Volkov <avolkov@varma-el.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("CAN port driver for a mscan based chips");
+MODULE_DESCRIPTION("CAN port driver for a MSCAN based chips");
