@@ -528,19 +528,12 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 	uint8_t isrc, status;
 	int n = 0;
 
+	/* Shared interrupts and IRQ off? */
+	if (priv->read_reg(dev, REG_IER) == IRQ_OFF)
+		return IRQ_NONE;
+
 	if (priv->pre_irq)
 		priv->pre_irq(dev);
-
-	if (priv->can.state == CAN_STATE_STOPPED) {
-		dev_err(ND2D(dev), "%s: controller is in reset mode!"
-			"MOD=0x%02X IER=0x%02X IR=0x%02X SR=0x%02X!\n",
-			__func__,
-			priv->read_reg(dev, REG_MOD),
-			priv->read_reg(dev, REG_IER),
-			priv->read_reg(dev, REG_IR),
-			priv->read_reg(dev, REG_SR));
-		goto out;
-	}
 
 	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < 20)) {
 		n++;
@@ -570,7 +563,6 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 		}
 	}
 
-out:
 	if (priv->post_irq)
 		priv->post_irq(dev);
 
