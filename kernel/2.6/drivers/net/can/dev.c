@@ -30,7 +30,7 @@
 
 #include "sysfs.h"
 
-#define MOD_DESC "CAN netdevice library"
+#define MOD_DESC "CAN device driver interface"
 
 MODULE_DESCRIPTION(MOD_DESC);
 MODULE_LICENSE("GPL v2");
@@ -202,6 +202,12 @@ int can_fixup_bittiming(struct net_device *dev)
 	return 0;
 }
 
+/*
+ * Set CAN bit-timing for the device
+ *
+ * This functions should be called in the open function of the device
+ * driver to determine, check and set appropriate bit-timing parameters.
+ */
 int can_set_bittiming(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -269,8 +275,7 @@ static void can_setup(struct net_device *dev)
 }
 
 /*
- * Function  alloc_candev
- * 	Allocates and sets up an CAN device
+ * Allocate and setup space for the CAN network device
  */
 struct net_device *alloc_candev(int sizeof_priv)
 {
@@ -293,12 +298,18 @@ struct net_device *alloc_candev(int sizeof_priv)
 }
 EXPORT_SYMBOL(alloc_candev);
 
+/*
+ * Allocate space of the CAN network device
+ */
 void free_candev(struct net_device *dev)
 {
 	free_netdev(dev);
 }
 EXPORT_SYMBOL(free_candev);
 
+/*
+ * Register the CAN network device
+ */
 int register_candev(struct net_device *dev)
 {
 	int err;
@@ -314,6 +325,9 @@ int register_candev(struct net_device *dev)
 }
 EXPORT_SYMBOL(register_candev);
 
+/*
+ * Unregister the CAN network device
+ */
 void unregister_candev(struct net_device *dev)
 {
 #ifdef CONFIG_SYSFS
@@ -337,12 +351,10 @@ EXPORT_SYMBOL(unregister_candev);
 void can_flush_echo_skb(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
-#ifdef FIXME
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = can_get_stats(dev);
 #else
 	struct net_device_stats *stats = &dev->stats;
-#endif
 #endif
 	int i;
 
@@ -350,14 +362,18 @@ void can_flush_echo_skb(struct net_device *dev)
 		if (priv->echo_skb[i]) {
 			kfree_skb(priv->echo_skb[i]);
 			priv->echo_skb[i] = NULL;
-#ifdef FIXME
 			stats->tx_dropped++;
 			stats->tx_aborted_errors++;
-#endif
 		}
 	}
 }
 
+/*
+ * Put the skb on the stack to be looped backed locally lateron
+ *
+ * The function is typically called in the start_xmit function
+ * of the device driver.
+ */
 void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -400,6 +416,12 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 }
 EXPORT_SYMBOL(can_put_echo_skb);
 
+/*
+ * Get the skb from the stack and loop it back locally
+ *
+ * The function is typically called when the TX done interrupt
+ * is handled in the device driver.
+ */
 void can_get_echo_skb(struct net_device *dev, int idx)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -412,8 +434,7 @@ void can_get_echo_skb(struct net_device *dev, int idx)
 EXPORT_SYMBOL(can_get_echo_skb);
 
 /*
- * CAN bus-off handling
- * FIXME: we need some synchronization
+ * CAN device restart for bus-off recovery
  */
 int can_restart_now(struct net_device *dev)
 {
@@ -475,6 +496,13 @@ static void can_restart_after(unsigned long data)
 	can_restart_now(dev);
 }
 
+/*
+ * CAN bus-off
+ *
+ * This functions should be called when the device goes bus-off to
+ * tell the netif layer that no more packets can be sent or received.
+ * If enabled, a timer is started to trigger bus-off recovery.
+ */
 void can_bus_off(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
@@ -492,6 +520,12 @@ void can_bus_off(struct net_device *dev)
 }
 EXPORT_SYMBOL(can_bus_off);
 
+/*
+ * Cleanup function before the device gets closed.
+ *
+ * This functions should be called in the close function of the device
+ * driver.
+ */
 void can_close_cleanup(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
