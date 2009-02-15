@@ -93,7 +93,7 @@ struct tx_queue_entry {
 struct mscan_priv {
 	struct can_priv can;
 	long open_time;
-	volatile unsigned long flags;
+	unsigned long flags;
 	u8 shadow_statflg;
 	u8 shadow_canrier;
 	u8 cur_pri;
@@ -272,7 +272,7 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	out_be16(&regs->tx.idr1_0, can_id);
 
 	if (!rtr) {
-		volatile void __iomem *data = &regs->tx.dsr1_0;
+		void __iomem *data = &regs->tx.dsr1_0;
 		u16 *payload = (u16 *) frame->data;
 		/*Its safe to write into dsr[dlc+1] */
 		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
@@ -384,7 +384,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			frame->can_dlc = in_8(&regs->rx.dlr) & 0xf;
 
 			if (!(frame->can_id & CAN_RTR_FLAG)) {
-				volatile void __iomem *data = &regs->rx.dsr1_0;
+				void __iomem *data = &regs->rx.dsr1_0;
 				u16 *payload = (u16 *) frame->data;
 				for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
 					*payload++ = in_be16(data);

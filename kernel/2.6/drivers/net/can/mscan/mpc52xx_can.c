@@ -273,7 +273,7 @@ static unsigned int  __devinit mpc52xx_can_xtal_freq(struct device_node *np)
 	if (!freq)
 		return 0;
 
-       	/*
+	/*
 	 * Detemine SYS_XTAL_IN frequency from the clock domain settings
 	 */
 	np_cdm = of_find_matching_node(NULL, mpc52xx_cdm_ids);
