@@ -1,0 +1,7 @@
+This is a prelimary quilt patch stack to include the CAN network
+device driver interface and some drivers into Linux kernel. It is
+based on the netdev GIT tree currently at version 2.6.29-rcX:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
+
+Please test and give feedback.

@@ -1,0 +1,51 @@
+[PATCH 2/9] Socket-CAN: update MAINTAINERS and CREDITS file
+
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ CREDITS     |    5 +++++
+ MAINTAINERS |    9 +++++++++
+ 2 files changed, 14 insertions(+)
+
+Index: net-next-2.6/MAINTAINERS
+===================================================================
+--- net-next-2.6.orig/MAINTAINERS
++++ net-next-2.6/MAINTAINERS
+@@ -1055,6 +1055,15 @@ L:	socketcan-core@lists.berlios.de (subs
+ W:	http://developer.berlios.de/projects/socketcan/
+ S:	Maintained
+ 
++CAN NETWORK DRIVERS
++P:	Wolfgang Grandegger (preliminary!!!)
++M:	wg@grandegger.com
++P:	Oliver Hartkopp (preliminary!!!)
++M:	oliver.hartkopp@volkswagen.de
++L:	socketcan-core@lists.berlios.de (subscribers-only)
++W:	http://developer.berlios.de/projects/socketcan/
++S:	Maintained
++
+ CELL BROADBAND ENGINE ARCHITECTURE
+ P:	Arnd Bergmann
+ M:	arnd@arndb.de
+Index: net-next-2.6/CREDITS
+===================================================================
+--- net-next-2.6.orig/CREDITS
++++ net-next-2.6/CREDITS
+@@ -1248,6 +1248,10 @@ S: 8124 Constitution Apt. 7
+ S: Sterling Heights, Michigan 48313
+ S: USA
+ 
++N: Wolfgang Grandegger (preliminary!!!)
++E: wg@grandegger.com
++D: Controller Area Network (device drivers)
++
+ N: William Greathouse
+ E: wgreathouse@smva.com
+ E: wgreathouse@myfavoritei.com
+@@ -1376,6 +1380,7 @@ N: Oliver Hartkopp
+ E: oliver.hartkopp@volkswagen.de
+ W: http://www.volkswagen.de
+ D: Controller Area Network (network layer core)
++D: Controller Area Network (device drivers) (preliminary!!!)
+ S: Brieffach 1776
+ S: 38436 Wolfsburg
+ S: Germany
