@@ -1,36 +1,31 @@
 /*
  * $Id$
  *
- * DESCRIPTION:
- *  Definitions of consts/structs to drive the Freescale MSCAN.
+ * Definitions of consts/structs to drive the Freescale MSCAN.
  *
- * AUTHOR:
- *  Andrey Volkov <avolkov@varma-el.com>
+ * Copyright (C) 2005-2006 Andrey Volkov <avolkov@varma-el.com>,
+ *                         Varma Electronics Oy
  *
- * COPYRIGHT:
- *  2004-2006, Varma Electronics Oy
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation
  *
- * LICENCE:
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __MSCAN_H__
 #define __MSCAN_H__
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 #include <linux/autoconf.h>
+#endif
 #include <linux/types.h>
 
 /* MSCAN control register 0 (CANCTL0) bits */
@@ -52,7 +47,12 @@
 #define MSCAN_SLPAK		0x02
 #define MSCAN_INITAK		0x01
 
-#ifdef	CONFIG_PPC_MPC52xx
+/* Use the MPC5200 MSCAN variant? */
+#ifdef CONFIG_PPC
+#define MSCAN_FOR_MPC5200
+#endif
+
+#ifdef MSCAN_FOR_MPC5200
 #define MSCAN_CLKSRC_BUS	0
 #define MSCAN_CLKSRC_XTAL	MSCAN_CLKSRC
 #else
@@ -136,7 +136,7 @@
 /* MSCAN Miscellaneous Register (CANMISC) bits */
 #define MSCAN_BOHOLD		0x01
 
-#ifdef	CONFIG_PPC_MPC52xx
+#ifdef MSCAN_FOR_MPC5200
 #define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
 #define _MSCAN_RESERVED_DSR_SIZE	2
 #else
@@ -166,7 +166,7 @@ struct mscan_regs {
 	u8 canidac;				/* + 0x15     0x0b */
 	u8 reserved;				/* + 0x16     0x0c */
 	_MSCAN_RESERVED_(6, 5);			/* + 0x17          */
-#ifndef CONFIG_PPC_MPC52xx
+#ifndef MSCAN_FOR_MPC5200
 	u8 canmisc;				/*            0x0d */
 #endif
 	u8 canrxerr;				/* + 0x1c     0x0e */
@@ -231,8 +231,6 @@ struct mscan_regs {
 #undef _MSCAN_RESERVED_
 #define MSCAN_REGION 	sizeof(struct mscan)
 
-#define MSCAN_WATCHDOG_TIMEOUT	((500*HZ)/1000)
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 struct mscan_platform_data {
 	u8 clock_src;		/* MSCAN_CLKSRC_BUS or MSCAN_CLKSRC_XTAL */
@@ -241,11 +239,11 @@ struct mscan_platform_data {
 #endif
 
 struct net_device *alloc_mscandev(void);
-/* @clock_src:
-	1 = The MSCAN clock source is the onchip Bus Clock.
-	0 = The MSCAN clock source is the chip Oscillator Clock.
-*/
+/* clock_src:
+ *	1 = The MSCAN clock source is the onchip Bus Clock.
+ *	0 = The MSCAN clock source is the chip Oscillator Clock.
+ */
 extern int register_mscandev(struct net_device *dev, int clock_src);
 extern void unregister_mscandev(struct net_device *dev);
 
-#endif				/* __MSCAN_H__ */
+#endif /* __MSCAN_H__ */

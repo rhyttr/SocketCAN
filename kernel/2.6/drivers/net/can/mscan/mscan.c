@@ -469,7 +469,6 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 	return ret;
 }
 
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
 static irqreturn_t mscan_isr(int irq, void *dev_id, struct pt_regs *r)
 #else
