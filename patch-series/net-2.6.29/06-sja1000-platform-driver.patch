@@ -229,7 +229,7 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
 --- net-next-2.6.orig/drivers/net/can/Kconfig
 +++ net-next-2.6/drivers/net/can/Kconfig
-@@ -46,4 +46,14 @@ config CAN_SJA1000
+@@ -56,4 +56,14 @@ config CAN_SJA1000
  	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
  	  with a single (simple) filter setup.
  

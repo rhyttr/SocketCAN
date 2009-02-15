@@ -886,9 +886,9 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
 --- net-next-2.6.orig/drivers/net/can/Kconfig
 +++ net-next-2.6/drivers/net/can/Kconfig
-@@ -35,4 +35,15 @@ config CAN_CALC_BITTIMING
- 	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
- 	  If unsure, say Y.
+@@ -45,4 +45,15 @@ config CAN_DEBUG_DEVICES
+ 	  a problem with CAN support and want to see more of what is going
+ 	  on.
  
 +config CAN_SJA1000
 +	depends on CAN_DEV

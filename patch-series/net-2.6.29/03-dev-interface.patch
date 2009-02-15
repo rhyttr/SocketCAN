@@ -11,11 +11,11 @@ provided by the first patch of this series.
 
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
 ---
- drivers/net/can/Kconfig  |   27 +-
+ drivers/net/can/Kconfig  |   23 ++
  drivers/net/can/Makefile |    5 
  drivers/net/can/dev.c    |  523 +++++++++++++++++++++++++++++++++++++++++++++++
  include/linux/can/dev.h  |  136 ++++++++++++
- 4 files changed, 684 insertions(+), 7 deletions(-)
+ 4 files changed, 687 insertions(+)
 
 Index: net-next-2.6/drivers/net/can/Makefile
 ===================================================================
@@ -703,22 +703,15 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
 --- net-next-2.6.orig/drivers/net/can/Kconfig
 +++ net-next-2.6/drivers/net/can/Kconfig
-@@ -12,14 +12,27 @@ config CAN_VCAN
+@@ -12,6 +12,29 @@ config CAN_VCAN
  	  This driver can also be built as a module.  If so, the module
  	  will be called vcan.
  
--config CAN_DEBUG_DEVICES
--	bool "CAN devices debugging messages"
 +config CAN_DEV
 +	tristate "Platform CAN drivers with SYSFS support"
- 	depends on CAN
--	default N
++	depends on CAN
 +	default Y
- 	---help---
--	  Say Y here if you want the CAN device drivers to produce a bunch of
--	  debug messages to the system log.  Select this if you are having
--	  a problem with CAN support and want to see more of what is going
--	  on.
++	---help---
 +	  Enables the common framework for platform CAN drivers with SYSFS
 +	  support. This is the standard library for CAN drivers.
 +	  If unsure, say Y.
@@ -736,5 +729,7 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 +	  bit-timing parameters must be specified directly using the SYSFS
 +	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
 +	  If unsure, say Y.
- 
- endmenu
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN

@@ -16,7 +16,7 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
 --- net-next-2.6.orig/drivers/net/can/Kconfig
 +++ net-next-2.6/drivers/net/can/Kconfig
-@@ -56,4 +56,11 @@ config CAN_SJA1000_PLATFORM
+@@ -66,4 +66,11 @@ config CAN_SJA1000_PLATFORM
  	  boards from Phytec (http://www.phytec.de) like the PCM027,
  	  PCM038.
  

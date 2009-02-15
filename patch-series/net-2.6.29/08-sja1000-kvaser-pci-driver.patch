@@ -15,7 +15,7 @@ Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
 --- net-next-2.6.orig/drivers/net/can/Kconfig
 +++ net-next-2.6/drivers/net/can/Kconfig
-@@ -63,4 +63,11 @@ config CAN_EMS_PCI
+@@ -73,4 +73,11 @@ config CAN_EMS_PCI
  	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
  	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
  
