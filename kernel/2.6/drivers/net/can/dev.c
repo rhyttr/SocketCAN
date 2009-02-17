@@ -165,7 +165,7 @@ int can_sample_point(struct can_bittiming *bt)
 		(bt->prop_seg + bt->phase_seg1 + bt->phase_seg2 + 1);
 }
 
-int can_fixup_bittiming(struct net_device *dev)
+static int can_fixup_bittiming(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 	struct can_bittiming *bt = &priv->bittiming;
@@ -348,7 +348,7 @@ EXPORT_SYMBOL(unregister_candev);
  * to perform the echo as a fallback solution.
  */
 
-void can_flush_echo_skb(struct net_device *dev)
+static void can_flush_echo_skb(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)

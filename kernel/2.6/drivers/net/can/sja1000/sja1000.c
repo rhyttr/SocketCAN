@@ -100,7 +100,7 @@ static int sja1000_probe_chip(struct net_device *dev)
 	return 1;
 }
 
-int set_reset_mode(struct net_device *dev)
+static int set_reset_mode(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 	unsigned char status = priv->read_reg(dev, REG_MOD);

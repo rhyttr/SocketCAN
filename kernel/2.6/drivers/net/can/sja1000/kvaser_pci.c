@@ -325,20 +325,20 @@ static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
 
 	/*S5920*/
 	conf_addr = pci_iomap(pdev, 0, PCI_CONFIG_PORT_SIZE);
-	if (conf_addr == 0) {
+	if (conf_addr == NULL) {
 		err = -ENODEV;
 		goto failure_iounmap;
 	}
 
 	/*XILINX board wide address*/
 	res_addr = pci_iomap(pdev, 2, PCI_PORT_XILINX_SIZE);
-	if (res_addr == 0) {
+	if (res_addr == NULL) {
 		err = -ENOMEM;
 		goto failure_iounmap;
 	}
 
 	base_addr = pci_iomap(pdev, 1, PCI_PORT_SIZE);
-	if (base_addr == 0) {
+	if (base_addr == NULL) {
 		err = -ENOMEM;
 		goto failure_iounmap;
 	}
@@ -370,11 +370,11 @@ failure_cleanup:
 	kvaser_pci_del_chan(master_dev);
 
 failure_iounmap:
-	if (conf_addr == 0)
+	if (conf_addr == NULL)
 		pci_iounmap(pdev, conf_addr);
-	if (res_addr == 0)
+	if (res_addr == NULL)
 		pci_iounmap(pdev, res_addr);
-	if (base_addr == 0)
+	if (base_addr == NULL)
 		pci_iounmap(pdev, base_addr);
 
 	pci_release_regions(pdev);

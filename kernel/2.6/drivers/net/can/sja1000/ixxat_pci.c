@@ -183,7 +183,7 @@ static int __devinit ixxat_pci_init_one(struct pci_dev *pdev,
 	board->conf_addr = pci_resource_start(pdev, 1);
 
 	base_addr = pci_iomap(pdev, 2, IXXAT_PCI_BASE_SIZE);
-	if (base_addr == 0) {
+	if (base_addr == NULL) {
 		err = -ENODEV;
 		goto failure_release_pci;
 	}
