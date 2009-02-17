@@ -318,9 +318,8 @@ int register_candev(struct net_device *dev)
 	if (err)
 		return err;
 
-#ifdef CONFIG_SYSFS
 	can_create_sysfs(dev);
-#endif
+
 	return 0;
 }
 EXPORT_SYMBOL(register_candev);
@@ -330,9 +329,7 @@ EXPORT_SYMBOL(register_candev);
  */
 void unregister_candev(struct net_device *dev)
 {
-#ifdef CONFIG_SYSFS
 	can_remove_sysfs(dev);
-#endif
 	unregister_netdev(dev);
 }
 EXPORT_SYMBOL(unregister_candev);

@@ -39,7 +39,7 @@ endif
 
 config CAN_DEV
 	tristate "Prompt for platform CAN drivers with sysfs support"
-	depends on CAN
+	depends on CAN && SYSFS
 	default Y
 	---help---
 	  Enables the common framework for platform CAN drivers with sysfs
