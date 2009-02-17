@@ -73,7 +73,7 @@ static int can_calc_bittiming(struct net_device *dev)
 	int best_tseg = 0, best_brp = 0, brp = 0;
 	int tsegall, tseg = 0, tseg1 = 0, tseg2 = 0;
 	int spt_error = 1000, spt = 0, sampl_pt;
-	uint64_t v64;
+	u64 v64;
 
 	if (!priv->bittiming_const)
 		return -ENOTSUPP;
