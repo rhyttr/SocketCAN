@@ -696,7 +696,7 @@ int register_mscandev(struct net_device *dev, int clock_src)
 
 	return register_candev(dev);
 }
-EXPORT_SYMBOL(register_mscandev);
+EXPORT_SYMBOL_GPL(register_mscandev);
 
 void unregister_mscandev(struct net_device *dev)
 {
@@ -705,7 +705,7 @@ void unregister_mscandev(struct net_device *dev)
 	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_CANE);
 	unregister_candev(dev);
 }
-EXPORT_SYMBOL(unregister_mscandev);
+EXPORT_SYMBOL_GPL(unregister_mscandev);
 
 struct net_device *alloc_mscandev(void)
 {
@@ -749,7 +749,7 @@ struct net_device *alloc_mscandev(void)
 
 	return dev;
 }
-EXPORT_SYMBOL(alloc_mscandev);
+EXPORT_SYMBOL_GPL(alloc_mscandev);
 
 MODULE_AUTHOR("Andrey Volkov <avolkov@varma-el.com>");
 MODULE_LICENSE("GPL v2");

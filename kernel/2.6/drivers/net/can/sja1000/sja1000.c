@@ -651,7 +651,7 @@ void free_sja1000dev(struct net_device *dev)
 {
 	free_candev(dev);
 }
-EXPORT_SYMBOL(free_sja1000dev);
+EXPORT_SYMBOL_GPL(free_sja1000dev);
 
 int register_sja1000dev(struct net_device *dev)
 {
@@ -686,14 +686,14 @@ int register_sja1000dev(struct net_device *dev)
 	chipset_init(dev);
 	return 0;
 }
-EXPORT_SYMBOL(register_sja1000dev);
+EXPORT_SYMBOL_GPL(register_sja1000dev);
 
 void unregister_sja1000dev(struct net_device *dev)
 {
 	set_reset_mode(dev);
 	unregister_candev(dev);
 }
-EXPORT_SYMBOL(unregister_sja1000dev);
+EXPORT_SYMBOL_GPL(unregister_sja1000dev);
 
 static __init int sja1000_init(void)
 {

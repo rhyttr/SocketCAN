@@ -246,7 +246,7 @@ int can_set_bittiming(struct net_device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL(can_set_bittiming);
+EXPORT_SYMBOL_GPL(can_set_bittiming);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 struct net_device_stats *can_get_stats(struct net_device *dev)
@@ -255,7 +255,7 @@ struct net_device_stats *can_get_stats(struct net_device *dev)
 
 	return &priv->net_stats;
 }
-EXPORT_SYMBOL(can_get_stats);
+EXPORT_SYMBOL_GPL(can_get_stats);
 #endif
 
 static void can_setup(struct net_device *dev)
@@ -296,7 +296,7 @@ struct net_device *alloc_candev(int sizeof_priv)
 
 	return dev;
 }
-EXPORT_SYMBOL(alloc_candev);
+EXPORT_SYMBOL_GPL(alloc_candev);
 
 /*
  * Allocate space of the CAN network device
@@ -305,7 +305,7 @@ void free_candev(struct net_device *dev)
 {
 	free_netdev(dev);
 }
-EXPORT_SYMBOL(free_candev);
+EXPORT_SYMBOL_GPL(free_candev);
 
 /*
  * Register the CAN network device
@@ -322,7 +322,7 @@ int register_candev(struct net_device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL(register_candev);
+EXPORT_SYMBOL_GPL(register_candev);
 
 /*
  * Unregister the CAN network device
@@ -332,7 +332,7 @@ void unregister_candev(struct net_device *dev)
 	can_remove_sysfs(dev);
 	unregister_netdev(dev);
 }
-EXPORT_SYMBOL(unregister_candev);
+EXPORT_SYMBOL_GPL(unregister_candev);
 
 /*
  * Local echo of CAN messages
@@ -411,7 +411,7 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 		kfree_skb(skb);
 	}
 }
-EXPORT_SYMBOL(can_put_echo_skb);
+EXPORT_SYMBOL_GPL(can_put_echo_skb);
 
 /*
  * Get the skb from the stack and loop it back locally
@@ -428,7 +428,7 @@ void can_get_echo_skb(struct net_device *dev, int idx)
 		priv->echo_skb[idx] = NULL;
 	}
 }
-EXPORT_SYMBOL(can_get_echo_skb);
+EXPORT_SYMBOL_GPL(can_get_echo_skb);
 
 /*
  * CAN device restart for bus-off recovery
@@ -518,7 +518,7 @@ void can_bus_off(struct net_device *dev)
 		add_timer(&priv->timer);
 	}
 }
-EXPORT_SYMBOL(can_bus_off);
+EXPORT_SYMBOL_GPL(can_bus_off);
 
 /*
  * Cleanup function before the device gets closed.
@@ -537,7 +537,7 @@ void can_close_cleanup(struct net_device *dev)
 
 	can_flush_echo_skb(dev);
 }
-EXPORT_SYMBOL(can_close_cleanup);
+EXPORT_SYMBOL_GPL(can_close_cleanup);
 
 static __init int can_dev_init(void)
 {
