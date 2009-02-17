@@ -402,7 +402,7 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 
 	dev_set_drvdata(&ofdev->dev, dev);
 
-	dev_info(&ofdev->dev, "MSCAN at 0x%lx, irq %d, clock %dHZ\n",
+	dev_info(&ofdev->dev, "MSCAN at 0x%lx, irq %d, clock %d Hz\n",
 		 dev->base_addr, dev->irq, priv->bittiming.clock);
 
 	return 0;

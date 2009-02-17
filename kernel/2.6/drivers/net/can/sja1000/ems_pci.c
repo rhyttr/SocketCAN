@@ -292,7 +292,7 @@ static int __devinit ems_pci_add_card(struct pci_dev *pdev,
 
 			card->channels++;
 
-			dev_info(&pdev->dev, "Channel #%d at %lX, irq %d\n",
+			dev_info(&pdev->dev, "Channel #%d at %#lX, irq %d\n",
 						i + 1, dev->base_addr,
 						dev->irq);
 		} else {
