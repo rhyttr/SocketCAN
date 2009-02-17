@@ -653,6 +653,14 @@ void free_sja1000dev(struct net_device *dev)
 }
 EXPORT_SYMBOL_GPL(free_sja1000dev);
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+static const struct net_device_ops sja1000_netdev_ops = {
+       .ndo_open               = sja1000_open,
+       .ndo_stop               = sja1000_close,
+       .ndo_start_xmit         = sja1000_start_xmit,
+};
+#endif
+
 int register_sja1000dev(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
@@ -663,10 +671,13 @@ int register_sja1000dev(struct net_device *dev)
 
 	dev->flags |= IFF_ECHO;	/* we support local echo */
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	dev->netdev_ops = &sja1000_netdev_ops;
+#else
 	dev->open = sja1000_open;
 	dev->stop = sja1000_close;
-
 	dev->hard_start_xmit = sja1000_start_xmit;
+#endif
 
 	priv->can.bittiming_const = &sja1000_bittiming_const;
 	priv->can.do_set_bittiming = sja1000_set_bittiming;
