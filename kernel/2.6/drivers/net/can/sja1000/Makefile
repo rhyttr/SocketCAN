@@ -18,6 +18,7 @@ else
 
 obj-$(CONFIG_CAN_SJA1000) += sja1000.o
 obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
+obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
 obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
 obj-$(CONFIG_CAN_EMS_PCMCIA) += ems_pcmcia.o
 obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
