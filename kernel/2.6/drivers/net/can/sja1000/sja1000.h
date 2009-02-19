@@ -181,9 +181,4 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id, struct pt_regs *regs);
 irqreturn_t sja1000_interrupt(int irq, void *dev_id);
 #endif
 
-#if 0
-void can_proc_create(const char *drv_name);
-void can_proc_remove(const char *drv_name);
-#endif
-
 #endif /* SJA1000_DEV_H */
