@@ -163,6 +163,7 @@ static int __devinit sja1000_ofp_probe(struct of_device *ofdev,
 		 priv->ocr, priv->cdr);
 
 	dev_set_drvdata(&ofdev->dev, dev);
+	SET_NETDEV_DEV(dev, &ofdev->dev);
 
 	err = register_sja1000dev(dev);
 	if (err) {
