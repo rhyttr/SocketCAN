@@ -344,8 +344,13 @@ int can_send(struct sk_buff *skb, int loop)
 		err = net_xmit_errno(err);
 
 	if (err) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17)
+		/* kfree_skb() does not check for !NULL on older kernels */
 		if (newskb)
 			kfree_skb(newskb);
+#else
+		kfree_skb(newskb);
+#endif
 		return err;
 	}
 
