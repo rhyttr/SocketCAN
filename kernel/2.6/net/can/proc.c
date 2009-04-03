@@ -484,7 +484,9 @@ void can_init_proc(void)
 		return;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	can_dir->owner = THIS_MODULE;
+#endif
 
 	/* own procfs entries from the AF_CAN core */
 	pde_version     = can_create_proc_readentry(CAN_PROC_VERSION, 0644,

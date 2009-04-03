@@ -1641,8 +1641,10 @@ static int __init bcm_module_init(void)
 	proc_dir = proc_mkdir("can-bcm", proc_net);
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	if (proc_dir)
 		proc_dir->owner = THIS_MODULE;
+#endif
 
 	return 0;
 }
