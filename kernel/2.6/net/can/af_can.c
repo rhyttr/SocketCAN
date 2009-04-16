@@ -762,8 +762,12 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	rcu_read_unlock();
 
-	/* free the skbuff allocated by the netdevice driver */
+	/* consume the skbuff allocated by the netdevice driver */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+	consume_skb(skb);
+#else
 	kfree_skb(skb);
+#endif
 
 	if (matches > 0) {
 		can_stats.matches++;
