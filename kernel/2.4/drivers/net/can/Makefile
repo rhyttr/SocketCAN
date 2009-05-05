@@ -45,6 +45,7 @@ KERNELDIR = /usr/src/linux
 
 CFLAGS    = -O2 -Wall -Wno-parentheses -D__KERNEL__ -DMODULE $(DEBUG) \
 		-I$(KERNELDIR)/include -I../../../include -fno-strict-aliasing \
+		-DN_SLCAN=N_MOUSE \
 		-DETH_P_CAN=0x000C \
 		-DARPHRD_CAN=280 \
 		-DPF_CAN=29 \
@@ -60,7 +61,7 @@ KERNELRELEASE = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
 MODLIB := $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)/llcf
 
-MOD = vcan.o
+MOD = vcan.o slcan.o
 
 all: $(MOD)
 
