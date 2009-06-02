@@ -143,6 +143,13 @@ config CAN_KVASER_PCI
 	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
 	  4 channel) from Kvaser (http://www.kvaser.com).
 
+config CAN_ESD_PCI331
+	tristate "ESD CAN 331 Cards"
+	depends on PCI
+	---help---
+	  This driver supports the PCI/331, CPCI/331 and PMC/331 CAN cards
+	  from the esd system design gmbh (http://www.esd.eu).
+
 config CAN_SOFTING
 	tristate "Softing Gmbh CAN generic support"
 	depends on CAN_DEV
