@@ -147,6 +147,7 @@ void can_close_cleanup(struct net_device *dev);
 
 void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx);
 void can_get_echo_skb(struct net_device *dev, int idx);
+void can_free_echo_skb(struct net_device *dev, int idx);
 
 int can_sample_point(struct can_bittiming *bt);
 
