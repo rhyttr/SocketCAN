@@ -424,6 +424,12 @@ static struct attribute *can_bittiming_attrs[] = {
 	NULL
 };
 
+/* Minimal number of attributes to support intelligent CAN controllers */
+static struct attribute *can_bittiming_min_attrs[] = {
+	&dev_attr_bitrate.attr,
+	NULL
+};
+
 static struct attribute_group can_bittiming_group = {
 	.name = "can_bittiming",
 	.attrs = can_bittiming_attrs,
@@ -503,13 +509,12 @@ void can_create_sysfs(struct net_device *dev)
 		       "couldn't create sysfs group for CAN statistics\n");
 	}
 
-	if (priv->bittiming_const) {
-		err = sysfs_create_group(&(dev->dev.kobj),
-					 &can_bittiming_group);
-		if (err) {
-			printk(KERN_EMERG "couldn't create sysfs "
-			       "group for CAN bittiming\n");
-		}
+	if (!priv->bittiming_const)
+		can_bittiming_group.attrs = can_bittiming_min_attrs;
+	err = sysfs_create_group(&(dev->dev.kobj), &can_bittiming_group);
+	if (err) {
+		printk(KERN_EMERG "couldn't create sysfs "
+		       "group for CAN bittiming\n");
 	}
 }
 
