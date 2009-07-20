@@ -82,6 +82,7 @@ static __initdata const char banner[] =
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+MODULE_ALIAS("can-proto-6");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 #error This modules needs hrtimers (available since Kernel 2.6.22)

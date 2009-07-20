@@ -78,6 +78,7 @@ static __initdata const char banner[] = KERN_INFO
 MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+MODULE_ALIAS("can-proto-2");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 #error This code only supports Kernel versions _below_ 2.6.22
