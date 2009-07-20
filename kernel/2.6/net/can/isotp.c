@@ -807,6 +807,9 @@ static int isotp_release(struct socket *sock)
 	so->ifindex = 0;
 	so->bound   = 0;
 
+	sock_orphan(sk);
+	sock->sk = NULL;
+
 	release_sock(sk);
 	sock_put(sk);
 
