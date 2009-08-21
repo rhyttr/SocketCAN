@@ -27,9 +27,9 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/list.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
-#include <linux/can/error.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
+#include <socketcan/can/error.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #include <linux/io.h>
 #else
@@ -38,7 +38,7 @@
 
 #include "mscan.h"
 
-#include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h>	/* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #define MSCAN_NORMAL_MODE	0
@@ -63,9 +63,10 @@ RCSID("$Id$");
 #define BTR1_SET_TSEG1(tseg1)	(((tseg1) - 1) &  BTR1_TSEG1_MASK)
 #define BTR1_SET_TSEG2(tseg2)	((((tseg2) - 1) << BTR1_TSEG2_SHIFT) & \
 				 BTR1_TSEG2_MASK)
-#define BTR1_SET_SAM(sam)	(((sam) & 1) << BTR1_SAM_SHIFT)
+#define BTR1_SET_SAM(sam)	((sam) ? 1 << BTR1_SAM_SHIFT : 0)
 
 static struct can_bittiming_const mscan_bittiming_const = {
+	.name = "mscan",
 	.tseg1_min = 4,
 	.tseg1_max = 16,
 	.tseg2_min = 2,
@@ -114,9 +115,9 @@ struct mscan_priv {
 #define F_TX_WAIT_ALL	2
 
 static enum can_state state_map[] = {
-	CAN_STATE_ACTIVE,
-	CAN_STATE_BUS_WARNING,
-	CAN_STATE_BUS_PASSIVE,
+	CAN_STATE_ERROR_ACTIVE,
+	CAN_STATE_ERROR_WARNING,
+	CAN_STATE_ERROR_PASSIVE,
 	CAN_STATE_BUS_OFF
 };
 
@@ -131,10 +132,10 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 	if (mode != MSCAN_NORMAL_MODE) {
 
 		if (priv->tx_active) {
-			/* Abort transfers before going to sleep */
-			out_8(&regs->cantier, 0);
+			/* Abort transfers before going to sleep */#
 			out_8(&regs->cantarq, priv->tx_active);
-			out_8(&regs->cantier, priv->tx_active);
+			/* Suppress TX done interrupts */
+			out_8(&regs->cantier, 0);
 		}
 
 		canctl1 = in_8(&regs->canctl1);
@@ -183,7 +184,7 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 			if (i >= MSCAN_SET_MODE_RETRIES)
 				ret = -ENODEV;
 			else
-				priv->can.state = CAN_STATE_ACTIVE;
+				priv->can.state = CAN_STATE_ERROR_ACTIVE;
 		}
 	}
 	return ret;
@@ -314,8 +315,6 @@ static inline int check_set_state(struct net_device *dev, u8 canrflg)
 			      MSCAN_STATE_TX(canrflg))];
 	if (priv->can.state < state)
 		ret = 1;
-	if (state == CAN_STATE_BUS_OFF)
-		can_bus_off(dev);
 	priv->can.state = state;
 	return ret;
 }
@@ -405,18 +404,20 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 				frame->can_id |= CAN_ERR_CRTL;
 				frame->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
 				stats->rx_over_errors++;
+				stats->rx_errors++;
 			} else
 				frame->data[1] = 0;
 
 			if (check_set_state(dev, canrflg)) {
-				frame->can_id |= CAN_ERR_CRTL;
 				switch (priv->can.state) {
-				case CAN_STATE_BUS_WARNING:
+				case CAN_STATE_ERROR_WARNING:
+					frame->can_id |= CAN_ERR_CRTL;
+					priv->can.can_stats.error_warning++;
 					if ((priv->shadow_statflg &
 					     MSCAN_RSTAT_MSK) <
 					    (canrflg & MSCAN_RSTAT_MSK))
 						frame->data[1] |=
-						    CAN_ERR_CRTL_RX_WARNING;
+							CAN_ERR_CRTL_RX_WARNING;
 
 					if ((priv->shadow_statflg &
 					     MSCAN_TSTAT_MSK) <
@@ -424,13 +425,15 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 						frame->data[1] |=
 							CAN_ERR_CRTL_TX_WARNING;
 					break;
-				case CAN_STATE_BUS_PASSIVE:
+				case CAN_STATE_ERROR_PASSIVE:
+					frame->can_id |= CAN_ERR_CRTL;
+					priv->can.can_stats.error_passive++;
 					frame->data[1] |=
-					    CAN_ERR_CRTL_RX_PASSIVE;
+						CAN_ERR_CRTL_RX_PASSIVE;
 					break;
 				case CAN_STATE_BUS_OFF:
 					frame->can_id |= CAN_ERR_BUSOFF;
-					frame->can_id &= ~CAN_ERR_CRTL;
+					can_bus_off(dev);
 					break;
 				default:
 					break;
@@ -604,16 +607,16 @@ static int mscan_open(struct net_device *dev)
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 
-	/* determine and set bittime */
-	ret = can_set_bittiming(dev);
+	/* common open */
+	ret = open_candev(dev);
 	if (ret)
 		return ret;
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	napi_enable(&priv->napi);
 #endif
-	ret = request_irq(dev->irq, mscan_isr, 0, dev->name, dev);
 
+	ret = request_irq(dev->irq, mscan_isr, 0, dev->name, dev);
 	if (ret < 0) {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 		napi_disable(&priv->napi);
@@ -641,16 +644,16 @@ static int mscan_close(struct net_device *dev)
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 	struct mscan_priv *priv = netdev_priv(dev);
 
+	netif_stop_queue(dev);
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 	napi_disable(&priv->napi);
 #endif
 
 	out_8(&regs->cantier, 0);
 	out_8(&regs->canrier, 0);
-	free_irq(dev->irq, dev);
 	mscan_set_mode(dev, MSCAN_INIT_MODE);
-	can_close_cleanup(dev);
-	netif_stop_queue(dev);
+	close_candev(dev);
+	free_irq(dev->irq, dev);
 	priv->open_time = 0;
 
 	return 0;

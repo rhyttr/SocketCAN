@@ -171,7 +171,8 @@ int softing_fct_cmd(struct softing *card, int cmd, int vector, const char *msg)
 			/*don't read return-value now */
 			ret = card->dpram.fct->returned;
 			if (ret)
-				mod_alert("%s returned %u", msg, ret);
+				dev_alert(card->dev,
+					"%s returned %u\n", msg, ret);
 			return 0;
 		}
 		if ((jiffies - stamp) >= 1 * HZ)
@@ -184,12 +185,14 @@ int softing_fct_cmd(struct softing *card, int cmd, int vector, const char *msg)
 	} while (!signal_pending(current));
 
 	if (ret == RES_NONE) {
-		mod_alert("%s, no response from card on %u/0x%02x"
-			, msg, cmd, vector);
+		dev_alert(card->dev,
+			"%s, no response from card on %u/0x%02x\n",
+			msg, cmd, vector);
 		return 1;
 	} else {
-		mod_alert("%s, bad response from card on %u/0x%02x, 0x%04x"
-			, msg, cmd, vector, ret);
+		dev_alert(card->dev,
+			"%s, bad response from card on %u/0x%02x, 0x%04x\n",
+			msg, cmd, vector, ret);
 		/*make sure to return something not 0 */
 		return ret ? ret : 1;
 	}
@@ -219,16 +222,18 @@ int softing_bootloader_command(struct softing *card
 
 	switch (ret) {
 	case RES_NONE:
-		mod_alert("%s: no response from card", msg);
+		dev_alert(card->dev, "%s: no response from card\n", msg);
 		break;
 	case RES_NOK:
-		mod_alert("%s: response from card nok", msg);
+		dev_alert(card->dev, "%s: response from card nok\n", msg);
 		break;
 	case RES_UNKNOWN:
-		mod_alert("%s: command 0x%04x unknown", msg, command);
+		dev_alert(card->dev, "%s: command 0x%04x unknown\n",
+			msg, command);
 		break;
 	default:
-		mod_alert("%s: bad response from card (%u)]", msg, ret);
+		dev_alert(card->dev, "%s: bad response from card (%u)]\n",
+			msg, ret);
 		break;
 	}
 	return ret ? ret : 1;
@@ -273,16 +278,18 @@ int softing_load_fw(const char *file, struct softing *card,
 	u32 start_addr;
 	struct fw_hdr rec;
 	int ok = 0;
-	unsigned char buf[256];
+	unsigned char buf[1024];
 
 	ret = request_firmware(&fw, file, card->dev);
 	if (ret) {
-		mod_alert("request_firmware(%s) got %i", file, ret);
+		dev_alert(card->dev, "request_firmware(%s) got %i\n",
+			file, ret);
 		return ret;
 	}
-	mod_trace("%s, firmware(%s) got %u bytes, offset %c0x%04x"
-			, card->id.name, file, (unsigned int)fw->size,
-		  (offset >= 0) ? '+' : '-', abs(offset));
+	dev_dbg(card->dev, "%s, firmware(%s) got %u bytes"
+		", offset %c0x%04x\n",
+		card->id.name, file, (unsigned int)fw->size,
+		(offset >= 0) ? '+' : '-', abs(offset));
 	/* parse the firmware */
 	mem = fw->data;
 	end = &mem[fw->size];
@@ -290,12 +297,14 @@ int softing_load_fw(const char *file, struct softing *card,
 	if (fw_parse(&mem, &rec))
 		goto fw_end;
 	if (rec.type != 0xffff) {
-		mod_alert("firware starts with type 0x%04x", rec.type);
+		dev_alert(card->dev, "firware starts with type 0x%04x\n",
+			rec.type);
 		goto fw_end;
 	}
 	if (strncmp("Structured Binary Format, Softing GmbH"
 			, rec.base, rec.len)) {
-		mod_info("firware string '%.*s'", rec.len, rec.base);
+		dev_info(card->dev, "firware string '%.*s'\n",
+			rec.len, rec.base);
 		goto fw_end;
 	}
 	ok |= 1;
@@ -313,13 +322,15 @@ int softing_load_fw(const char *file, struct softing *card,
 			ok |= 4;
 			goto fw_end;
 		} else if (rec.type != 0) {
-			mod_alert("unknown record type 0x%04x", rec.type);
+			dev_alert(card->dev, "unknown record type 0x%04x\n",
+				rec.type);
 			break;
 		}
 
 		if ((rec.addr + rec.len + offset) > size) {
-			mod_alert("firmware out of range (0x%08x / 0x%08x)"
-			, (rec.addr + rec.len + offset), size);
+			dev_alert(card->dev,
+				"firmware out of range (0x%08x / 0x%08x)\n",
+				(rec.addr + rec.len + offset), size);
 			goto fw_end;
 		}
 		memcpy_toio(&virt[rec.addr + offset],
@@ -327,8 +338,9 @@ int softing_load_fw(const char *file, struct softing *card,
 		/* be sure to flush caches from IO space */
 		mb();
 		if (rec.len > sizeof(buf)) {
-			mod_info("record is big (%u bytes), not verifying"
-				, rec.len);
+			dev_info(card->dev,
+				"record is big (%u bytes), not verifying\n",
+				rec.len);
 			continue;
 		}
 		/* verify record data */
@@ -336,8 +348,8 @@ int softing_load_fw(const char *file, struct softing *card,
 		if (!memcmp(buf, rec.base, rec.len))
 			/* is ok */
 			continue;
-		mod_alert("0x%08x:0x%03x at 0x%p failed", rec.addr, rec.len
-			, &virt[rec.addr + offset]);
+		dev_alert(card->dev, "0x%08x:0x%03x at 0x%p failed\n",
+			rec.addr, rec.len, &virt[rec.addr + offset]);
 		goto fw_end;
 	}
 fw_end:
@@ -346,7 +358,7 @@ fw_end:
 		/*got eof & start */
 		return 0;
 	}
-	mod_alert("failed");
+	dev_info(card->dev, "firmware %s failed\n", file);
 	return EINVAL;
 }
 
@@ -370,14 +382,20 @@ int softing_load_app_fw(const char *file, struct softing *card)
 		u8 do_cs;
 	} __attribute__((packed)) *pcpy =
 		 (struct cpy *)&card->dpram.command[1];
+	struct cmd {
+		u32 start;
+		u8 autorestart;
+	} __attribute__((packed)) *pcmdstart =
+		(struct cmd *)&card->dpram.command[1];
 
 	ret = request_firmware(&fw, file, card->dev);
 	if (ret) {
-		mod_alert("request_firmware(%s) got %i", file, ret);
+		dev_alert(card->dev, "request_firmware(%s) got %i\n",
+			file, ret);
 		return ret;
 	}
-	mod_trace("%s, firmware(%s) got %lu bytes", card->id.name, file,
-		  (unsigned long)fw->size);
+	dev_dbg(card->dev, "%s, firmware(%s) got %lu bytes\n",
+		card->id.name, file, (unsigned long)fw->size);
 	/* parse the firmware */
 	mem = fw->data;
 	end = &mem[fw->size];
@@ -385,12 +403,14 @@ int softing_load_app_fw(const char *file, struct softing *card)
 	if (fw_parse(&mem, &rec))
 		goto fw_end;
 	if (rec.type != 0xffff) {
-		mod_alert("firware starts with type 0x%04x", rec.type);
+		dev_alert(card->dev, "firware starts with type 0x%04x\n",
+			rec.type);
 		goto fw_end;
 	}
 	if (strncmp("Structured Binary Format, Softing GmbH"
 		, rec.base, rec.len)) {
-		mod_info("firware string '%.*s'", rec.len, rec.base);
+		dev_alert(card->dev, "firware string '%.*s' fault\n",
+			rec.len, rec.base);
 		goto fw_end;
 	}
 	ok |= 1;
@@ -409,7 +429,8 @@ int softing_load_app_fw(const char *file, struct softing *card)
 			ok |= 4;
 			goto fw_end;
 		} else if (rec.type != 0) {
-			mod_alert("unknown record type 0x%04x", rec.type);
+			dev_alert(card->dev, "unknown record type 0x%04x\n",
+				rec.type);
 			break;
 		}
 		/* regualar data */
@@ -428,34 +449,29 @@ int softing_load_app_fw(const char *file, struct softing *card)
 		/*verify checksum */
 		rx_sum = card->dpram.receipt[1];
 		if (rx_sum != (sum & 0xffff)) {
-			mod_alert("SRAM seems to be damaged"
-				", wanted 0x%04x, got 0x%04x", sum, rx_sum);
+			dev_alert(card->dev, "SRAM seems to be damaged"
+				", wanted 0x%04x, got 0x%04x\n", sum, rx_sum);
 			goto fw_end;
 		}
 	}
 fw_end:
 	release_firmware(fw);
-	if (ok == 7) {
-		/*got start, start_addr, & eof */
-		struct cmd {
-			u32 start;
-			u8 autorestart;
-		} *pcmd = (struct cmd *)&card->dpram.command[1];
-		pcmd->start = start_addr;
-		pcmd->autorestart = 1;
-		if (!softing_bootloader_command(card, 3, "start app.")) {
-			mod_trace("%s: card app. run at 0x%06x"
-				, card->id.name, start_addr);
-			return 0;
-		}
-	}
-	mod_alert("failed");
+	if (ok != 7)
+		goto fw_failed;
+	/*got start, start_addr, & eof */
+	pcmdstart->start = start_addr;
+	pcmdstart->autorestart = 1;
+	if (softing_bootloader_command(card, 3, "start app."))
+		goto fw_failed;
+	dev_info(card->dev, "firmware %s up\n", file);
+	return 0;
+fw_failed:
+	dev_info(card->dev, "firmware %s failed\n", file);
 	return EINVAL;
 }
 
 int softing_reset_chip(struct softing *card)
 {
-	mod_trace("%s", card->id.name);
 	do {
 		/*reset chip */
 		card->dpram.info->reset_rcv_fifo = 0;
@@ -476,58 +492,77 @@ failed:
 	return -EIO;
 }
 
-int softing_reinit(struct softing *card, int bus0, int bus1)
+int softing_cycle(struct softing *card, struct softing_priv *bus, int up)
 {
 	int ret;
-	int restarted_bus = -1;
-	mod_trace("%s", card->id.name);
+	struct softing_priv *pbus;
+	int mask_start;
+	int j;
+	struct can_frame msg;
+
 	if (!card->fw.up)
 		return -EIO;
-	if (bus0 < 0) {
-		bus0 = (card->bus[0]->netdev->flags & IFF_UP) ? 1 : 0;
-		if (bus0)
-			restarted_bus = 0;
-	} else if (bus1 < 0) {
-		bus1 = (card->bus[1]->netdev->flags & IFF_UP) ? 1 : 0;
-		if (bus1)
-			restarted_bus = 1;
-	}
-	/* collect info */
-	if (card->bus[0]) {
-		card->bus[0]->can.state = CAN_STATE_STOPPED;
-		softing_flush_echo_skb(card->bus[0]);
-	}
-	if (card->bus[1]) {
-		card->bus[1]->can.state = CAN_STATE_STOPPED;
-		softing_flush_echo_skb(card->bus[1]);
-	}
 
-	/* start acting */
-	if (!bus0 && !bus1) {
-		softing_card_irq(card, 0);
-		softing_reset_chip(card);
-		if (card->bus[0])
-			netif_carrier_off(card->bus[0]->netdev);
-		if (card->bus[1])
-			netif_carrier_off(card->bus[1]->netdev);
-		return 0;
-	}
-	ret = softing_reset_chip(card);
-	if (ret) {
-		softing_card_irq(card, 0);
+	ret = mutex_lock_interruptible(&card->fw.lock);
+	if (ret)
 		return ret;
+	if (card->fw.failed)
+		goto failed_already;
+
+	mask_start = 0;
+	/* bring netdevs down */
+	for (j = 0; j < card->nbus; ++j) {
+		pbus = card->bus[j];
+		if (!pbus)
+			continue;
+
+		if (bus != pbus)
+			netif_stop_queue(pbus->netdev);
+
+		if ((bus != pbus) && netif_running(pbus->netdev))
+			mask_start |= (1 << j);
+		if (netif_running(pbus->netdev)) {
+			pbus->tx.pending = 0;
+			pbus->tx.echo_put = 0;
+			pbus->tx.echo_get = 0;
+			/* this bus' may just have called open_candev()
+			 * which is rather stupid to call close_candev()
+			 * already
+			 * but we may come here from busoff recovery too
+			 * in which case the echo_skb _needs_ flushing too.
+			 * just be sure to call open_candev() again
+			 */
+			close_candev(pbus->netdev);
+		}
+		pbus->can.state = CAN_STATE_STOPPED;
 	}
-	if (bus0) {
-		/*init chip */
-		card->dpram.fct->param[1] = card->bus[0]->can.bittiming.brp;
-		card->dpram.fct->param[2] = card->bus[0]->can.bittiming.sjw;
+	card->tx.pending = 0;
+	if (bus && up)
+		/* prepare to start this bus as well */
+		mask_start |= (1 << bus->index);
+
+	softing_card_irq(card, 0);
+	ret = softing_reset_chip(card);
+	if (ret)
+		goto failed;
+	if (!mask_start)
+		/* no busses to be brought up */
+		goto card_done;
+
+	/* from here, we must jump to failed: */
+
+	if (mask_start & 1) {
+		pbus = card->bus[0];
+		/*init chip 1 */
+		card->dpram.fct->param[1] = pbus->can.bittiming.brp;
+		card->dpram.fct->param[2] = pbus->can.bittiming.sjw;
 		card->dpram.fct->param[3] =
-			 card->bus[0]->can.bittiming.phase_seg1 +
-			 card->bus[0]->can.bittiming.prop_seg;
+			pbus->can.bittiming.phase_seg1 +
+			pbus->can.bittiming.prop_seg;
 		card->dpram.fct->param[4] =
-			 card->bus[0]->can.bittiming.phase_seg2;
-		card->dpram.fct->param[5] = (card->bus[0]->can.ctrlmode &
-					     CAN_CTRLMODE_3_SAMPLES)?1:0;
+			pbus->can.bittiming.phase_seg2;
+		card->dpram.fct->param[5] = (pbus->can.ctrlmode &
+			CAN_CTRLMODE_3_SAMPLES) ? 1 : 0;
 		if (softing_fct_cmd(card, 1, 0, "initialize_chip[0]"))
 			goto failed;
 		/*set mode */
@@ -545,21 +580,22 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 		if (softing_fct_cmd(card, 7, 0, "set_filter[0]"))
 			goto failed;
 		/*set output control */
-		card->dpram.fct->param[1] = card->bus[0]->output;
+		card->dpram.fct->param[1] = pbus->output;
 		if (softing_fct_cmd(card, 5, 0, "set_output[0]"))
 			goto failed;
 	}
-	if (bus1) {
+	if (mask_start & 2) {
+		pbus = card->bus[1];
 		/*init chip2 */
-		card->dpram.fct->param[1] = card->bus[1]->can.bittiming.brp;
-		card->dpram.fct->param[2] = card->bus[1]->can.bittiming.sjw;
+		card->dpram.fct->param[1] = pbus->can.bittiming.brp;
+		card->dpram.fct->param[2] = pbus->can.bittiming.sjw;
 		card->dpram.fct->param[3] =
-			 card->bus[1]->can.bittiming.phase_seg1 +
-			 card->bus[1]->can.bittiming.prop_seg;
+			pbus->can.bittiming.phase_seg1 +
+			pbus->can.bittiming.prop_seg;
 		card->dpram.fct->param[4] =
-			 card->bus[1]->can.bittiming.phase_seg2;
-		card->dpram.fct->param[5] = (card->bus[1]->can.ctrlmode &
-					     CAN_CTRLMODE_3_SAMPLES)?1:0;
+			pbus->can.bittiming.phase_seg2;
+		card->dpram.fct->param[5] = (pbus->can.ctrlmode &
+			CAN_CTRLMODE_3_SAMPLES) ? 1 : 0;
 		if (softing_fct_cmd(card, 2, 0, "initialize_chip[1]"))
 			goto failed;
 		/*set mode2 */
@@ -577,14 +613,15 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 		if (softing_fct_cmd(card, 8, 0, "set_filter[1]"))
 			goto failed;
 		/*set output control2 */
-		card->dpram.fct->param[1] = card->bus[1]->output;
+		card->dpram.fct->param[1] = pbus->output;
 		if (softing_fct_cmd(card, 6, 0, "set_output[1]"))
 			goto failed;
 	}
-	/*set interrupt */
 	/*enable_error_frame */
+	/*
 	if (softing_fct_cmd(card, 51, 0, "enable_error_frame"))
 		goto failed;
+	*/
 	/*initialize interface */
 	card->dpram.fct->param[1] = 1;
 	card->dpram.fct->param[2] = 1;
@@ -614,39 +651,67 @@ int softing_reinit(struct softing *card, int bus0, int bus1)
 		goto failed;
 	card->dpram.info->bus_state = 0;
 	card->dpram.info->bus_state2 = 0;
-	mod_info("ok for %s, %s/%s\n", card->bus[0]->netdev->name,
-		 card->bus[1]->netdev->name, card->id.name);
+	dev_info(card->dev, "ok for %s, %s/%s\n",
+		card->bus[0]->netdev->name, card->bus[1]->netdev->name,
+		card->id.name);
 	if (card->desc->generation < 2) {
 		card->dpram.irq->to_host = 0;
 		/* flush the DPRAM caches */
 		wmb();
 	}
+
+	card->boot_time = ktime_get_real();
+
 	/*run once */
 	/*the bottom halve will start flushing the tx-queue too */
-	tasklet_schedule(&card->irq.bh);
-
+	/*tasklet_schedule(&card->irq.bh);*/
 	ret = softing_card_irq(card, 1);
 	if (ret)
 		goto failed;
 
-	/*TODO: generate RESTARTED messages */
-
-	if (card->bus[0] && bus0) {
-		card->bus[0]->can.state = CAN_STATE_ACTIVE;
-		netif_carrier_on(card->bus[0]->netdev);
+	/*
+	 * do socketcan notifications/status changes
+	 * from here, no errors should occur, or the failed: part
+	 * must be reviewed
+	 */
+	memset(&msg, 0, sizeof(msg));
+	msg.can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
+	msg.can_dlc = CAN_ERR_DLC;
+	for (j = 0; j < card->nbus; ++j) {
+		pbus = card->bus[j];
+		if (!pbus)
+			continue;
+		if (!(mask_start & (1 << j)))
+			continue;
+		pbus->can.state = CAN_STATE_ERROR_ACTIVE;
+		open_candev(pbus->netdev);
+		if (bus != pbus) {
+			/* notify other busses on the restart */
+			softing_rx(pbus->netdev, &msg, ktime_set(0, 0));
+			++pbus->can.can_stats.restarts;
+		}
+		netif_wake_queue(pbus->netdev);
 	}
-	if (card->bus[1] && bus1) {
-		card->bus[1]->can.state = CAN_STATE_ACTIVE;
-		netif_carrier_on(card->bus[1]->netdev);
-	}
+card_done:
+	mutex_unlock(&card->fw.lock);
 	return 0;
 failed:
+	dev_alert(card->dev, "firmware failed, going idle\n");
 	softing_card_irq(card, 0);
 	softing_reset_chip(card);
-	if (card->bus[0])
-		netif_carrier_off(card->bus[0]->netdev);
-	if (card->bus[1])
-		netif_carrier_off(card->bus[1]->netdev);
+	card->fw.failed = 1;
+	mutex_unlock(&card->fw.lock);
+	/* bring all other interfaces down */
+	for (j = 0; j < card->nbus; ++j) {
+		pbus = card->bus[j];
+		if (!pbus)
+			continue;
+		dev_close(pbus->netdev);
+	}
+	return -EIO;
+
+failed_already:
+	mutex_unlock(&card->fw.lock);
 	return -EIO;
 }
 
@@ -665,21 +730,52 @@ int softing_default_output(struct softing *card, struct softing_priv *priv)
 	}
 }
 
-u32 softing_time2usec(struct softing *card, u32 raw)
+ktime_t softing_raw2ktime(struct softing *card, u32 raw)
 {
+	uint64_t ovf;
+	uint64_t rawl;
+	uint64_t expected;
+	ktime_t now;
+	ktime_t target;
+	ovf = 0x100000000ULL;
+	rawl = raw;
 	/*TODO : don't loose higher order bits in computation */
 	switch (card->desc->freq) {
 	case 20:
-		return raw * 4 / 5;
+		ovf = ovf * 4 / 5;
+		rawl = rawl * 4 / 5;
+		break;
 	case 24:
-		return raw * 2 / 3;
+		ovf = ovf * 2 / 3;
+		rawl = rawl * 2 / 3;
+		break;
 	case 25:
-		return raw * 16 / 25;
+		ovf = ovf * 16 / 25;
+		rawl = rawl * 16 / 25;
+		break;
 	case 0:
 	case 16:
+		break;
 	default:
-		return raw;
+		/* return empty time */
+		return ktime_set(0, 0);
 	}
+	now = ktime_get_real();
+	expected = (ktime_us_delta(now, card->boot_time)) % ovf;
+	/*
+	 * strange seuence for equation, but mind the 'unsigned-ness'
+	 * the idea was to:
+	 * if (expected < (rawl - (ovf / 2)))
+	 * meaning: on wrap-around (occurs at 'ovf'), expected (actual time)
+	 * may wrap around, altough rawl (receive time)
+	 * is just before wrap-around. In that case, offset 'expected'
+	 * note that expected can also be slightly earlier, as the card's
+	 * timer starts a little (but unknown to me) after I mark 'boot_time'
+	 */
+	if (rawl < (expected + (ovf / 2)))
+		/* now (expected) is always later than card stamp */
+		expected += ovf;
+	target = ktime_sub_us(now, (expected - rawl));
+	return target;
 }
-
 

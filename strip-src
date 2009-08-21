@@ -12,13 +12,15 @@
 #
 # Call the program as
 #
-#     strip-src [-v <version>] [-i] [-d] [<file>]
+#     strip-src [-v <version>] [-i] [-m] [-d] [<file>]
 #
 # The -v option will generate a source file for specified kernel version
 # where <version> is the kernel version you want the code to be generated
 # for, in the form <major>.<minor>.<patchlevel>.
 #
 # The -i option will strip all Subversion Id lines from the the source.
+#
+# The -m option will replace macros like ND2D with real variable name.
 #
 # The -d (debug) option will give you some output on what the program does.
 #
@@ -33,7 +35,7 @@ $re_if = "^\\#if LINUX_VERSION_CODE (==|!=|<|<=|>|>=) " .
 $re_elif = "^\\#elif LINUX_VERSION_CODE (==|!=|<|<=|>|>=) " .
     "KERNEL_VERSION\\((\\d+),(\\d+),(\\d+)\\)";
 
-Getopts("div:");
+Getopts("dimv:");
 $debug = $opt_d;
 
 if (defined($opt_v)) {
@@ -45,6 +47,11 @@ unshift(@lines, "");
 
 if (defined($opt_v)) {
     strip_kversion($opt_v);
+    replace_socketcan($opt_v);
+
+    if (defined($opt_m)) {
+	replace_macros($opt_v);
+    }
 }
 
 if (defined($opt_i)) {
@@ -55,9 +62,37 @@ for (@lines) {
     print if (defined($_));
 }
 
+sub replace_socketcan {
+    my($i);
+
+    for $i (0..$#lines) {
+	$lines[$i] =~ s+socketcan/can+linux/can+g;
+    }
+}
+
+sub replace_macros {
+    my($version) = @_;
+    my($i);
+
+    $old = compare($version, "<", "2", "6", "21");
+
+    for $i (0..$#lines) {
+
+	if ($lines[$i] =~ /#define ND2D/) {
+	    delete_line($i, "<del>");
+	} else {
+	    if ($old) {
+		$lines[$i] =~ s/ND2D\(\b(\w+)\b\)/$1\->class_dev.dev/g;
+	    } else {
+		$lines[$i] =~ s/ND2D\(\b(\w+)\b\)/$1\->dev.parent/g;
+	    }
+	}
+    }
+}
+
 sub strip_id {
     my($i);
-    
+
     for $i (0..$#lines) {
 	
 	if ($lines[$i] =~ /include.*linux(\/can)?\/version\.h/) {

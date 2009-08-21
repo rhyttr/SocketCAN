@@ -60,12 +60,12 @@
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
 
-#include <linux/can.h>
-#include <linux/can/ioctl.h> /* for struct can_device_stats */
+#include <socketcan/can.h>
+#include <socketcan/can/ioctl.h> /* for struct can_device_stats */
 #include "sja1000.h"
 #include "hal.h"
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
@@ -1007,22 +1007,19 @@ static void test_if(struct net_device *dev)
 }
 #endif
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+static const struct net_device_ops can_netdev_ops = {
+	.ndo_open               = can_open,
+	.ndo_stop               = can_close,
+	.ndo_start_xmit         = can_start_xmit,
+	.ndo_tx_timeout		= can_tx_timeout,
+};
+#endif
+
 void can_netdev_setup(struct net_device *dev)
 {
 	/* Fill in the the fields of the device structure
 	   with CAN netdev generic values */
-
-	dev->change_mtu			= NULL;
-	dev->set_mac_address		= NULL;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-	dev->hard_header		= NULL;
-	dev->rebuild_header		= NULL;
-	dev->hard_header_cache		= NULL;
-	dev->header_cache_update	= NULL;
-	dev->hard_header_parse		= NULL;
-#else
-	dev->header_ops			= NULL;
-#endif
 
 	dev->type			= ARPHRD_CAN;
 	dev->hard_header_len		= 0;
@@ -1041,14 +1038,19 @@ void can_netdev_setup(struct net_device *dev)
 
 	dev->features			= NETIF_F_NO_CSUM;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	dev->netdev_ops = &can_netdev_ops;
+#else
 	dev->open			= can_open;
 	dev->stop			= can_close;
 	dev->hard_start_xmit		= can_start_xmit;
+	dev->tx_timeout			= can_tx_timeout;
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats			= can_get_stats;
 #endif
 
-	dev->tx_timeout			= can_tx_timeout;
 	dev->watchdog_timeo		= TX_TIMEOUT;
 }
 

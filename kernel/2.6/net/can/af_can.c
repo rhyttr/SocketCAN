@@ -61,8 +61,8 @@
 #include <linux/if_ether.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
-#include <linux/can.h>
-#include <linux/can/core.h>
+#include <socketcan/can.h>
+#include <socketcan/can/core.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 #include <net/net_namespace.h>
 #endif
@@ -73,7 +73,7 @@
 #include "compat.h"
 #endif
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 static __initdata const char banner[] = KERN_INFO
@@ -159,8 +159,8 @@ static int can_create(struct socket *sock, int protocol)
 		return -EAFNOSUPPORT;
 #endif
 
-#ifdef CONFIG_KMOD
-	/* try to load protocol module, when CONFIG_KMOD is defined */
+#ifdef CONFIG_MODULES
+	/* try to load protocol module kernel is modular */
 	if (!proto_tab[protocol]) {
 		err = request_module("can-proto-%d", protocol);
 
@@ -930,7 +930,11 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
  */
 
 static struct packet_type can_packet __read_mostly = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+	.type = cpu_to_be16(ETH_P_CAN),
+#else
 	.type = __constant_htons(ETH_P_CAN),
+#endif
 	.dev  = NULL,
 	.func = can_rcv,
 };
@@ -1010,6 +1014,10 @@ static __exit void can_exit(void)
 		kfree(d);
 	}
 	spin_unlock(&can_rcvlists_lock);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15)
+	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+#endif
 
 	kmem_cache_destroy(rcv_cache);
 }

@@ -20,13 +20,14 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #include <linux/io.h>
 #else
@@ -36,6 +37,10 @@
 #include "sja1000.h"
 
 #define DRV_NAME  "peak_pci"
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+#error This driver does not support Kernel versions < 2.6.23
+#endif
 
 MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 MODULE_DESCRIPTION("Socket-CAN driver for PEAK PCAN PCI cards");
@@ -81,23 +86,19 @@ static struct pci_device_id peak_pci_tbl[] = {
 
 MODULE_DEVICE_TABLE(pci, peak_pci_tbl);
 
-static u8 peak_pci_read_reg(struct net_device *dev, int port)
+static u8 peak_pci_read_reg(const struct sja1000_priv *priv, int port)
 {
-	u8 val;
-	val = readb((const volatile void __iomem *)
-		    (dev->base_addr + (port << 2)));
-	return val;
+	return readb(priv->reg_base + (port << 2));
 }
 
-static void peak_pci_write_reg(struct net_device *dev, int port, u8 val)
+static void peak_pci_write_reg(const struct sja1000_priv *priv,
+			       int port, u8 val)
 {
-	writeb(val, (volatile void __iomem *)
-	       (dev->base_addr + (port << 2)));
+	writeb(val, priv->reg_base + (port << 2));
 }
 
-static void peak_pci_post_irq(struct net_device *dev)
+static void peak_pci_post_irq(const struct sja1000_priv *priv)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
 	struct peak_pci *board = priv->priv;
 	u16 icr_low;
 
@@ -140,7 +141,7 @@ static void peak_pci_del_chan(struct net_device *dev, int init_step)
 			icr_high &= ~0x0002;
 		writew(icr_high, board->conf_addr + PITA_ICR + 2);
 	case 3:
-		iounmap((void *)dev->base_addr);
+		iounmap(priv->reg_base);
 	case 2:
 		if (board->channel != PEAK_PCI_SLAVE)
 			iounmap((void *)board->conf_addr);
@@ -206,8 +207,8 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	if (channel == PEAK_PCI_SLAVE)
 		addr += PCI_PORT_SIZE;
 
-	dev->base_addr = (unsigned long)ioremap(addr, PCI_PORT_SIZE);
-	if (dev->base_addr == 0) {
+	priv->reg_base = ioremap(addr, PCI_PORT_SIZE);
+	if (priv->reg_base == 0) {
 		err = -ENOMEM;
 		goto failure;
 	}
@@ -217,7 +218,7 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	priv->write_reg = peak_pci_write_reg;
 	priv->post_irq = peak_pci_post_irq;
 
-	priv->can.bittiming.clock = PEAK_PCI_CAN_CLOCK;
+	priv->can.clock.freq = PEAK_PCI_CAN_CLOCK;
 
 	priv->ocr = PEAK_PCI_OCR;
 
@@ -226,7 +227,12 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	else
 		priv->cdr = PEAK_PCI_CDR_SINGLE;
 
-	/* Register and setup interrupt handling */
+	/* Setup interrupt handling */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
+	priv->irq_flags = SA_SHIRQ;
+#else
+	priv->irq_flags = IRQF_SHARED;
+#endif
 	dev->irq = pdev->irq;
 	icr_high = readw(board->conf_addr + PITA_ICR + 2);
 	if (channel == PEAK_PCI_SLAVE)
@@ -249,8 +255,8 @@ static int peak_pci_add_chan(struct pci_dev *pdev, int channel,
 	if (channel != PEAK_PCI_SLAVE)
 		*master_dev = dev;
 
-	printk(KERN_INFO "%s: %s at base_addr=%#lx conf_addr=%p irq=%d\n",
-	       DRV_NAME, dev->name, dev->base_addr, board->conf_addr, dev->irq);
+	printk(KERN_INFO "%s: %s at reg_base=0x%p conf_addr=%p irq=%d\n",
+	       DRV_NAME, dev->name, priv->reg_base, board->conf_addr, dev->irq);
 
 	return 0;
 

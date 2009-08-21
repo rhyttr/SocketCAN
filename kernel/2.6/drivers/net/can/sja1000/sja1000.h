@@ -1,6 +1,4 @@
 /*
- * $Id: sja1000.h 505 2007-09-30 13:32:41Z hartkopp $
- *
  * sja1000.h -  Philips SJA1000 network device driver
  *
  * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
@@ -49,9 +47,8 @@
 #ifndef SJA1000_DEV_H
 #define SJA1000_DEV_H
 
-#include <linux/version.h>
-#include <linux/can/dev.h>
-#include <linux/can/platform/sja1000.h>
+#include <socketcan/can/dev.h>
+#include <socketcan/can/platform/sja1000.h>
 
 #define SJA1000_MAX_IRQ 20	/* max. number of interrupts handled in ISR */
 
@@ -153,21 +150,25 @@
  * SJA1000 private data structure
  */
 struct sja1000_priv {
-	struct can_priv can;	/* must be the first member! */
-	long open_time;
+	struct can_priv can;	/* must be the first member */
+	int open_time;
 	struct sk_buff *echo_skb;
 
-	u8 (*read_reg) (struct net_device *dev, int reg);
-	void (*write_reg) (struct net_device *dev, int reg, u8 val);
-	void (*pre_irq) (struct net_device *dev);
-	void (*post_irq) (struct net_device *dev);
+	/* the lower-layer is responsible for appropriate locking */
+	u8 (*read_reg) (const struct sja1000_priv *priv, int reg);
+	void (*write_reg) (const struct sja1000_priv *priv, int reg, u8 val);
+	void (*pre_irq) (const struct sja1000_priv *priv);
+	void (*post_irq) (const struct sja1000_priv *priv);
 
 	void *priv;		/* for board-specific data */
 	struct net_device *dev;
 
-	u8 ocr;
-	u8 cdr;
-	u32 flags;
+	void __iomem *reg_base;	 /* ioremap'ed address to registers */
+	unsigned long irq_flags; /* for request_irq() */
+
+	u16 flags;		/* custom mode flags */
+	u8 ocr;			/* output control register */
+	u8 cdr;			/* clock divider register */
 };
 
 struct net_device *alloc_sja1000dev(int sizeof_priv);

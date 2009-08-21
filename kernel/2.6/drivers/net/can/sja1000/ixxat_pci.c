@@ -17,13 +17,14 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #include <linux/io.h>
 #else
@@ -80,16 +81,25 @@ static struct pci_device_id ixxat_pci_tbl[] = {
 
 MODULE_DEVICE_TABLE(pci, ixxat_pci_tbl);
 
-static u8 ixxat_pci_read_reg(struct net_device *ndev, int port)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
+static inline void *kzalloc(size_t size, unsigned int __nocast flags)
 {
-	u8 val;
-	val = readb((void __iomem *)(ndev->base_addr + port));
-	return val;
+	void *ret = kmalloc(size, flags);
+	if (ret)
+		memset(ret, 0, size);
+	return ret;
+}
+#endif
+
+static u8 ixxat_pci_read_reg(const struct sja1000_priv *priv, int port)
+{
+	return readb(priv->reg_base + port);
 }
 
-static void ixxat_pci_write_reg(struct net_device *ndev, int port, u8 val)
+static void ixxat_pci_write_reg(const struct sja1000_priv *priv,
+				int port, u8 val)
 {
-	writeb(val, (void __iomem *)(ndev->base_addr + port));
+	writeb(val, priv->reg_base + port);
 }
 
 static void ixxat_pci_del_chan(struct pci_dev *pdev, struct net_device *ndev)
@@ -114,21 +124,25 @@ static struct net_device *ixxat_pci_add_chan(struct pci_dev *pdev,
 
 	priv = netdev_priv(ndev);
 
-	ndev->base_addr = (unsigned long)base_addr;
+	priv->reg_base = base_addr;
 
 	priv->read_reg = ixxat_pci_read_reg;
 	priv->write_reg = ixxat_pci_write_reg;
 
-	priv->can.bittiming.clock = IXXAT_PCI_CAN_CLOCK;
+	priv->can.clock.freq = IXXAT_PCI_CAN_CLOCK;
 
 	priv->ocr = IXXAT_PCI_OCR;
 	priv->cdr = IXXAT_PCI_CDR;
 
-	/* Set and enable PCI interrupts */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
+	priv->irq_flags = SA_SHIRQ;
+#else
+	priv->irq_flags = IRQF_SHARED;
+#endif
 	ndev->irq = pdev->irq;
 
-	dev_dbg(&pdev->dev, "base_addr=%#lx irq=%d\n",
-			ndev->base_addr, ndev->irq);
+	dev_dbg(&pdev->dev, "reg_base=0x%p irq=%d\n",
+			priv->reg_base, ndev->irq);
 
 	SET_NETDEV_DEV(ndev, &pdev->dev);
 

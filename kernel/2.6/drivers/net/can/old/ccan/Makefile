@@ -15,7 +15,7 @@ else
 
 -include $(TOPDIR)/Makefile.common
 
-obj-$(CONFIG_CAN_CCAN)		+= ccan.o
-obj-$(CONFIG_CAN_H7202)		+= h7202_can.o
+obj-$(CONFIG_CAN_CCAN_OLD)		+= ccan.o
+obj-$(CONFIG_CAN_H7202_OLD)		+= h7202_can.o
 
 endif

@@ -24,8 +24,8 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 #include <linux/of_platform.h>
 #include <sysdev/fsl_soc.h>
@@ -39,7 +39,7 @@
 
 #include "mscan.h"
 
-#include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h>	/* for RCSID. Removed by mkpatch script */
 
 RCSID("$Id$");
 
@@ -269,7 +269,11 @@ static unsigned int  __devinit mpc52xx_can_xtal_freq(struct device_node *np)
 	unsigned int freq;
 	u32 val;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	freq = mpc52xx_find_ipb_freq(np);
+#else
+	freq = mpc5xxx_get_bus_frequency(np);
+#endif
 	if (!freq)
 		return 0;
 
@@ -317,8 +321,13 @@ static unsigned int  __devinit mpc52xx_can_clock_freq(struct device_node *np,
 
 	pvr = mfspr(SPRN_PVR);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	if (clock_src == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
 		return mpc52xx_find_ipb_freq(np);
+#else
+	if (clock_src == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
+		return mpc5xxx_get_bus_frequency(np);
+#endif
 
 	return mpc52xx_can_xtal_freq(np);
 }
@@ -384,8 +393,8 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 		clock_src = MSCAN_CLKSRC_BUS;
 	else
 		clock_src = MSCAN_CLKSRC_XTAL;
-	priv->bittiming.clock = mpc52xx_can_clock_freq(np, clock_src);
-	if (!priv->bittiming.clock) {
+	priv->clock.freq = mpc52xx_can_clock_freq(np, clock_src);
+	if (!priv->clock.freq) {
 		dev_err(&ofdev->dev, "couldn't get MSCAN clock frequency\n");
 		err = -ENODEV;
 		goto exit_free_mscan;
@@ -403,7 +412,7 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 	dev_set_drvdata(&ofdev->dev, dev);
 
 	dev_info(&ofdev->dev, "MSCAN at 0x%lx, irq %d, clock %d Hz\n",
-		 dev->base_addr, dev->irq, priv->bittiming.clock);
+		 dev->base_addr, dev->irq, priv->clock.freq);
 
 	return 0;
 

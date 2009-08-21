@@ -34,15 +34,15 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-#include <linux/can.h>
+#include <socketcan/can.h>
 #include <linux/list.h>
 #include <asm/io.h>
 
-#include <linux/can/dev.h>
-#include <linux/can/error.h>
+#include <socketcan/can/dev.h>
+#include <socketcan/can/error.h>
 #include "mscan.h"
 
-#include <linux/can/version.h>	/* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h>	/* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #define MSCAN_NORMAL_MODE	0

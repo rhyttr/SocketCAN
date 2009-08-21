@@ -46,14 +46,14 @@
 #include <linux/proc_fs.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
-#include <linux/can/core.h>
+#include <socketcan/can/core.h>
 
 #include "af_can.h"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #include "compat.h"
 #endif
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 /*

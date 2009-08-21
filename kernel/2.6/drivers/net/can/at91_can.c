@@ -26,9 +26,9 @@
 #include <linux/init.h>
 #include <linux/clk.h>
 
-#include <linux/can.h>
-#include <linux/can/error.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/error.h>
+#include <socketcan/can/dev.h>
 
 #include <mach/board.h>
 
@@ -153,6 +153,19 @@ struct at91_priv {
 	unsigned int		tx_echo;
 
 	unsigned int		rx_bank;
+	void __iomem		*reg_base; /* ioremap'ed address to registers */
+};
+
+
+static struct can_bittiming_const at91_bittiming_const = {
+	.tseg1_min = 4,
+	.tseg1_max = 16,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 2,
+	.brp_max = 128,
+	.brp_inc = 1,
 };
 
 
@@ -174,13 +187,15 @@ static inline int get_tx_echo_mb(struct at91_priv *priv)
 
 static inline u32 at91_read(struct net_device *dev, enum at91_reg reg)
 {
-	return readl((void __iomem *)dev->base_addr + reg);
+	struct at91_priv *priv = netdev_priv(dev);
+	return readl(priv->reg_base + reg);
 }
 
 static inline void
 at91_write(struct net_device *dev, enum at91_reg reg, u32 value)
 {
-	writel(value, (void __iomem *)dev->base_addr + reg);
+	struct at91_priv *priv = netdev_priv(dev);
+	writel(value, priv->reg_base + reg);
 }
 
 
@@ -255,7 +270,7 @@ static int at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	else
 		reg_mid = (cf->can_id & CAN_SFF_MASK) << 18;
 
-	reg_mcr = (cf->can_id & CAN_RTR_FLAG) ? AT91_MCR_MRTR : 0 |
+	reg_mcr = ((cf->can_id & CAN_RTR_FLAG) ? AT91_MCR_MRTR : 0 ) |
 		(cf->can_dlc << 16) |
 		AT91_MCR_MTCR;
 
@@ -477,13 +492,6 @@ static void at91_irq_rx(struct net_device *dev, u32 reg_sr)
 }
 
 
-static void at91_tx_timeout(struct net_device *dev)
-{
-	dev->stats.tx_errors++;
-	dev_dbg(ND2D(dev), "TX timeout!\n");
-}
-
-
 /*
  * theory of operation:
  *
@@ -526,8 +534,8 @@ static void at91_irq_tx(struct net_device *dev, u32 reg_sr)
 		at91_write(dev, AT91_IDR, 1 << mb);
 
 		/*
-		 * only echo if mailbox signals us an transfer
-		 * complete (MSR_MRDY). Otherwise it's an tansfer
+		 * only echo if mailbox signals us a transfer
+		 * complete (MSR_MRDY). Otherwise it's a tansfer
 		 * abort. "can_bus_off()" takes care about the skbs
 		 * parked in the echo queue.
 		 */
@@ -540,7 +548,7 @@ static void at91_irq_tx(struct net_device *dev, u32 reg_sr)
 
 	/*
 	 * restart queue if we don't have a wrap around but restart if
-	 * we get an TX int for the last can frame directly before a
+	 * we get a TX int for the last can frame directly before a
 	 * wrap around.
 	 */
 	if ((priv->tx_next & AT91_NEXT_MASK) != 0 ||
@@ -599,11 +607,11 @@ static void at91_irq_err(struct net_device *dev, u32 reg_sr_masked)
 	if (unlikely(reg_sr & AT91_IRQ_BOFF))
 		new_state = CAN_STATE_BUS_OFF;
 	else if (unlikely(reg_sr & AT91_IRQ_ERRP))
-		new_state = CAN_STATE_BUS_PASSIVE;
+		new_state = CAN_STATE_ERROR_PASSIVE;
 	else if (unlikely(reg_sr & AT91_IRQ_WARN))
-		new_state = CAN_STATE_BUS_WARNING;
+		new_state = CAN_STATE_ERROR_WARNING;
 	else if (likely(reg_sr & AT91_IRQ_ERRA))
-		new_state = CAN_STATE_ACTIVE;
+		new_state = CAN_STATE_ERROR_ACTIVE;
 	else {
 		BUG();	/* FIXME */
 		return;
@@ -616,22 +624,22 @@ static void at91_irq_err(struct net_device *dev, u32 reg_sr_masked)
 
 
 	switch (priv->can.state) {
-	case CAN_STATE_ACTIVE:
+	case CAN_STATE_ERROR_ACTIVE:
 		/*
 		 * from: ACTIVE
 		 * to  : BUS_WARNING, BUS_PASSIVE, BUS_OFF
 		 * =>  : there was a warning int
 		 */
-		if (new_state >= CAN_STATE_BUS_WARNING &&
+		if (new_state >= CAN_STATE_ERROR_WARNING &&
 		    new_state <= CAN_STATE_BUS_OFF)
 			priv->can.can_stats.error_warning++;
-	case CAN_STATE_BUS_WARNING:	/* fallthrough */
+	case CAN_STATE_ERROR_WARNING:	/* fallthrough */
 		/*
 		 * from: ACTIVE, BUS_WARNING
 		 * to  : BUS_PASSIVE, BUS_OFF
 		 * =>  : error passive int
 		 */
-		if (new_state >= CAN_STATE_BUS_PASSIVE &&
+		if (new_state >= CAN_STATE_ERROR_PASSIVE &&
 		    new_state <= CAN_STATE_BUS_OFF)
 			priv->can.can_stats.error_passive++;
 		break;
@@ -642,7 +650,7 @@ static void at91_irq_err(struct net_device *dev, u32 reg_sr_masked)
 		 * success it leaves bus off. so we have to reenable
 		 * the carrier.
 		 */
-		if (new_state <= CAN_STATE_BUS_PASSIVE)
+		if (new_state <= CAN_STATE_ERROR_PASSIVE)
 			netif_carrier_on(dev);
 		break;
 	default:
@@ -652,18 +660,18 @@ static void at91_irq_err(struct net_device *dev, u32 reg_sr_masked)
 
 	/* process state changes depending on the new state */
 	switch (new_state) {
-	case CAN_STATE_ACTIVE:
+	case CAN_STATE_ERROR_ACTIVE:
 		/*
 		 * actually we want to enable AT91_IRQ_WARN here, but
 		 * it screws up the system under certain
 		 * circumstances. so just enable AT91_IRQ_ERRP, thus
 		 * the "fallthrough"
 		 */
-	case CAN_STATE_BUS_WARNING:	/* fallthrough */
+	case CAN_STATE_ERROR_WARNING:	/* fallthrough */
 		reg_idr = AT91_IRQ_ERRA | AT91_IRQ_WARN | AT91_IRQ_BOFF;
 		reg_ier = AT91_IRQ_ERRP;
 		break;
-	case CAN_STATE_BUS_PASSIVE:
+	case CAN_STATE_ERROR_PASSIVE:
 		reg_idr = AT91_IRQ_ERRA | AT91_IRQ_WARN | AT91_IRQ_ERRP;
 		reg_ier = AT91_IRQ_BOFF;
 		break;
@@ -718,11 +726,11 @@ static void at91_irq_err(struct net_device *dev, u32 reg_sr_masked)
 		cf->can_dlc = CAN_ERR_DLC;
 
 		switch (new_state) {
-		case CAN_STATE_BUS_WARNING:
-		case CAN_STATE_BUS_PASSIVE:
+		case CAN_STATE_ERROR_WARNING:
+		case CAN_STATE_ERROR_PASSIVE:
 			cf->can_id |= CAN_ERR_CRTL;
 
-			if (new_state == CAN_STATE_BUS_WARNING)
+			if (new_state == CAN_STATE_ERROR_WARNING)
 				cf->data[1] = (tec > rec) ?
 					CAN_ERR_CRTL_TX_WARNING :
 					CAN_ERR_CRTL_RX_WARNING;
@@ -829,32 +837,6 @@ static void at91_setup_mailboxes(struct net_device *dev)
 	priv->tx_next = priv->tx_echo = priv->rx_bank = 0;
 }
 
-
-static struct net_device_stats *at91_get_stats(struct net_device *dev)
-{
-	struct at91_priv *priv = netdev_priv(dev);
-	u32 reg_ecr = at91_read(dev, AT91_ECR);
-
-	dev->stats.rx_errors = reg_ecr & 0xff;
-	dev->stats.tx_errors = reg_ecr >> 16;
-
-	/*
-	 * here comes another one:
-	 *
-	 * the transmit error counter (TEC) has only a width of 8
-	 * bits, so when the devices goes into BUS OFF (which is
-	 * defined by a TEC > 255), the TEC in the chip shows "0". Not
-	 * only that, it keeps accumulating errors, so they can vary
-	 * between 0 and 255. We set TEC to 256 (hard) in BUS_OFF.
-	 *
-	 */
-	if (unlikely(priv->can.state == CAN_STATE_BUS_OFF))
-		dev->stats.tx_errors = 256;
-
-	return &dev->stats;
-}
-
-
 static int at91_set_bittiming(struct net_device *dev)
 {
 	struct at91_priv *priv = netdev_priv(dev);
@@ -869,7 +851,7 @@ static int at91_set_bittiming(struct net_device *dev)
 		((bt->phase_seg2 - 1) <<  0);
 
 	dev_dbg(ND2D(dev), "writing AT91_BR: 0x%08x, can_sys_clock: %d\n",
-		  reg_br, priv->can.bittiming.clock);
+		  reg_br, priv->can.clock.freq);
 	at91_write(dev, AT91_BR, reg_br);
 
 	return 0;
@@ -897,7 +879,7 @@ static void at91_chip_start(struct net_device *dev)
 	reg_mr = at91_read(dev, AT91_MR);
 	at91_write(dev, AT91_MR, reg_mr | AT91_MR_AT91EN);
 
-	priv->can.state = CAN_STATE_ACTIVE;
+	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 
 	/* Enable interrupts */
 	reg_ier =
@@ -933,8 +915,8 @@ static int at91_open(struct net_device *dev)
 
 	clk_enable(priv->clk);
 
-	/* determine and set bittime */
-	err = can_set_bittiming(dev);
+	/* check or determine and set bittime */
+	err = open_candev(dev);
 	if (err)
 		goto out;
 
@@ -942,7 +924,7 @@ static int at91_open(struct net_device *dev)
 	if (request_irq(dev->irq, at91_irq, IRQF_SHARED,
 			dev->name, dev)) {
 		err = -EAGAIN;
-		goto out;
+		goto out_close;
 	}
 
 	/* start chip and queuing */
@@ -951,6 +933,8 @@ static int at91_open(struct net_device *dev)
 
 	return 0;
 
+ out_close:
+	close_candev(dev);
  out:
 	clk_disable(priv->clk);
 
@@ -971,16 +955,8 @@ static int at91_close(struct net_device *dev)
 	free_irq(dev->irq, dev);
 	clk_disable(priv->clk);
 
-	can_close_cleanup(dev);
+	close_candev(dev);
 
-	return 0;
-}
-
-
-static int at91_get_state(struct net_device *dev, u32 *state)
-{
-	struct at91_priv *priv = netdev_priv(dev);
-	*state = priv->can.state;
 	return 0;
 }
 
@@ -1005,17 +981,13 @@ static int at91_set_mode(struct net_device *dev, u32 _mode)
 }
 
 
-static struct can_bittiming_const at91_bittiming_const = {
-	.tseg1_min = 4,
-	.tseg1_max = 16,
-	.tseg2_min = 2,
-	.tseg2_max = 8,
-	.sjw_max = 4,
-	.brp_min = 2,
-	.brp_max = 128,
-	.brp_inc = 1,
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+static const struct net_device_ops at91_netdev_ops = {
+	.ndo_open	= at91_open,
+	.ndo_stop	= at91_close,
+	.ndo_start_xmit	= at91_start_xmit,
 };
-
+#endif
 
 static int __init at91_can_probe(struct platform_device *pdev)
 {
@@ -1059,22 +1031,23 @@ static int __init at91_can_probe(struct platform_device *pdev)
 		goto exit_iounmap;
 	}
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	dev->netdev_ops		= &at91_netdev_ops;
+#else
 	dev->open		= at91_open;
 	dev->stop		= at91_close;
 	dev->hard_start_xmit	= at91_start_xmit;
-	dev->tx_timeout	= at91_tx_timeout;
-	dev->get_stats		= at91_get_stats;
+#endif
 	dev->irq		= irq;
-	dev->base_addr		= (unsigned long)addr;
 	dev->flags		|= IFF_ECHO;
 
 	priv = netdev_priv(dev);
-	priv->can.bittiming.clock	= clk_get_rate(clk);
+	priv->can.clock.freq		= clk_get_rate(clk);
 	priv->can.bittiming_const	= &at91_bittiming_const;
 	priv->can.do_set_bittiming	= at91_set_bittiming;
-	priv->can.do_get_state		= at91_get_state;
 	priv->can.do_set_mode		= at91_set_mode;
 	priv->clk			= clk;
+	priv->reg_base			= addr;
 
 	priv->pdata		= pdev->dev.platform_data;
 
@@ -1088,8 +1061,8 @@ static int __init at91_can_probe(struct platform_device *pdev)
 	}
 
 
-	dev_info(&pdev->dev, "device registered (base_addr=%#lx, irq=%d)\n",
-		 dev->base_addr, dev->irq);
+	dev_info(&pdev->dev, "device registered (reg_base=%#p, irq=%d)\n",
+		 priv->reg_base, dev->irq);
 
 	return 0;
 
@@ -1118,7 +1091,7 @@ static int __devexit at91_can_remove(struct platform_device *pdev)
 
 	free_netdev(dev);
 
-	iounmap((void __iomem *)dev->base_addr);
+	iounmap(priv->reg_base);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(res->start, res->end - res->start + 1);

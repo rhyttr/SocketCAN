@@ -16,18 +16,23 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 #include <linux/io.h>
 
 #include "sja1000.h"
 
 #define DRV_NAME "pipcan"
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
+#error This driver does not support Kernel versions < 2.6.20
+#endif
 
 MODULE_AUTHOR("David Müller <d.mueller@elsoft.ch>");
 MODULE_DESCRIPTION("Socket-CAN driver for MPL PIPCAN module");
@@ -44,14 +49,14 @@ MODULE_LICENSE("GPL v2");
 #define PIPCAN_RES        (0x804)
 #define PIPCAN_RST        (0x805)
 
-static u8 pc_read_reg(struct net_device *dev, int reg)
+static u8 pc_read_reg(const struct sja1000_priv *priv, int reg)
 {
-	return inb(dev->base_addr + reg);
+  return inb((unsigned long)priv->reg_base + reg);
 }
 
-static void pc_write_reg(struct net_device *dev, int reg, u8 val)
+static void pc_write_reg(const struct sja1000_priv *priv, int reg, u8 val)
 {
-	outb(val, dev->base_addr + reg);
+  outb(val, (unsigned long)priv->reg_base + reg);
 }
 
 static int __init pc_probe(struct platform_device *pdev)
@@ -80,12 +85,18 @@ static int __init pc_probe(struct platform_device *pdev)
 
 	priv->read_reg = pc_read_reg;
 	priv->write_reg = pc_write_reg;
-	priv->can.bittiming.clock = PIPCAN_CAN_CLOCK;
+	priv->can.clock.freq = PIPCAN_CAN_CLOCK;
 	priv->ocr = PIPCAN_OCR;
 	priv->cdr = PIPCAN_CDR;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
+	priv->irq_flags = SA_SHIRQ;
+#else
+	priv->irq_flags = IRQF_SHARED;
+#endif
 
 	dev->irq = irq;
 	dev->base_addr = res->start;
+	priv->reg_base = (void __iomem *)res->start;
 
 	dev_set_drvdata(&pdev->dev, dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);

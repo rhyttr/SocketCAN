@@ -23,7 +23,7 @@
 #ifndef __CCAN_H__
 #define __CCAN_H__
 
-#include <linux/can.h>
+#include <socketcan/can.h>
 #include <linux/platform_device.h>
 
 #undef CCAN_DEBUG

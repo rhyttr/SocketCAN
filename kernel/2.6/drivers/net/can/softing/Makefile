@@ -13,7 +13,7 @@ else
 
 -include $(TOPDIR)/Makefile.common
 
-softing-y := softing_main.o softing_fw.o
+softing-y := softing_main.o softing_fw.o softing_sysfs.o
 obj-$(CONFIG_CAN_SOFTING)        += softing.o
 obj-$(CONFIG_CAN_SOFTING_CS)     += softing_cs.o
 

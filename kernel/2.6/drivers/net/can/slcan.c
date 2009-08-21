@@ -73,9 +73,9 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 
-#include <linux/can.h>
+#include <socketcan/can.h>
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 static __initdata const char banner[] =
@@ -528,16 +528,31 @@ static int slc_open(struct net_device *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+static const struct net_device_ops slc_netdev_ops = {
+	.ndo_open               = slc_open,
+	.ndo_stop               = slc_close,
+	.ndo_start_xmit         = slc_xmit,
+#ifdef SLC_CHECK_TRANSMIT
+	.ndo_tx_timeout		= slc_tx_timeout,
+#endif
+};
+#endif
+
 /* Netdevice register callback */
 static void slc_setup(struct net_device *dev)
 {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	dev->netdev_ops = &slc_netdev_ops;
+#else
 	dev->open		= slc_open;
-	dev->destructor		= free_netdev;
 	dev->stop		= slc_close;
+	dev->hard_start_xmit	= slc_xmit;
+#endif
+	dev->destructor		= free_netdev;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats		= slc_get_stats;
 #endif
-	dev->hard_start_xmit	= slc_xmit;
 
 	dev->hard_header_len	= 0;
 	dev->addr_len		= 0;
@@ -546,7 +561,9 @@ static void slc_setup(struct net_device *dev)
 	dev->mtu		= sizeof(struct can_frame);
 	dev->type		= ARPHRD_CAN;
 #ifdef SLC_CHECK_TRANSMIT
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,28)
 	dev->tx_timeout		= slc_tx_timeout;
+#endif
 	dev->watchdog_timeo	= 20*HZ;
 #endif
 

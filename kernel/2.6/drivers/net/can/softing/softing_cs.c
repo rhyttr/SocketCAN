@@ -21,6 +21,7 @@
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -103,7 +104,7 @@ static int card_enable_irq_via_pcmcia(struct softing *sdev, int v)
 	reg.Value	 = v ? 0x60 : 0;
 	ret = pcmcia_access_configuration_register(pcmcia, &reg);
 	if (ret)
-		mod_alert("failed %u", ret);
+		dev_alert(&pcmcia->dev, "failed %u\n", ret);
 	return ret;
 }
 
@@ -209,12 +210,12 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 	/* power settings (Vcc & Vpp) */
 	if (cf->vcc.present & (1 << CISTPL_POWER_VNOM)) {
 		if (vcc != cf->vcc.param[CISTPL_POWER_VNOM]/10000) {
-			mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
+			dev_alert(&pdev->dev, "cf->Vcc mismatch\n");
 			goto do_next;
 		}
 	} else if (def_cf->vcc.present & (1 << CISTPL_POWER_VNOM)) {
 		if (vcc != def_cf->vcc.param[CISTPL_POWER_VNOM]/10000) {
-			mod_alert("%s: cf->Vcc mismatch\n", __FILE__);
+			dev_alert(&pdev->dev, "cf->Vcc mismatch\n");
 			goto do_next;
 		}
 	}
@@ -249,7 +250,8 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 		csdev->win.AccessSpeed = 0;
 		ret = pcmcia_request_window(&pdev, &csdev->win, &pdev->win);
 		if (ret) {
-			mod_alert("pcmcia_request_window() mismatch\n");
+			dev_alert(&pdev->dev,
+				"pcmcia_request_window() mismatch\n");
 			goto do_next;
 		}
 		/* softing specific: choose slower access for old cards */
@@ -261,11 +263,13 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 		map.Page = 0;
 		map.CardOffset = mem->win[0].card_addr;
 		if (pcmcia_map_mem_page(pdev->win, &map)) {
-			mod_alert("pcmcia_map_mem_page() mismatch\n");
+			dev_alert(&pdev->dev,
+				"pcmcia_map_mem_page() mismatch\n");
 			goto do_next_win;
 		}
 	} else {
-		mod_info("no memory window in tuple %u", cf->index);
+		dev_info(&pdev->dev, "no memory window in tuple %u\n",
+			cf->index);
 		goto do_next;
 	}
 	return 0;
@@ -279,7 +283,8 @@ static void driver_remove(struct pcmcia_device *pcmcia)
 {
 	struct softing *card = (struct softing *)pcmcia->priv;
 	struct softing_cs *cs = softing2cs(card);
-	mod_trace("%s,device'%s'", card->id.name, pcmcia->devname);
+	dev_dbg(&pcmcia->dev, "%s, device '%s'\n"
+		, card->id.name, pcmcia->devname);
 	rm_softing(card);
 	/* release pcmcia stuff */
 	pcmcia_disable_device(pcmcia);
@@ -290,9 +295,11 @@ static void driver_remove(struct pcmcia_device *pcmcia)
 static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 {
 	struct softing_cs *cs;
-	struct softing		*card;
+	struct softing *card;
+	char *str;
+	char line[1024]; /* possible memory corruption */
 
-	mod_trace("on %s", pcmcia->devname);
+	dev_dbg(&pcmcia->dev, "on %s\n", pcmcia->devname);
 
 	/* Create new softing device */
 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
@@ -334,35 +341,37 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 	card->dpram.size = cs->win.Size;
 
 	if (card->dpram.size != 0x1000) {
-		mod_alert("dpram size 0x%lx mismatch\n", card->dpram.size);
+		dev_alert(&pcmcia->dev, "dpram size 0x%lx mismatch\n",
+			card->dpram.size);
 		goto wrong_dpram;
 	}
 
 	/* Finally, report what we've done */
-	printk(KERN_INFO "[%s] %s: index 0x%02x",
-			THIS_MODULE->name,
-			pcmcia->devname,
-			pcmcia->conf.ConfigIndex);
+	str = line;
+	str += sprintf(str, "config index %u", pcmcia->conf.ConfigIndex);
 	if (pcmcia->conf.Vpp)
-		printk(", Vpp %d.%d", pcmcia->conf.Vpp/10, pcmcia->conf.Vpp%10);
+		str += sprintf(str, ", Vpp %d.%d",
+			pcmcia->conf.Vpp/10, pcmcia->conf.Vpp%10);
 	if (pcmcia->conf.Attributes & CONF_ENABLE_IRQ) {
-		printk(", irq %d", pcmcia->irq.AssignedIRQ);
+		str += sprintf(str, ", irq %d", pcmcia->irq.AssignedIRQ);
 		card->irq.nr = pcmcia->irq.AssignedIRQ;
 	}
+
 	if (pcmcia->win) {
 		int tmp;
 		const char *p;
-		printk(", mem 0x%08lx-0x%08lx"
+		str += sprintf(str, ", mem 0x%08lx-0x%08lx"
 			, card->dpram.phys
 			, card->dpram.phys + card->dpram.size-1);
 		tmp = cs->win.Attributes;
 		while (tmp) {
 			p = lookup_mask(pcmcia_mem_attr, &tmp);
-			if (p)
-				printk(" %s", p);
+			if (!p)
+				continue;
+			str += sprintf(str, " %s", p);
 		}
 	}
-	printk("\n");
+	dev_info(&pcmcia->dev, "%s\n", line);
 
 	if (mk_softing(card))
 		goto softing_failed;
@@ -407,13 +416,11 @@ static struct pcmcia_driver softing_cs_driver = {
 
 static int __init mod_start(void)
 {
-	mod_trace("");
 	return pcmcia_register_driver(&softing_cs_driver);
 }
 
 static void __exit mod_stop(void)
 {
-	mod_trace("");
 	pcmcia_unregister_driver(&softing_cs_driver);
 }
 

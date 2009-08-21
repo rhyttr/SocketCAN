@@ -48,7 +48,7 @@
 #include <linux/netdevice.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
-#include <linux/can.h>
+#include <socketcan/can.h>
 
 /* af_can rx dispatcher structures */
 

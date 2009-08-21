@@ -22,5 +22,6 @@
 
 void can_create_sysfs(struct net_device *dev);
 void can_remove_sysfs(struct net_device *dev);
+int can_sample_point(struct can_bittiming *bt);
 
 #endif /* CAN_SYSFS_H */

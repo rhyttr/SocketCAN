@@ -29,15 +29,16 @@
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
+#include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/byteorder/generic.h>
 #include <linux/pci.h>
 #include <linux/pci_ids.h>
-#include <linux/can.h>
-#include <linux/can/error.h>
-#include <linux/can/dev.h>
+#include <socketcan/can.h>
+#include <socketcan/can/error.h>
+#include <socketcan/can/dev.h>
 
 #define DRV_NAME "esd_pci331"
 
@@ -47,8 +48,14 @@ MODULE_DESCRIPTION("Socket-CAN driver for the esd 331 CAN cards");
 MODULE_DEVICE_TABLE(pci, esd331_pci_tbl);
 MODULE_SUPPORTED_DEVICE("esd CAN-PCI/331, CAN-CPCI/331, CAN-PMC/331");
 
+#ifndef PCI_DEVICE_ID_PLX_9030
+# define PCI_DEVICE_ID_PLX_9030	0x9030
+#endif
 #ifndef PCI_DEVICE_ID_PLX_9050
-# define PCI_DEVICE_ID_PLX_9050 0x9050
+# define PCI_DEVICE_ID_PLX_9050	0x9050
+#endif
+#ifndef PCI_VENDOR_ID_ESDGMBH
+#define PCI_VENDOR_ID_ESDGMBH   0x12fe
 #endif
 
 #define ESD_PCI_SUB_SYS_ID_PCI331 0x0001
@@ -434,7 +441,11 @@ static int esd331_create_err_frame(struct net_device *dev, canid_t idflags,
 	if (unlikely(skb == NULL))
 		return -ENOMEM;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	stats = can_get_stats(dev);
+#else
 	stats = &dev->stats;
+#endif
 
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_CAN);
@@ -457,7 +468,11 @@ static int esd331_create_err_frame(struct net_device *dev, canid_t idflags,
 static void esd331_irq_rx(struct net_device *dev, struct esd331_can_msg *msg,
 				int eff)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
 	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cfrm;
 	struct sk_buff *skb;
 	int i;
@@ -510,14 +525,14 @@ static void esd331_handle_errmsg(struct net_device *dev,
 	switch (msg->data[1]) {
 	case ESD331_ERR_OK:
 		if (priv->can.state != CAN_STATE_STOPPED)
-			priv->can.state = CAN_STATE_ACTIVE;
+			priv->can.state = CAN_STATE_ERROR_ACTIVE;
 		break;
 
 	case ESD331_ERR_WARN:
-		if ((priv->can.state != CAN_STATE_BUS_WARNING)
+		if ((priv->can.state != CAN_STATE_ERROR_WARNING)
 				&& (priv->can.state != CAN_STATE_STOPPED)) {
 			priv->can.can_stats.error_warning++;
-			priv->can.state = CAN_STATE_BUS_WARNING;
+			priv->can.state = CAN_STATE_ERROR_WARNING;
 
 			/* might be RX warning, too... */
 			esd331_create_err_frame(dev, CAN_ERR_CRTL,
@@ -543,6 +558,7 @@ static void esd331_handle_errmsg(struct net_device *dev,
 
 static void esd331_handle_messages(struct esd331_pci *board)
 {
+	struct net_device *dev;
 	struct esd331_priv *priv;
 	struct net_device_stats *stats;
 	struct esd331_can_msg msg;
@@ -553,37 +569,41 @@ static void esd331_handle_messages(struct esd331_pci *board)
 				|| (board->dev[msg.net] == NULL)))
 			continue;
 
-		priv = netdev_priv(board->dev[msg.net]);
+		dev = board->dev[msg.net];
+		priv = netdev_priv(dev);
 		if (priv->can.state == CAN_STATE_STOPPED)
 			continue;
 
-		stats = &board->dev[msg.net]->stats;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+		stats = can_get_stats(dev);
+#else
+		stats = &dev->stats;
+#endif
 		switch (msg.cmmd) {
 
 		case ESD331_I20_BCAN:
 		case ESD331_I20_EX_BCAN:
-			esd331_irq_rx(board->dev[msg.net], &msg,
+			esd331_irq_rx(dev, &msg,
 					(msg.cmmd == ESD331_I20_EX_BCAN));
 			break;
 
 		case ESD331_I20_TXDONE:
 		case ESD331_I20_EX_TXDONE:
 			stats->tx_packets++;
-			can_get_echo_skb(board->dev[msg.net], 0);
-			netif_wake_queue(board->dev[msg.net]);
+			can_get_echo_skb(dev, 0);
+			netif_wake_queue(dev);
 			break;
 
 		case ESD331_I20_TXTOUT:
 		case ESD331_I20_EX_TXTOUT:
 			stats->tx_errors++;
 			stats->tx_dropped++;
-			can_free_echo_skb(board->dev[msg.net], 0);
-			netif_wake_queue(board->dev[msg.net]);
+			can_free_echo_skb(dev, 0);
+			netif_wake_queue(dev);
 			break;
 
 		case ESD331_I20_ERROR:
-			esd331_handle_errmsg(board->dev[msg.net], &msg);
+			esd331_handle_errmsg(dev, &msg);
 			break;
 
 		default:
@@ -627,7 +647,6 @@ irqreturn_t esd331_interrupt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-EXPORT_SYMBOL_GPL(esd331_interrupt);
 
 /* also enables interrupt when no other net on card is openened yet */
 static int esd331_open(struct net_device *dev)
@@ -635,7 +654,7 @@ static int esd331_open(struct net_device *dev)
 	struct esd331_priv *priv = netdev_priv(dev);
 	int err;
 
-	err = can_set_bittiming(dev);
+	err = open_candev(dev);
 	if (err)
 		return err;
 
@@ -646,7 +665,7 @@ static int esd331_open(struct net_device *dev)
 	if (esd331_all_nets_stopped(priv->board))
 		esd331_enable_irq(priv->board->conf_addr);
 
-	priv->can.state = CAN_STATE_ACTIVE;
+	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	netif_start_queue(dev);
 
 	return 0;
@@ -659,7 +678,7 @@ static int esd331_close(struct net_device *dev)
 
 	priv->can.state = CAN_STATE_STOPPED;
 	netif_stop_queue(dev);
-	can_close_cleanup(dev);
+	close_candev(dev);
 
 	if (esd331_all_nets_stopped(priv->board))
 		esd331_disable_irq(priv->board->conf_addr);
@@ -670,7 +689,11 @@ static int esd331_close(struct net_device *dev)
 static int esd331_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct esd331_priv *priv = netdev_priv(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct net_device_stats *stats = can_get_stats(dev);
+#else
 	struct net_device_stats *stats = &dev->stats;
+#endif
 	struct can_frame *cf = (struct can_frame *)skb->data;
 	int err;
 
@@ -725,7 +748,7 @@ static int esd331_set_mode(struct net_device *dev, enum can_mode mode)
 
 	switch (mode) {
 	case CAN_MODE_START:
-		priv->can.state = CAN_STATE_ACTIVE;
+		priv->can.state = CAN_STATE_ERROR_ACTIVE;
 		if (netif_queue_stopped(dev))
 			netif_wake_queue(dev);
 
@@ -772,6 +795,7 @@ static struct net_device *__devinit esd331_pci_add_chan(struct pci_dev *pdev,
 #endif
 
 	dev->irq = pdev->irq;
+	/* Set and enable PCI interrupts */
 	dev->flags |= IFF_ECHO;
 
 	priv->can.do_set_bittiming = esd331_set_bittiming;

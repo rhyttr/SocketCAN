@@ -34,7 +34,7 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-#include <linux/can.h>
+#include <socketcan/can.h>
 #include <linux/list.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
@@ -44,8 +44,8 @@
 #include <asm/io.h>
 #endif
 
-#include <linux/can/dev.h>
-#include <linux/can/error.h>
+#include <socketcan/can/dev.h>
+#include <socketcan/can/error.h>
 #include "ccan.h"
 
 static u32 ccan_read_reg32(struct net_device *dev, enum c_regs reg)

@@ -50,9 +50,9 @@
 #include <linux/socket.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
-#include <linux/can.h>
-#include <linux/can/core.h>
-#include <linux/can/raw.h>
+#include <socketcan/can.h>
+#include <socketcan/can/core.h>
+#include <socketcan/can/raw.h>
 #include <net/sock.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 #include <net/net_namespace.h>
@@ -61,7 +61,7 @@
 #include "compat.h"
 #endif
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 #define CAN_RAW_VERSION CAN_VERSION

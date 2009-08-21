@@ -6,8 +6,9 @@
 
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
-#include <linux/can.h>
-#include <linux/can/dev.h>
+#include <linux/ktime.h>
+#include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 
 struct softing;
 struct sofing_desc;
@@ -64,10 +65,13 @@ struct softing {
 	int nbus;
 	struct softing_priv *bus[2];
 	spinlock_t	 spin; /* protect this structure & DPRAM access */
+	ktime_t boot_time;
+	u32 sample_at_boot_time;
 
 	struct {
 		/* indication of firmware status */
 		int up;
+		int failed; /* firmware has failed */
 		/* protection of the 'up' variable */
 		struct mutex lock;
 	} fw;
@@ -101,7 +105,7 @@ struct softing {
 		unsigned short manf;
 		unsigned short prod;
 		u32  serial, fw, hw, lic;
-		u16  chip [2];
+		u16  chip[2];
 		u32  freq;
 		const char *name;
 	} id;
@@ -133,7 +137,7 @@ extern const struct softing_desc *
 
 extern int softing_default_output(struct softing *card
 			, struct softing_priv *priv);
-extern u32 softing_time2usec(struct softing *card, u32 raw);
+extern ktime_t softing_raw2ktime(struct softing *card, u32 raw);
 
 extern int softing_fct_cmd(struct softing *card
 			, int cmd, int vector, const char *msg);
@@ -155,11 +159,20 @@ extern int softing_reset_chip(struct softing *card);
  */
 extern int softing_card_irq(struct softing *card, int enable);
 
-/* called when tx queue is flushed */
-extern void softing_flush_echo_skb(struct softing_priv *priv);
+/* start/stop 1 bus on cardr*/
+extern int softing_cycle(
+	struct softing *card, struct softing_priv *priv, int up);
 
-/* reinitaliase the card, apply -1 for bus[01] for 'no change' */
-extern int softing_reinit(struct softing *card, int bus0, int bus1);
+/* netif_rx() */
+extern int softing_rx(struct net_device *netdev, const struct can_frame *msg,
+	ktime_t ktime);
+
+/* create/remove the per-card associated sysfs entries */
+extern int softing_card_sysfs_create(struct softing *card);
+extern void softing_card_sysfs_remove(struct softing *card);
+/* create/remove the per-bus associated sysfs entries */
+extern int softing_bus_sysfs_create(struct softing_priv *bus);
+extern void softing_bus_sysfs_remove(struct softing_priv *bus);
 
 /* SOFTING DPRAM mappings */
 struct softing_rx {
@@ -243,26 +256,4 @@ struct softing_info {
 
 /* debug */
 extern int softing_debug;
-
-#define mod_alert(fmt,arg...) { \
-	if (softing_debug >= 0) \
-		printk(KERN_ALERT "[%s] %s:" fmt "\n" \
-			, THIS_MODULE->name \
-			, __func__ \
-			, ##arg); \
-	}
-#define mod_info(fmt,arg...) { \
-	if (softing_debug >= 1) \
-		printk(KERN_INFO	"[%s] %s:" fmt "\n"\
-			, THIS_MODULE->name \
-			, __func__ \
-			, ##arg); \
-	}
-#define mod_trace(fmt,arg...) { \
-	if (softing_debug >= 2) \
-		printk(KERN_DEBUG "[%s] %s:" fmt "\n" \
-			, THIS_MODULE->name \
-			, __func__ \
-			, ##arg); \
-	}
 

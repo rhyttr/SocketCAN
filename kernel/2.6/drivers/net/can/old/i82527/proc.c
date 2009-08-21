@@ -47,12 +47,12 @@
 #include <linux/proc_fs.h>
 #include <linux/netdevice.h>
 
-#include <linux/can.h>
-#include <linux/can/ioctl.h>
+#include <socketcan/can.h>
+#include <socketcan/can/ioctl.h>
 #include "i82527.h"
 #include "hal.h"
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 extern struct net_device *can_dev[];
@@ -154,8 +154,13 @@ static int can_proc_read_reset(char *page, char **start, off_t off,
 			    && (priv->state != STATE_RESET_MODE)) {
 				len += snprintf(page + len, PAGE_SIZE - len,
 						"%s ", dev->name);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+				dev->netdev_ops->ndo_stop(dev);
+				dev->netdev_ops->ndo_open(dev);
+#else
 				dev->stop(dev);
 				dev->open(dev);
+#endif
 				/* count number of restarts */
 				priv->can_stats.restarts++;
 

@@ -27,6 +27,7 @@ kernel/2.6/drivers/net/can/softing/Makefile
 kernel/2.6/drivers/net/can/dev.c
 kernel/2.6/drivers/net/can/sysfs.h
 kernel/2.6/drivers/net/can/mcp251x.c
+kernel/2.6/drivers/net/can/at91_can.c
 kernel/2.6/drivers/net/can/Makefile
 kernel/2.6/drivers/net/can/mscan/mscan.c
 kernel/2.6/drivers/net/can/mscan/mpc52xx_can.c

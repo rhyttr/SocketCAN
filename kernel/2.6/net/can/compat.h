@@ -37,6 +37,17 @@ static inline void skb_set_timestamp(struct sk_buff *skb,
 }
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15)
+static inline void setup_timer(struct timer_list * timer,
+				void (*function)(unsigned long),
+				unsigned long data)
+{
+	timer->function = function;
+	timer->data = data;
+	init_timer(timer);
+}
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
 #define round_jiffies(j) (j)
 #endif

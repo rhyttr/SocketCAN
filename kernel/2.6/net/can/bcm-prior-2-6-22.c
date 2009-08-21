@@ -52,13 +52,13 @@
 #include <linux/socket.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
-#include <linux/can.h>
-#include <linux/can/core.h>
-#include <linux/can/bcm.h>
+#include <socketcan/can.h>
+#include <socketcan/can/core.h>
+#include <socketcan/can/bcm.h>
 #include <net/sock.h>
 #include "compat.h"
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 /* use of last_frames[index].can_dlc */

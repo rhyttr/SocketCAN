@@ -47,12 +47,12 @@
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-#include <linux/can.h>
+#include <socketcan/can.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 #include <net/rtnetlink.h>
 #endif
 
-#include <linux/can/version.h> /* for RCSID. Removed by mkpatch script */
+#include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
 static __initdata const char banner[] =

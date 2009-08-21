@@ -38,13 +38,23 @@ source "drivers/net/can/old/Kconfig"
 endif
 
 config CAN_DEV
-	tristate "Prompt for platform CAN drivers with sysfs support"
+	tristate "Prompt for platform CAN drivers with netlink support"
 	depends on CAN && SYSFS
 	default Y
 	---help---
 	  Enables the common framework for platform CAN drivers with sysfs
 	  support. This is the standard library for CAN drivers.
 	  If unsure, say Y.
+
+config CAN_DEV_SYSFS
+	bool "Support for sysfs interface (deprecated)"
+	depends on CAN_DEV && SYSFS
+	default N
+	---help---
+	  Adds support for the legacy sysfs interface to configure CAN
+	  devices. If possible, please use the new netlink interface
+	  instead.
+	  If unsure, say N.
 
 config CAN_CALC_BITTIMING
 	bool "CAN bit-timing calculation"
@@ -60,18 +70,43 @@ config CAN_CALC_BITTIMING
 	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
 	  If unsure, say Y.
 
+config CAN_CC770
+	depends on HAS_IOMEM && CAN_DEV
+	tristate "Bosch CC770 and Intel AN82527"
+	---help---
+	  Driver for the Bosch CC770 and the compatible Intel AN82527
+	  CAN controllers.
+
+config CAN_CC770_ISA
+	depends on CAN_CC770 && ISA
+	tristate "ISA Bus based legacy CC770 driver"
+	---help---
+	  This driver adds legacy support for CC770 and AN82527 chips
+	  connected to the ISA bus using I/O port, memory mapped or
+	  indirect access.
+
+config CAN_CC770_OF_PLATFORM
+	depends on CAN_CC770 && PPC_OF
+	tristate "Generic OF Platform Bus based CC770 driver"
+	---help---
+	  This driver adds support for the CC770 and other AN82527
+	  compatible chips connected to the OpenFirmware "platform bus"
+	  found on embedded systems with OpenFirmware bindings, e.g. if
+	  you have a PowerPC based system you may want to enable this
+	  option.
+
 config CAN_SJA1000
 	depends on CAN_DEV
 	tristate "Philips SJA1000"
 	---help---
-	  The SJA1000 is one of the top CAN controllers out there. As it
-	  has a multiplexed interface it fits directly to 8051
-	  microcontrollers or into the PC I/O port space. The SJA1000
-	  is a full CAN controller, with shadow registers for RX and TX.
-	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
-	  with a single (simple) filter setup.
+	  Driver for the SJA1000 CAN controllers from Philips or NXP
 
-	  This driver will use the new device interface.
+config CAN_SJA1000_ISA
+	depends on CAN_SJA1000 && ISA
+	tristate "ISA Bus based legacy SJA1000 driver"
+	---help---
+	  This driver adds legacy support for SJA1000 chips connected to
+	  the ISA bus using I/O port, memory mapped or indirect access.
 
 config CAN_SJA1000_PLATFORM
 	depends on CAN_SJA1000
@@ -85,19 +120,20 @@ config CAN_SJA1000_PLATFORM
 
 config CAN_SJA1000_OF_PLATFORM
 	depends on CAN_SJA1000 && PPC_OF
-	tristate "generic OF Platform Bus based SJA1000 driver"
+	tristate "Generic OF Platform Bus based SJA1000 driver"
 	---help---
 	  This driver adds support for the SJA1000 chips connected to
 	  the OpenFirmware "platform bus" found on embedded systems with
 	  OpenFirmware bindings, e.g. if you have a PowerPC based system
-	  you should enable this option.
+	  you may want to enable this option.
 
 config CAN_EMS_PCI
-	tristate "EMS CPC-PCI and CPC-PCIe Card"
+	tristate "EMS CPC-PCI, CPC-PCIe and CPC-104P Card"
 	depends on PCI && CAN_SJA1000
 	---help---
-	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
-	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+	  This driver is for the one, two or four channel CPC-PCI,
+	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
+	  (http://www.ems-wuensche.de).
 
 config CAN_EMS_PCMCIA
 	tristate "EMS CPC-CARD Card"
@@ -106,13 +142,20 @@ config CAN_EMS_PCMCIA
 	  This driver is for the one or two channel CPC-CARD cards from
 	  EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
 
+config CAN_EMS_104M
+	tristate "EMS CPC-104M Card"
+	depends on ISA && CAN_SJA1000
+	---help---
+	  This driver is for the one, two or four channel CPC-104M cards
+	  from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+
 config CAN_ESD_PCI
 	tristate "ESD PCI Cards"
 	depends on PCI && CAN_SJA1000
 	---help---
-	  This driver supports the esd PCI CAN cards CAN-PCI/200, 
-	  CAN-PCI/266, CAN-PMC/266 (PMC), CAN-CPCI/200 (CompactPCI), 
-	  CAN-PCIe2000 (PCI Express) and CAN-PCI104/200 (PCI104) 
+	  This driver supports the esd PCI CAN cards CAN-PCI/200,
+	  CAN-PCI/266, CAN-PMC/266 (PMC), CAN-CPCI/200 (CompactPCI),
+	  CAN-PCIe2000 (PCI Express) and CAN-PCI104/200 (PCI104)
 	  from the esd electronic system design gmbh (http://www.esd.eu).
 
 config CAN_IXXAT_PCI
@@ -145,7 +188,7 @@ config CAN_KVASER_PCI
 
 config CAN_ESD_PCI331
 	tristate "ESD CAN 331 Cards"
-	depends on PCI
+	depends on PCI && CAN_DEV
 	---help---
 	  This driver supports the PCI/331, CPCI/331 and PMC/331 CAN cards
 	  from the esd system design gmbh (http://www.esd.eu).
@@ -155,10 +198,24 @@ config CAN_SOFTING
 	depends on CAN_DEV
 	---help---
 	  generic softing CAN cards
+	  Sofing CAN cards come with 1 or 2 physical busses.
+	  The API of the card does not allow fine control per bus, but
+	  controls the 2 busses on the card together.
+	  As such, some actions (start/stop/busoff recovery) on 1 bus
+	  must bring down the other bus too temporarily.
+	  You have been warned.
+	  This driver is written on safe on 64bit, but not on big endian.
 
 config CAN_SOFTING_CS
 	tristate "Softing CAN pcmcia cards"
 	depends on CAN_SOFTING && PCMCIA
+	---help---
+	  Support for PCMCIA cards from Softing Gmbh & some cards
+	  from Vector Gmbh.
+	  You need firmware for these, which you can get at
+	  http://developer.berlios.de/projects/socketcan/
+	  This version of the driver is written against
+	  firmware version 4.6
 
 config CAN_MSCAN
 	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
