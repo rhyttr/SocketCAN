@@ -734,17 +734,26 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	int matches;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-	if (dev->type != ARPHRD_CAN || !net_eq(dev_net(dev), &init_net)) {
+	if (!net_eq(dev_net(dev), &init_net))
+		goto drop;
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	if (dev->type != ARPHRD_CAN || dev->nd_net != &init_net) {
-#else
-	if (dev->type != ARPHRD_CAN) {
+	if (dev->nd_net != &init_net)
+		goto drop;
 #endif
-		kfree_skb(skb);
-		return 0;
-	}
 
-	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+	if (WARN_ONCE(dev->type != ARPHRD_CAN ||
+		      skb->len != sizeof(struct can_frame) ||
+		      cf->can_dlc > 8,
+		      "PF_CAN: dropped non conform skbuf: "
+		      "dev type %d, len %d, can_dlc %d\n",
+		      dev->type, skb->len, cf->can_dlc))
+		goto drop;
+#else
+	BUG_ON(dev->type != ARPHRD_CAN ||
+	       skb->len != sizeof(struct can_frame) ||
+	       cf->can_dlc > 8);
+#endif
 
 	/* update statistics */
 	can_stats.rx_frames++;
@@ -775,6 +784,12 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 	}
 
 	return 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+drop:
+	kfree_skb(skb);
+	return 0;
+#endif
 }
 
 /*
