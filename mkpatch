@@ -44,7 +44,7 @@ sub add_file {
     my ($file, $name) = @_;
     my (@lines, $count, $ts);
 
-    open file, "./strip-src -i -v $version $file |" || die "open $file\n";
+    open file, "./strip-src -i -m -v $version $file |" || die "open $file\n";
     @lines = <file>;
     close file;
 
