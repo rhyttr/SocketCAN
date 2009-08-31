@@ -26,7 +26,6 @@
 #include <linux/if_arp.h>
 #include <socketcan/can.h>
 #include <socketcan/can/dev.h>
-
 #ifndef CONFIG_CAN_DEV_SYSFS
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 #error "CAN netlink interface not support by this kernel version"
@@ -153,7 +152,9 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
 		}
 	}
 
-	spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
+	/* real sample point */
+	bt->sample_point = can_update_spt(btc, sampl_pt, best_tseg,
+					  &tseg1, &tseg2);
 
 	v64 = (u64)best_brp * 1000000000UL;
 	do_div(v64, priv->clock.freq);
@@ -166,8 +167,6 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
 #ifndef CONFIG_CAN_DEV_SYSFS
 	/* real bit-rate */
 	bt->bitrate = priv->clock.freq / (bt->brp * (tseg1 + tseg2 + 1));
-	/* real sample point */
-	bt->sample_point = spt;
 #endif
 	return 0;
 }
@@ -560,6 +559,10 @@ int open_candev(struct net_device *dev)
 			return err;
 	}
 #endif
+
+	/* Switch carrier on if device was stopped while in bus-off state */
+	if (!netif_carrier_ok(dev))
+		netif_carrier_on(dev);
 
 	setup_timer(&priv->restart_timer, can_restart, (unsigned long)dev);
 
