@@ -783,12 +783,12 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
 		can_stats.matches_delta++;
 	}
 
-	return 0;
+	return NET_RX_SUCCESS;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 drop:
 	kfree_skb(skb);
-	return 0;
+	return NET_RX_DROP;
 #endif
 }
 
