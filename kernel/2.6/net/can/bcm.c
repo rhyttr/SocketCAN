@@ -47,6 +47,9 @@
 #include <linux/hrtimer.h>
 #include <linux/list.h>
 #include <linux/proc_fs.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#include <linux/seq_file.h>
+#endif
 #include <linux/uio.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
@@ -160,6 +163,84 @@ static char *bcm_proc_getifname(int ifindex)
 	return "???";
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+static int bcm_proc_show(struct seq_file *m, void *v)
+{
+	struct sock *sk = (struct sock *)m->private;
+	struct bcm_sock *bo = bcm_sk(sk);
+	struct bcm_op *op;
+
+	seq_printf(m, ">>> socket %p", sk->sk_socket);
+	seq_printf(m, " / sk %p", sk);
+	seq_printf(m, " / bo %p", bo);
+	seq_printf(m, " / dropped %lu", bo->dropped_usr_msgs);
+	seq_printf(m, " / bound %s", bcm_proc_getifname(bo->ifindex));
+	seq_printf(m, " <<<\n");
+
+	list_for_each_entry(op, &bo->rx_ops, list) {
+
+		unsigned long reduction;
+
+		/* print only active entries & prevent division by zero */
+		if (!op->frames_abs)
+			continue;
+
+		seq_printf(m, "rx_op: %03X %-5s ",
+				op->can_id, bcm_proc_getifname(op->ifindex));
+		seq_printf(m, "[%d]%c ", op->nframes,
+				(op->flags & RX_CHECK_DLC)?'d':' ');
+		if (op->kt_ival1.tv64)
+			seq_printf(m, "timeo=%lld ",
+					(long long)
+					ktime_to_us(op->kt_ival1));
+
+		if (op->kt_ival2.tv64)
+			seq_printf(m, "thr=%lld ",
+					(long long)
+					ktime_to_us(op->kt_ival2));
+
+		seq_printf(m, "# recv %ld (%ld) => reduction: ",
+				op->frames_filtered, op->frames_abs);
+
+		reduction = 100 - (op->frames_filtered * 100) / op->frames_abs;
+
+		seq_printf(m, "%s%ld%%\n",
+				(reduction == 100)?"near ":"", reduction);
+	}
+
+	list_for_each_entry(op, &bo->tx_ops, list) {
+
+		seq_printf(m, "tx_op: %03X %s [%d] ",
+				op->can_id, bcm_proc_getifname(op->ifindex),
+				op->nframes);
+
+		if (op->kt_ival1.tv64)
+			seq_printf(m, "t1=%lld ",
+					(long long) ktime_to_us(op->kt_ival1));
+
+		if (op->kt_ival2.tv64)
+			seq_printf(m, "t2=%lld ",
+					(long long) ktime_to_us(op->kt_ival2));
+
+		seq_printf(m, "# sent %ld\n", op->frames_abs);
+	}
+	seq_putc(m, '\n');
+	return 0;
+}
+
+static int bcm_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, bcm_proc_show, PDE(inode)->data);
+}
+
+static const struct file_operations bcm_proc_fops = {
+	.owner		= THIS_MODULE,
+	.open		= bcm_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#else
 static int bcm_read_proc(char *page, char **start, off_t off,
 			 int count, int *eof, void *data)
 {
@@ -250,6 +331,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	*eof = 1;
 	return len;
 }
+#endif
 
 /*
  * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
@@ -1547,9 +1629,15 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	if (proc_dir) {
 		/* unique socket address as filename */
 		sprintf(bo->procname, "%p", sock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
+						     proc_dir,
+						     &bcm_proc_fops, sk);
+#else
 		bo->bcm_proc_read = create_proc_read_entry(bo->procname, 0644,
 							   proc_dir,
 							   bcm_read_proc, sk);
+#endif
 	}
 
 	return 0;
