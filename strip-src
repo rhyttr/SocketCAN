@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #
-# $Id$ 
+# $Id$
 #
 # Strip lines from sources files:
-# 
+#
 # * Eliminate CPP conditional compilation for different kernel version, i.e.
 #   eliminate all occurences of #if LINUX_VERSION_CODE < KERNEL_VERSION(...)
 #   and likewise for <=, >, >=, ==, and !=.
@@ -94,11 +94,11 @@ sub strip_id {
     my($i);
 
     for $i (0..$#lines) {
-	
+
 	if ($lines[$i] =~ /include.*linux(\/can)?\/version\.h/) {
 	    delete_line($i, "<del>");
 	}
-	
+
 	if ($lines[$i] =~ /RCSID/) {
 	    delete_line($i, "<del>");
 	    while ($lines[++$i] eq "\n") {
@@ -115,52 +115,56 @@ sub strip_id {
     }
 }
 
-
 sub strip_kversion {
     my($version) = @_;
-    my($i, $state, $skip, $level);
+    my(@states, @levels, @dones, $state, $level, $done, $skip, $i);
 
-    $level   = 0;
-    $state   = -1;
+    @levels = ();
+    @states = ();
+    $state  = 1;
+    $level  = 0;
+    $done   = 0;
 
     for $i (1..$#lines) {
 	$_ = $lines[$i];
-	if ($state == -1) {
-	    if (/$re_if/) {
-		$state = compare($version, $1, $2, $3, $4);
-		$done  = $state;
-		delete_line($i, "<del>");
-		$skip = ($lines[$i-1] eq "\n");
-	    }
-	} else {
-	    if ($level == 0 && /$re_elif/) {
-		$state = compare($version, $1, $2, $3, $4);
-		$state &= !$done;
-		$done  |= $state;
-		delete_line($i, "<del>");
-	    } elsif ($level == 0 && /^\#else/) {
-		$state  = !$done;
-		$done  |= $state;
-		delete_line($i, "<del>");
-	    } elsif ($level == 0 && /^\#endif/) {
-		$state = -1;
-		delete_line($i, "<del>");
+	if ($state == 1 && /$re_if/) {
+	    $level++;
+	    unshift @levels, $level;
+	    unshift @states, $state;
+	    unshift @dones,  $done;
+	    $state = compare($version, $1, $2, $3, $4);
+	    $done  = $state;
+	    delete_line($i, "<del>");
+	    $skip = ($lines[$i-1] eq "\n");
+	} elsif ($level == $levels[0] && /$re_elif/) {
+	    $state = compare($version, $1, $2, $3, $4);
+	    $state &= !$done;
+	    $done  |= $state;
+	    delete_line($i, "<del>");
+	} elsif ($level == $levels[0] && /^\#else/) {
+	    $state  = !$done;
+	    $done  |= $state;
+	    delete_line($i, "<del>");
+	} elsif ($level == $levels[0] && /^\#endif/) {
+	    $state = shift @states;
+	    $done  = shift @dones;
+	    $level = shift @levels;
+	    $level--;
+	    delete_line($i, "<del>");
 
-		while ($skip && $lines[$i+1] eq "\n") {
-		    $i++;
-		    delete_line($i, "<skip>");
-		}
-	    } elsif (/^\#if/) {
-		$level++;
-		delete_line($i, "<del>");
-	    } elsif (/^\#endif/) {
-		$level--;
-		delete_line($i, "<del>");
-	    } elsif ($state == 1) {
-		$skip = 0;
-	    } else {
-		delete_line($i, "<del>");
+	    while ($skip && $lines[$i+1] eq "\n") {
+		$i++;
+		delete_line($i, "<skip>");
 	    }
+	} elsif (/^\#if/) {
+	    $level++;
+	} elsif (/^\#endif/) {
+	    $level--;
+	}
+	if ($state == 1) {
+	    $skip = 0;
+	} else {
+	    delete_line($i, "<del>");
 	}
     }
 }
@@ -177,22 +181,22 @@ sub compare {
 	return 1;
     } elsif ($op eq "<" &&
 	     ($mj < $major ||
-	      $mj == $major && ($mn < $minor || 
+	      $mj == $major && ($mn < $minor ||
 				$mn == $minor && $pl < $patchlevel))) {
 	return 1;
     } elsif ($op eq "<=" &&
 	     ($mj < $major ||
-	      $mj == $major && ($mn < $minor || 
+	      $mj == $major && ($mn < $minor ||
 				$mn == $minor && $pl <= $patchlevel))) {
 	return 1;
     } elsif ($op eq ">" &&
 	     ($mj > $major ||
-	      $mj == $major && ($mn > $minor || 
+	      $mj == $major && ($mn > $minor ||
 				$mn == $minor && $pl > $patchlevel))) {
 	return 1;
     } elsif ($op eq ">=" &&
 	     ($mj > $major ||
-	      $mj == $major && ($mn > $minor || 
+	      $mj == $major && ($mn > $minor ||
 				$mn == $minor && $pl >= $patchlevel))) {
 	return 1;
     } else {
@@ -202,7 +206,7 @@ sub compare {
 
 sub delete_line {
     my($lineno, $dbg) = @_;
-    
+
     if ($debug) {
 	$lines[$lineno] = "$dbg\n";
     } else {
