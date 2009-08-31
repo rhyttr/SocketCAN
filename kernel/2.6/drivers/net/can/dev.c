@@ -152,9 +152,7 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
 		}
 	}
 
-	/* real sample point */
-	bt->sample_point = can_update_spt(btc, sampl_pt, best_tseg,
-					  &tseg1, &tseg2);
+	spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
 
 	v64 = (u64)best_brp * 1000000000UL;
 	do_div(v64, priv->clock.freq);
@@ -167,6 +165,8 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
 #ifndef CONFIG_CAN_DEV_SYSFS
 	/* real bit-rate */
 	bt->bitrate = priv->clock.freq / (bt->brp * (tseg1 + tseg2 + 1));
+	/* real sample point */
+	bt->sample_point = spt;
 #endif
 	return 0;
 }
