@@ -2,7 +2,7 @@
  * isotp.c - ISO 15765-2 CAN transport protocol for protocol family CAN
  *
  * WARNING: This is ALPHA code for discussions and first tests that should
- *          not be used in productive environments.
+ *          not be used in production environments.
  *
  * In the discussion the Socket-API to the userspace or the ISO-TP socket
  * options or the return values we may change! Current behaviour:

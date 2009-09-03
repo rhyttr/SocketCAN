@@ -49,7 +49,7 @@ config CAN_ISOTP
 	  communication between CAN nodes via two defined CAN Identifiers.
 	  This protocol driver implements data transfers according ISO 15765-2.
 	  WARNING: This is ALPHA code for discussions and first tests that
-	  should not be used in productive environments.
+	  should not be used in production environments.
 	  In the discussion the Socket-API to the userspace or the ISO-TP
 	  socket options or the return values may change! Current behaviour:
 	  - no ISO-TP specific return values are provided to the userspace
