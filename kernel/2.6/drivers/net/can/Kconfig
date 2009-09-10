@@ -127,6 +127,13 @@ config CAN_SJA1000_OF_PLATFORM
 	  OpenFirmware bindings, e.g. if you have a PowerPC based system
 	  you may want to enable this option.
 
+config CAN_EMS_USB
+	tristate "EMS CPC-USB/ARM7"
+	depends on USB && CAN_DEV
+	---help---
+	  This driver is for the one channel CAN/USB interface CPC-USB
+	  from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.com).
+
 config CAN_EMS_PCI
 	tristate "EMS CPC-PCI, CPC-PCIe and CPC-104P Card"
 	depends on PCI && CAN_SJA1000

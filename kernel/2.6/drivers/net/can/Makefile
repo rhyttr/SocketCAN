@@ -49,6 +49,7 @@ obj-$(CONFIG_CAN_I82527_OLD)	+= old/i82527/
 obj-$(CONFIG_CAN_MSCAN_OLD)	+= old/mscan/
 obj-$(CONFIG_CAN_CCAN_OLD)	+= old/ccan/
 obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
+obj-$(CONFIG_CAN_EMS_USB)	+= ems_usb.o
 
 ifeq ($(CONFIG_CAN_DEBUG_DEVICES),y)
 	EXTRA_CFLAGS += -DDEBUG
