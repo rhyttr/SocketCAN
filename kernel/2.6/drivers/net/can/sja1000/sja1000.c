@@ -64,7 +64,6 @@
 #include <socketcan/can.h>
 #include <socketcan/can/dev.h>
 #include <socketcan/can/error.h>
-#include <socketcan/can/dev.h>
 
 #include "sja1000.h"
 
