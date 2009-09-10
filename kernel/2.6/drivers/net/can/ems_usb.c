@@ -885,22 +885,22 @@ nomem:
 	return NETDEV_TX_OK;
 }
 
-static int ems_usb_close(struct net_device *dev)
+static int ems_usb_close(struct net_device *netdev)
 {
-	struct ems_usb *priv = netdev_priv(dev);
+	struct ems_usb *dev = netdev_priv(netdev);
 
-	netif_stop_queue(dev);
+	netif_stop_queue(netdev);
 
 	/* Stop polling */
-	unlink_all_urbs(priv);
+	unlink_all_urbs(dev);
 
 	/* Set CAN controller to reset mode */
-	if (ems_usb_write_mode(priv, SJA1000_MOD_RM))
-		dev_warn(ND2D(dev), "couldn't stop device");
+	if (ems_usb_write_mode(dev, SJA1000_MOD_RM))
+		dev_warn(ND2D(netdev), "couldn't stop device");
 
-	close_candev(dev);
+	close_candev(netdev);
 
-	priv->open_time = 0;
+	dev->open_time = 0;
 
 	return 0;
 }
@@ -925,20 +925,20 @@ static struct can_bittiming_const ems_usb_bittiming_const = {
 	.brp_inc = 1,
 };
 
-static int ems_usb_set_mode(struct net_device *dev, enum can_mode mode)
+static int ems_usb_set_mode(struct net_device *netdev, enum can_mode mode)
 {
-	struct ems_usb *priv = netdev_priv(dev);
+	struct ems_usb *dev = netdev_priv(netdev);
 
-	if (!priv->open_time)
+	if (!dev->open_time)
 		return -EINVAL;
 
 	switch (mode) {
 	case CAN_MODE_START:
-		if (ems_usb_write_mode(priv, SJA1000_MOD_NORMAL))
-			dev_warn(ND2D(dev), "couldn't start device");
+		if (ems_usb_write_mode(dev, SJA1000_MOD_NORMAL))
+			dev_warn(ND2D(netdev), "couldn't start device");
 
-		if (netif_queue_stopped(dev))
-			netif_wake_queue(dev);
+		if (netif_queue_stopped(netdev))
+			netif_wake_queue(netdev);
 		break;
 
 	default:
