@@ -472,7 +472,10 @@ static void at91_rx_overflow_err(struct net_device *dev)
 	cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
 	netif_receive_skb(skb);
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
 }
@@ -533,7 +536,9 @@ static void at91_read_msg(struct net_device *dev, unsigned int mb)
 	at91_read_mb(dev, mb, cf);
 	netif_receive_skb(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
 }
@@ -687,7 +692,9 @@ static int at91_poll_err(struct net_device *dev, int quota, u32 reg_sr)
 	at91_poll_err_frame(dev, cf, reg_sr);
 	netif_receive_skb(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->last_rx = jiffies;
+#endif
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += cf->can_dlc;
 
