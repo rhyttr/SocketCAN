@@ -98,6 +98,7 @@ struct mscan_priv {
 	u8 shadow_statflg;
 	u8 shadow_canrier;
 	u8 cur_pri;
+	u8 prev_buf_id;
 	u8 tx_active;
 
 	struct list_head tx_head;
@@ -200,6 +201,7 @@ static int mscan_start(struct net_device *dev)
 	out_8(&regs->canrier, 0);
 
 	INIT_LIST_HEAD(&priv->tx_head);
+	priv->prev_buf_id = 0;
 	priv->cur_pri = 0;
 	priv->tx_active = 0;
 	priv->shadow_canrier = 0;
@@ -245,14 +247,19 @@ static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	case 1:
 		/* if buf_id < 3, then current frame will be send out of order,
 		   since  buffer with lower id have higher priority (hell..) */
-		if (buf_id < 3)
-			priv->cur_pri++;
-		if (priv->cur_pri == 0xff)
-			set_bit(F_TX_WAIT_ALL, &priv->flags);
 		netif_stop_queue(dev);
 	case 2:
+		if (buf_id < priv->prev_buf_id) {
+			priv->cur_pri++;
+			if (priv->cur_pri == 0xff) {
+				set_bit(F_TX_WAIT_ALL, &priv->flags);
+				netif_stop_queue(dev);
+			}
+		}
 		set_bit(F_TX_PROGRESS, &priv->flags);
+		break;
 	}
+	priv->prev_buf_id = buf_id;
 	out_8(&regs->cantbsel, i);
 
 	rtr = frame->can_id & CAN_RTR_FLAG;
