@@ -224,7 +224,11 @@ static int mscan_start(struct net_device *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+#else
+static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+#endif
 {
 	struct can_frame *frame = (struct can_frame *)skb->data;
 	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
@@ -399,7 +403,9 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			}
 
 			out_8(&regs->canrflg, MSCAN_RXF);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 			dev->last_rx = jiffies;
+#endif
 			stats->rx_packets++;
 			stats->rx_bytes += frame->can_dlc;
 		} else if (canrflg & MSCAN_ERR_IF) {

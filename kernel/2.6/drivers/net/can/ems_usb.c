@@ -333,7 +333,9 @@ static void ems_usb_rx_can_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
 
 	netif_rx(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->netdev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
 }
@@ -418,7 +420,9 @@ static void ems_usb_rx_err(struct ems_usb *dev, struct ems_cpc_msg *msg)
 
 	netif_rx(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->netdev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
 }
@@ -762,7 +766,12 @@ static int ems_usb_open(struct net_device *netdev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 static int ems_usb_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+#else
+static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb,
+				      struct net_device *netdev)
+#endif
 {
 	struct ems_usb *dev = netdev_priv(netdev);
 	struct ems_tx_urb_context *context = NULL;

@@ -301,7 +301,9 @@ static void slc_bump(struct slcan *sl)
 	       &cf, sizeof(struct can_frame));
 	netif_rx(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	sl->dev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf.can_dlc;
 }
@@ -468,7 +470,11 @@ out:
  ******************************************/
 
 /* Send a can_frame to a TTY queue. */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 static int slc_xmit(struct sk_buff *skb, struct net_device *dev)
+#else
+static netdev_tx_t slc_xmit(struct sk_buff *skb, struct net_device *dev)
+#endif
 {
 	struct slcan *sl = netdev_priv(dev);
 

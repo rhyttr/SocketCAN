@@ -46,7 +46,12 @@ static inline int canif_is_active(struct net_device *netdev)
 }
 
 /* trigger the tx queue-ing */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 static int netdev_start_xmit(struct sk_buff *skb, struct net_device *dev)
+#else
+static netdev_tx_t netdev_start_xmit(struct sk_buff *skb,
+			struct net_device *dev)
+#endif
 {
 	struct softing_priv *priv = netdev_priv(dev);
 	struct softing *card = priv->card;
@@ -330,7 +335,9 @@ static int softing_dev_svc_once(struct softing *card)
 		} else {
 			++stats->rx_packets;
 			stats->rx_bytes += msg.can_dlc;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 			bus->netdev->last_rx = jiffies;
+#endif
 			softing_rx(bus->netdev, &msg, ktime);
 		}
 	}

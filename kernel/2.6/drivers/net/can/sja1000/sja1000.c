@@ -242,7 +242,12 @@ static void chipset_init(struct net_device *dev)
  * xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
  * [  can-id ] [flags] [len] [can data (up to 8 bytes]
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
+#else
+static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
+				      struct net_device *dev)
+#endif
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 	struct can_frame *cf = (struct can_frame *)skb->data;
@@ -345,7 +350,9 @@ static void sja1000_rx(struct net_device *dev)
 
 	netif_rx(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += dlc;
 }
@@ -464,7 +471,9 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 
 	netif_rx(skb);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	dev->last_rx = jiffies;
+#endif
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
 
