@@ -150,6 +150,8 @@
 #define SPI_TRANSFER_BUF_LEN	(2*(6 + CAN_FRAME_MAX_DATA_LEN))
 #define CAN_FRAME_MAX_BITS	128
 
+#define TX_ECHO_SKB_MAX	1
+
 #define DEVICE_NAME "mcp251x"
 
 static int mcp251x_enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
@@ -946,7 +948,7 @@ static struct net_device *alloc_mcp251x_netdev(int sizeof_priv,
 	struct net_device *net;
 	struct mcp251x_priv *priv;
 
-	net = alloc_candev(sizeof_priv);
+	net = alloc_candev(sizeof_priv, TX_ECHO_SKB_MAX);
 	if (!net)
 		return NULL;
 

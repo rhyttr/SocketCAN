@@ -46,6 +46,7 @@ RCSID("$Id$");
 #define MSCAN_INIT_MODE		(MSCAN_INITRQ | MSCAN_SLPRQ)
 #define MSCAN_POWEROFF_MODE	(MSCAN_CSWAI | MSCAN_SLPRQ)
 #define MSCAN_SET_MODE_RETRIES	255
+#define MSCAN_ECHO_SKB_MAX	3
 
 #define BTR0_BRP_MASK		0x3f
 #define BTR0_SJW_SHIFT		6
@@ -729,7 +730,7 @@ struct net_device *alloc_mscandev(void)
 	struct mscan_priv *priv;
 	int i;
 
-	dev = alloc_candev(sizeof(struct mscan_priv));
+	dev = alloc_candev(sizeof(struct mscan_priv), MSCAN_ECHO_SKB_MAX);
 	if (!dev)
 		return NULL;
 	priv = netdev_priv(dev);

@@ -99,6 +99,8 @@ MODULE_SUPPORTED_DEVICE("esd CAN-PCI/331, CAN-CPCI/331, CAN-PMC/331");
 #define ESD331_I20_BOARD2		20
 #define ESD331_I20_FAST			21
 
+#define ESD331_ECHO_SKB_MAX		1
+
 static struct pci_device_id esd331_pci_tbl[] = {
 	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050,
 	PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI331},
@@ -785,7 +787,7 @@ static struct net_device *__devinit esd331_pci_add_chan(struct pci_dev *pdev,
 	struct esd331_priv *priv;
 	int err;
 
-	dev = alloc_candev(sizeof(*priv));
+	dev = alloc_candev(sizeof(*priv), ESD331_ECHO_SKB_MAX);
 	if (dev == NULL)
 		return ERR_PTR(-ENOMEM);
 

@@ -33,6 +33,8 @@
 #error This driver does not support Kernel versions < 2.6.23
 #endif
 
+#define TX_ECHO_SKB_MAX 4
+
 /*
  * test is a specific CAN netdev
  * is online (ie. up 'n running, not sleeping, not busoff
@@ -74,7 +76,7 @@ static netdev_tx_t netdev_start_xmit(struct sk_buff *skb,
 		goto xmit_done;
 	if (card->tx.pending >= TXMAX)
 		goto xmit_done;
-	if (priv->tx.pending >= CAN_ECHO_SKB_MAX)
+	if (priv->tx.pending >= TX_ECHO_SKB_MAX)
 		goto xmit_done;
 	fifo_wr = card->dpram.tx->wr;
 	if (fifo_wr == card->dpram.tx->rd)
@@ -112,7 +114,7 @@ static netdev_tx_t netdev_start_xmit(struct sk_buff *skb,
 	++priv->tx.pending;
 	can_put_echo_skb(skb, dev, priv->tx.echo_put);
 	++priv->tx.echo_put;
-	if (priv->tx.echo_put >= CAN_ECHO_SKB_MAX)
+	if (priv->tx.echo_put >= TX_ECHO_SKB_MAX)
 		priv->tx.echo_put = 0;
 	/* can_put_echo_skb() saves the skb, safe to return TX_OK */
 	ret = NETDEV_TX_OK;
@@ -324,7 +326,7 @@ static int softing_dev_svc_once(struct softing *card)
 				skb->tstamp = ktime;
 			can_get_echo_skb(bus->netdev, bus->tx.echo_get);
 			++bus->tx.echo_get;
-			if (bus->tx.echo_get >= CAN_ECHO_SKB_MAX)
+			if (bus->tx.echo_get >= TX_ECHO_SKB_MAX)
 				bus->tx.echo_get = 0;
 			if (bus->tx.pending)
 				--bus->tx.pending;
@@ -367,7 +369,7 @@ static void softing_dev_svc(unsigned long param)
 		if (!canif_is_active(bus->netdev))
 			/* it makes no sense to wake dead busses */
 			continue;
-		if (bus->tx.pending >= CAN_ECHO_SKB_MAX)
+		if (bus->tx.pending >= TX_ECHO_SKB_MAX)
 			continue;
 		netif_wake_queue(bus->netdev);
 	}
@@ -632,7 +634,7 @@ static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 	struct net_device *ndev;
 	struct softing_priv *priv;
 
-	ndev = alloc_candev(sizeof(*priv));
+	ndev = alloc_candev(sizeof(*priv), TX_ECHO_SKB_MAX);
 	if (!ndev) {
 		dev_alert(card->dev, "alloc_candev failed\n");
 		return 0;

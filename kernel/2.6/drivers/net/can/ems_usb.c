@@ -226,7 +226,7 @@ MODULE_DEVICE_TABLE(usb, ems_usb_table);
 #define CPC_HEADER_SIZE 4
 
 #define MAX_RX_URBS 10
-#define MAX_TX_URBS CAN_ECHO_SKB_MAX
+#define MAX_TX_URBS 4
 
 struct ems_usb;
 
@@ -1018,7 +1018,7 @@ static int ems_usb_probe(struct usb_interface *intf,
 	struct ems_usb *dev;
 	int i, err;
 
-	netdev = alloc_candev(sizeof(struct ems_usb));
+	netdev = alloc_candev(sizeof(struct ems_usb), MAX_TX_URBS);
 	if (!netdev) {
 		dev_err(ND2D(netdev), "Couldn't alloc candev\n");
 		return -ENOMEM;

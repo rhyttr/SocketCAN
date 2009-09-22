@@ -188,6 +188,8 @@ struct cc770_regs {
 #define CC770_IO_SIZE	0x100
 #define CC770_MAX_IRQ	20	/* max. number of interrupts handled in ISR */
 
+#define CC770_ECHO_SKB_MAX	1
+
 #define cc770_read_reg(priv, member)					\
 	priv->read_reg(priv, offsetof(struct cc770_regs, member))
 
@@ -197,9 +199,9 @@ struct cc770_regs {
 /*
  * Message objects and flags used by this driver
  */
-#define CC770_OBJ_FLAG_RX  0x01
-#define CC770_OBJ_FLAG_RTR 0x02
-#define CC770_OBJ_FLAG_EFF 0x04
+#define CC770_OBJ_FLAG_RX 	0x01
+#define CC770_OBJ_FLAG_RTR	0x02
+#define CC770_OBJ_FLAG_EFF	0x04
 
 enum {
 	CC770_OBJ_RX0 = 0,	/* for receiving normal messages */

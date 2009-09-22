@@ -862,7 +862,8 @@ struct net_device *alloc_cc770dev(int sizeof_priv)
 	struct net_device *dev;
 	struct cc770_priv *priv;
 
-	dev = alloc_candev(sizeof(struct cc770_priv) + sizeof_priv);
+	dev = alloc_candev(sizeof(struct cc770_priv) + sizeof_priv,
+			   CC770_ECHO_SKB_MAX);
 	if (!dev)
 		return NULL;
 
