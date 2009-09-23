@@ -422,7 +422,7 @@ static int cc770_set_bittiming(struct net_device *dev)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int cc770_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #else
 static netdev_tx_t cc770_start_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -561,7 +561,7 @@ static void cc770_rx(struct net_device *dev, unsigned int mo, u8 ctrl1)
 	}
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
@@ -633,7 +633,7 @@ static int cc770_err(struct net_device *dev, u8 status)
 
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;

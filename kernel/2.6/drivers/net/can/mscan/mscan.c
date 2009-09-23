@@ -225,7 +225,7 @@ static int mscan_start(struct net_device *dev)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #else
 static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -404,7 +404,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			}
 
 			out_8(&regs->canrflg, MSCAN_RXF);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 			dev->last_rx = jiffies;
 #endif
 			stats->rx_packets++;
