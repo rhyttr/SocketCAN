@@ -460,7 +460,7 @@ static int esd331_create_err_frame(struct net_device *dev, canid_t idflags,
 
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
@@ -513,7 +513,7 @@ static void esd331_irq_rx(struct net_device *dev, struct esd331_can_msg *msg,
 
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
@@ -692,7 +692,7 @@ static int esd331_close(struct net_device *dev)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int esd331_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #else
 static netdev_tx_t esd331_start_xmit(struct sk_buff *skb,

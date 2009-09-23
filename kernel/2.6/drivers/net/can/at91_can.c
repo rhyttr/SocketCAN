@@ -357,7 +357,7 @@ static void at91_chip_stop(struct net_device *dev, enum can_state state)
  *                 (mb - AT91_MB_TX_FIRST);
  *
  */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #else
 static netdev_tx_t at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -473,7 +473,7 @@ static void at91_rx_overflow_err(struct net_device *dev)
 	netif_receive_skb(skb);
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
@@ -536,7 +536,7 @@ static void at91_read_msg(struct net_device *dev, unsigned int mb)
 	at91_read_mb(dev, mb, cf);
 	netif_receive_skb(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
@@ -692,7 +692,7 @@ static int at91_poll_err(struct net_device *dev, int quota, u32 reg_sr)
 	at91_poll_err_frame(dev, cf, reg_sr);
 	netif_receive_skb(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	dev->stats.rx_packets++;
@@ -931,7 +931,7 @@ static void at91_irq_err(struct net_device *dev)
 	at91_irq_err_state(dev, cf, new_state);
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	dev->stats.rx_packets++;

@@ -483,7 +483,7 @@ static void mcp251x_hw_wakeup(struct spi_device *spi)
 		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int mcp251x_hard_start_xmit(struct sk_buff *skb, struct net_device *net)
 #else
 static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,

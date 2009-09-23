@@ -411,7 +411,7 @@ void can_restart(unsigned long data)
 
 	netif_rx(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
