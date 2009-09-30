@@ -246,7 +246,7 @@ config CAN_MPC52XX
 
 config CAN_AT91
 	tristate "Atmel AT91 onchip CAN controller"
-	depends on CAN && ARCH_AT91SAM9263
+	depends on CAN_DEV && ARCH_AT91SAM9263
 	default N
 	---help---
 	  This is a driver for the SoC CAN controller in Atmel's AT91SAM9263.

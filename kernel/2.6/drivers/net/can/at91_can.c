@@ -10,6 +10,15 @@
  *
  * Send feedback to <socketcan-users@lists.berlios.de>
  *
+ *
+ * Your platform definition file should specify something like:
+ *
+ * static struct at91_can_data ek_can_data = {
+ *	transceiver_switch = sam9263ek_transceiver_switch,
+ * };
+ *
+ * at91_add_device_can(&ek_can_data);
+ *
  */
 
 #include <linux/clk.h>
@@ -213,7 +222,7 @@ static inline void set_mb_mode(const struct at91_priv *priv, unsigned int mb,
 }
 
 static struct sk_buff *alloc_can_skb(struct net_device *dev,
-	struct can_frame **cf)
+		struct can_frame **cf)
 {
 	struct sk_buff *skb;
 
@@ -471,7 +480,6 @@ static void at91_rx_overflow_err(struct net_device *dev)
 	cf->can_id |= CAN_ERR_CRTL;
 	cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
 	netif_receive_skb(skb);
-
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	dev->last_rx = jiffies;
