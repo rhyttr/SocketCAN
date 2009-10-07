@@ -357,15 +357,13 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
 	struct sk_buff *skb;
 	struct can_frame *frame;
 
-	skb = dev_alloc_skb(sizeof(struct can_frame));
+	skb = alloc_can_skb(priv->net, &frame);
 	if (!skb) {
 		dev_err(&spi->dev, "%s: out of memory for Rx'd frame\n",
 			__func__);
 		priv->net->stats.rx_dropped++;
 		return;
 	}
-	skb->dev = priv->net;
-	frame = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
 
 	if (pdata->model == CAN_MCP251X_MCP2510) {
 		int i;
@@ -457,9 +455,6 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
 	priv->net->stats.rx_packets++;
 	priv->net->stats.rx_bytes += frame->can_dlc;
 
-	skb->protocol = __constant_htons(ETH_P_CAN);
-	skb->pkt_type = PACKET_BROADCAST;
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	netif_rx(skb);
 }
 
@@ -808,19 +803,8 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 			u8 eflag = mcp251x_read_reg(spi, EFLG);
 
 			/* create error frame */
-			skb = dev_alloc_skb(sizeof(struct can_frame));
+			skb = alloc_can_err_skb(net, &frame);
 			if (skb) {
-				frame = (struct can_frame *)
-					skb_put(skb, sizeof(struct can_frame));
-				*(unsigned long long *)&frame->data = 0ULL;
-				frame->can_id = CAN_ERR_FLAG;
-				frame->can_dlc = CAN_ERR_DLC;
-
-				skb->dev = net;
-				skb->protocol = __constant_htons(ETH_P_CAN);
-				skb->pkt_type = PACKET_BROADCAST;
-				skb->ip_summed = CHECKSUM_UNNECESSARY;
-
 				/* Set error frame flags based on bus state */
 				if (eflag & EFLG_TXBO) {
 					frame->can_id |= CAN_ERR_BUSOFF;

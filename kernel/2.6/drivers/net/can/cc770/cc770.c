@@ -517,13 +517,10 @@ static void cc770_rx(struct net_device *dev, unsigned int mo, u8 ctrl1)
 	u32 id;
 	int i;
 
-	skb = dev_alloc_skb(sizeof(struct can_frame));
+	skb = alloc_can_skb(dev, &cf);
 	if (skb == NULL)
 		return;
-	skb->dev = dev;
-	skb->protocol = htons(ETH_P_CAN);
 
-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
 	config = cc770_read_reg(priv, msgobj[mo].config);
 
 	if (ctrl1 & RMTPND_SET) {
@@ -582,15 +579,9 @@ static int cc770_err(struct net_device *dev, u8 status)
 
 	dev_dbg(ND2D(dev), "status interrupt (%#x)\n", status);
 
-	skb = dev_alloc_skb(sizeof(struct can_frame));
+	skb = alloc_can_err_skb(dev, &cf);
 	if (skb == NULL)
 		return -ENOMEM;
-	skb->dev = dev;
-	skb->protocol = htons(ETH_P_CAN);
-	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-	memset(cf, 0, sizeof(struct can_frame));
-	cf->can_id = CAN_ERR_FLAG;
-	cf->can_dlc = CAN_ERR_DLC;
 
 	if (status & STAT_BOFF) {
 		/* Disable interrupts */

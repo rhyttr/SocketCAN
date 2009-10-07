@@ -364,7 +364,7 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 	while (npackets < quota && ((canrflg = in_8(&regs->canrflg)) &
 				    (MSCAN_RXF | MSCAN_ERR_IF))) {
 
-		skb = dev_alloc_skb(sizeof(struct can_frame));
+		skb = alloc_can_skb(dev, &frame);
 		if (!skb) {
 			if (printk_ratelimit())
 				dev_notice(ND2D(dev), "packet dropped\n");
@@ -372,9 +372,6 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 			out_8(&regs->canrflg, canrflg);
 			continue;
 		}
-
-		frame = (struct can_frame *)skb_put(skb, sizeof(*frame));
-		memset(frame, 0, sizeof(*frame));
 
 		if (canrflg & MSCAN_RXF) {
 			can_id = in_be16(&regs->rx.idr1_0);
@@ -459,9 +456,6 @@ static int mscan_rx_poll(struct net_device *dev, int *budget)
 		}
 
 		npackets++;
-		skb->dev = dev;
-		skb->protocol = __constant_htons(ETH_P_CAN);
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
 		netif_receive_skb(skb);
 	}
 

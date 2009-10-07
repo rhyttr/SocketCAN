@@ -439,7 +439,7 @@ static int esd331_create_err_frame(struct net_device *dev, canid_t idflags,
 	struct can_frame *cf;
 	struct sk_buff *skb;
 
-	skb = dev_alloc_skb(sizeof(*cf));
+	skb = alloc_can_err_skb(dev, &cf);
 	if (unlikely(skb == NULL))
 		return -ENOMEM;
 
@@ -449,13 +449,7 @@ static int esd331_create_err_frame(struct net_device *dev, canid_t idflags,
 	stats = &dev->stats;
 #endif
 
-	skb->dev = dev;
-	skb->protocol = htons(ETH_P_CAN);
-	cf = (struct can_frame *)skb_put(skb, sizeof(*cf));
-	memset(cf, 0, sizeof(*cf));
-
-	cf->can_id = CAN_ERR_FLAG | idflags;
-	cf->can_dlc = CAN_ERR_DLC;
+	cf->can_id |= idflags;
 	cf->data[1] = d1;
 
 	netif_rx(skb);
@@ -481,15 +475,11 @@ static void esd331_irq_rx(struct net_device *dev, struct esd331_can_msg *msg,
 	struct sk_buff *skb;
 	int i;
 
-	skb = netdev_alloc_skb(dev, sizeof(*cfrm));
+	skb = alloc_can_skb(dev, &cfrm);
 	if (unlikely(skb == NULL)) {
 		stats->rx_dropped++;
 		return;
 	}
-	skb->protocol = htons(ETH_P_CAN);
-
-	cfrm = (struct can_frame *)skb_put(skb, sizeof(*cfrm));
-	memset(cfrm, 0, sizeof(*cfrm));
 
 	if (eff) {
 		cfrm->can_id = (msg->id << 16);

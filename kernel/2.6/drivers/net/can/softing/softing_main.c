@@ -143,16 +143,14 @@ int softing_rx(struct net_device *netdev, const struct can_frame *msg,
 	ktime_t ktime)
 {
 	struct sk_buff *skb;
+	struct can_frame *cf;
 	int ret;
 	struct net_device_stats *stats;
 
-	skb = dev_alloc_skb(sizeof(msg));
+	skb = alloc_can_skb(netdev, &cf);
 	if (!skb)
 		return -ENOMEM;
-	skb->dev = netdev;
-	skb->protocol = htons(ETH_P_CAN);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
-	memcpy(skb_put(skb, sizeof(*msg)), msg, sizeof(*msg));
+	memcpy(cf, msg, sizeof(*msg));
 	skb->tstamp = ktime;
 	ret = netif_rx(skb);
 	if (ret == NET_RX_DROP) {
