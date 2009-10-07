@@ -232,7 +232,7 @@ MODULE_DEVICE_TABLE(usb, ems_usb_table);
 #define INTR_IN_BUFFER_SIZE 4
 
 #define MAX_RX_URBS 10
-#define MAX_TX_URBS 4
+#define MAX_TX_URBS 10
 
 struct ems_usb;
 
