@@ -1,14 +1,24 @@
 #!/bin/sh
 
-# Low Level CAN Framework
-# Copyright (c) 2005 Volkswagen Group Electronic Research
+### BEGIN INIT INFO
+# Provides:           can_if
+# Required-Start:     $local_fs $syslog mountkernfs
+# Required-Stop:      $local_fs $syslog mountkernfs
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description:  Starts the configured CAN-Interfaces and creates virtual CAN Interfaces on the system.
+### END INIT INFO
+
 #
 # $Id$
 #
-# Simple script to start CAN and VCAN interfaces
+# Simple script to start CAN and VCAN interfaces with netlink configuration
 #
-# Exit if ifconfig is not installed
-test -x /sbin/ifconfig || exit 0
+# Copyright (c) 2009 Volkswagen Group Electronic Research
+#
+
+# Exit if 'ip' from the iproute2 package is not installed
+test -x /sbin/ip || exit 0
 
 # On some systems the automatic module loading via
 # /etc/modules.conf is quite slow. To ensure the immediately 
@@ -18,90 +28,97 @@ test -x /sbin/ifconfig || exit 0
 # Exit if modprobe is not installed
 test -x /sbin/modprobe || exit 0
 
-CAN_IF="can0 can1"
+# The syntax for the CAN devices is: devname[@bitrate][,restart-ms]
+# example CAN_IF="can0 can1@500000 can2@500000,200 can3,500"
+CAN_IF=""
 VCAN_IF="vcan0 vcan1 vcan2 vcan3"
 PROBE="vcan"
-CREATE_VCANS="vcan0 vcan1 vcan2 vcan3"
-
-if [ -n "$CREATE_VCANS" ] ; then
-	# Exit if ip(8) tool is not installed
-	test -x /sbin/ip || exit 0
-fi
 
 case "$1" in
-    start|force-reload)
+	start|force-reload)
 	if [ -n "$PROBE" ] ; then
-	    echo -n "Extra probing CAN modules:"
-	    for MODULE in $PROBE; do
-		/sbin/modprobe -q $MODULE
-		echo -n " "$MODULE
-	    done
-	    echo
-	fi
-	if [ -n "$CREATE_VCANS" ] ; then
-	    echo -n "Creating virtual CAN interfaces:"
-	    for IF in $CREATE_VCANS; do
-		/sbin/ip link add dev $IF type vcan
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Extra probing CAN modules:"
+		for MODULE in $PROBE; do
+			echo -n " "$MODULE
+			/sbin/modprobe -q $MODULE
+		done
+		echo "."
 	fi
 	if [ -n "$CAN_IF" ] ; then
-	    echo -n "Enabling CAN interfaces:"
-	    for IF in $CAN_IF; do
-		/sbin/ifconfig $IF up
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Enabling CAN interfaces:"
+		for IF in $CAN_IF; do
+			echo -n " "$IF
+			DEVICE=${IF%@*}
+			DEVICE=${DEVICE%,*}
+			HASBTR=`echo $IF | grep "@"`
+			if [ -n "$HASBTR" ]; then
+				BITRATE=${IF#*@}
+				BITRATE=${BITRATE%,*}
+				/sbin/ip link set $DEVICE type can bitrate $BITRATE
+			fi
+			HASMS=`echo $IF | grep ","` 
+			if [ -n "$HASMS" ]; then
+				RESTARTMS=${IF#*,}
+				/sbin/ip link set $DEVICE type can restart-ms $RESTARTMS
+			fi
+			/sbin/ip link set $DEVICE up
+		done
+		echo "."
 	fi
 	if [ -n "$VCAN_IF" ] ; then
-	    echo -n "Enabling virtual CAN interfaces:"
-	    for IF in $VCAN_IF; do
-		/sbin/ifconfig $IF up
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Creating and enabling virtual CAN interfaces:"
+		for IF in $VCAN_IF; do
+			echo -n " "$IF
+			/sbin/ip link add name $IF type vcan
+			/sbin/ip link set $IF up
+		done
+		echo "."
 	fi
 	;;
-    restart|reload)
+	restart|reload)
 	if [ -n "$CAN_IF" ] ; then
-	    echo -n "Restarting CAN interfaces:"
-	    for IF in $CAN_IF; do
-		/sbin/ifconfig $IF down
-		/sbin/ifconfig $IF up
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Restarting CAN interfaces:"
+		for IF in $CAN_IF; do
+			DEVICE=${IF%@*}
+			DEVICE=${DEVICE%,*}
+			echo -n " "$DEVICE
+			/sbin/ip link set $DEVICE down
+			/sbin/ip link set $DEVICE up
+		done
+		echo "."
 	fi
 	if [ -n "$VCAN_IF" ] ; then
-	    echo -n "Restarting virtual CAN interfaces:"
-	    for IF in $VCAN_IF; do
-		/sbin/ifconfig $IF down
-		/sbin/ifconfig $IF up
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Restarting virtual CAN interfaces:"
+		for IF in $VCAN_IF; do
+			echo -n " "$IF
+			/sbin/ip link set $IF down
+			/sbin/ip link set $IF up
+		done
+		echo "."
 	fi
 	;;
-    stop)
+	stop)
 	if [ -n "$CAN_IF" ] ; then
-	    echo -n "Shutting down CAN interfaces:"
-	    for IF in $CAN_IF; do
-		/sbin/ifconfig $IF down
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Shutting down CAN interfaces:"
+		for IF in $CAN_IF; do
+			DEVICE=${IF%@*}
+			DEVICE=${DEVICE%,*}
+			echo -n " "$DEVICE
+			/sbin/ip link set $DEVICE down
+		done
+		echo "."
 	fi
 	if [ -n "$VCAN_IF" ] ; then
-	    echo -n "Shutting down virtual CAN interfaces:"
-	    for IF in $VCAN_IF; do
-		/sbin/ifconfig $IF down
-		echo -n " "$IF
-	    done
-	    echo
+		echo -n "Shutting down and removing virtual CAN interfaces:"
+		for IF in $VCAN_IF; do
+			echo -n " "$IF
+			/sbin/ip link set $IF down
+			/sbin/ip link del $IF
+		done
+		echo "."
 	fi
 	;;
-    *)
+	*)
 	echo "Usage: /etc/init.d/can_if {start|stop|restart|reload|force-reload}"
 	exit 1
 esac
