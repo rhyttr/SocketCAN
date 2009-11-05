@@ -150,13 +150,25 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 				udelay(100);
 			}
 			if (i >= MSCAN_SET_MODE_RETRIES)
-				ret = -ENODEV;
+			/*
+			 * The mscan controller will fail to enter sleep
+			 * mode, while there are irregular activities on bus,
+			 * like somebody keeps retransmitting. This behavior
+			 * is undocumented and seems to differ between mscan
+			 * built in mpc5200b and mpc5200a. We proceed anyhow,
+			 * since otherwise the slprq will be kept set and the
+			 * controller will get stuck. NOTE: INITRQ or CSWAI
+			 * will abort all active transmit actions, if still
+			 * any, at once.
+			 */
+				dev_dbg(dev->dev.parent,
+					"device failed to enter sleep mode. "
+					"We proceed anyhow.\n");
+			else
+				priv->can.state = CAN_STATE_SLEEPING;
 		}
-		if (!ret)
-			priv->can.state = CAN_STATE_SLEEPING;
 
-		if (!ret && (mode & MSCAN_INITRQ)
-		    && (canctl1 & MSCAN_INITAK) == 0) {
+		if ((mode & MSCAN_INITRQ) && (canctl1 & MSCAN_INITAK) == 0) {
 			out_8(&regs->canctl0,
 			      in_8(&regs->canctl0) | MSCAN_INITRQ);
 			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
@@ -169,7 +181,7 @@ static int mscan_set_mode(struct net_device *dev, u8 mode)
 		if (!ret)
 			priv->can.state = CAN_STATE_STOPPED;
 
-		if (!ret && (mode & MSCAN_CSWAI))
+		if (mode & MSCAN_CSWAI)
 			out_8(&regs->canctl0,
 			      in_8(&regs->canctl0) | MSCAN_CSWAI);
 
