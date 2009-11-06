@@ -915,8 +915,13 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+static int isotp_setsockopt(struct socket *sock, int level, int optname,
+			    char __user *optval, unsigned int optlen)
+#else
 static int isotp_setsockopt(struct socket *sock, int level, int optname,
 			    char __user *optval, int optlen)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct isotp_sock *so = isotp_sk(sk);
