@@ -65,8 +65,8 @@ struct softing {
 	int nbus;
 	struct softing_priv *bus[2];
 	spinlock_t	 spin; /* protect this structure & DPRAM access */
-	ktime_t boot_time;
-	u32 sample_at_boot_time;
+	ktime_t ts_ref;
+	ktime_t ts_overflow; /* timestamp overflow value, in ktime */
 
 	struct {
 		/* indication of firmware status */

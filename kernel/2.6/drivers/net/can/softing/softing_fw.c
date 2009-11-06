@@ -24,8 +24,10 @@
 #include <linux/device.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 #include <linux/mutex.h>
 #include <linux/io.h>
+#include <asm/div64.h>
 
 #include "softing.h"
 
@@ -289,7 +291,7 @@ int softing_load_fw(const char *file, struct softing *card,
 	dev_dbg(card->dev, "%s, firmware(%s) got %u bytes"
 		", offset %c0x%04x\n",
 		card->id.name, file, (unsigned int)fw->size,
-		(offset >= 0) ? '+' : '-', abs(offset));
+		(offset >= 0) ? '+' : '-', (unsigned int)abs(offset));
 	/* parse the firmware */
 	mem = fw->data;
 	end = &mem[fw->size];
@@ -492,6 +494,43 @@ failed:
 	return -EIO;
 }
 
+static void softing_initialize_timestamp(struct softing *card)
+{
+	uint64_t ovf;
+
+	card->ts_ref = ktime_get();
+
+	/* 16MHz is the reference */
+	ovf = 0x100000000ULL * 16;
+	do_div(ovf, card->desc->freq ?: 16);
+
+	card->ts_overflow = ktime_add_us(ktime_set(0, 0), ovf);
+}
+
+ktime_t softing_raw2ktime(struct softing *card, u32 raw)
+{
+	uint64_t rawl;
+	ktime_t now, real_offset;
+	ktime_t target;
+	ktime_t tmp;
+
+	now = ktime_get();
+	real_offset = ktime_sub(ktime_get_real(), now);
+
+	/* find nsec from card */
+	rawl = raw * 16;
+	do_div(rawl, card->desc->freq ?: 16);
+	target = ktime_add_us(card->ts_ref, rawl);
+	/* test for overflows */
+	tmp = ktime_add(target, card->ts_overflow);
+	while (unlikely(ktime_to_ns(tmp) > ktime_to_ns(now))) {
+		card->ts_ref = ktime_add(card->ts_ref, card->ts_overflow);
+		target = tmp;
+		tmp = ktime_add(target, card->ts_overflow);
+	}
+	return ktime_add(target, real_offset);
+}
+
 int softing_cycle(struct softing *card, struct softing_priv *bus, int up)
 {
 	int ret;
@@ -660,7 +699,7 @@ int softing_cycle(struct softing *card, struct softing_priv *bus, int up)
 		wmb();
 	}
 
-	card->boot_time = ktime_get_real();
+	softing_initialize_timestamp(card);
 
 	/*run once */
 	/*the bottom halve will start flushing the tx-queue too */
@@ -715,7 +754,6 @@ failed_already:
 	return -EIO;
 }
 
-
 int softing_default_output(struct softing *card, struct softing_priv *priv)
 {
 	switch (priv->chip) {
@@ -728,54 +766,5 @@ int softing_default_output(struct softing *card, struct softing_priv *priv)
 	default:
 		return 0x40;
 	}
-}
-
-ktime_t softing_raw2ktime(struct softing *card, u32 raw)
-{
-	uint64_t ovf;
-	uint64_t rawl;
-	uint64_t expected;
-	ktime_t now;
-	ktime_t target;
-	ovf = 0x100000000ULL;
-	rawl = raw;
-	/*TODO : don't loose higher order bits in computation */
-	switch (card->desc->freq) {
-	case 20:
-		ovf = ovf * 4 / 5;
-		rawl = rawl * 4 / 5;
-		break;
-	case 24:
-		ovf = ovf * 2 / 3;
-		rawl = rawl * 2 / 3;
-		break;
-	case 25:
-		ovf = ovf * 16 / 25;
-		rawl = rawl * 16 / 25;
-		break;
-	case 0:
-	case 16:
-		break;
-	default:
-		/* return empty time */
-		return ktime_set(0, 0);
-	}
-	now = ktime_get_real();
-	expected = (ktime_us_delta(now, card->boot_time)) % ovf;
-	/*
-	 * strange seuence for equation, but mind the 'unsigned-ness'
-	 * the idea was to:
-	 * if (expected < (rawl - (ovf / 2)))
-	 * meaning: on wrap-around (occurs at 'ovf'), expected (actual time)
-	 * may wrap around, altough rawl (receive time)
-	 * is just before wrap-around. In that case, offset 'expected'
-	 * note that expected can also be slightly earlier, as the card's
-	 * timer starts a little (but unknown to me) after I mark 'boot_time'
-	 */
-	if (rawl < (expected + (ovf / 2)))
-		/* now (expected) is always later than card stamp */
-		expected += ovf;
-	target = ktime_sub_us(now, (expected - rawl));
-	return target;
 }
 
