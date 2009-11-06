@@ -138,6 +138,14 @@ void softing_card_sysfs_remove(struct softing *card)
 	kfree(card->attr);
 }
 
+static ssize_t show_channel(struct device *dev
+		, struct device_attribute *attr, char *buf)
+{
+	struct net_device *ndev = to_net_dev(dev);
+	struct softing_priv *priv = netdev2softing(ndev);
+	return sprintf(buf, "%i\n", priv->index);
+}
+
 static ssize_t show_chip(struct device *dev
 		, struct device_attribute *attr, char *buf)
 {
@@ -184,10 +192,12 @@ static ssize_t store_output(struct device *dev
  * the latest softing cards support sleep mode too
  */
 
+static const DEVICE_ATTR(channel, S_IRUGO, show_channel, 0);
 static const DEVICE_ATTR(chip, S_IRUGO, show_chip, 0);
 static const DEVICE_ATTR(output, S_IRUGO | S_IWUSR, show_output, store_output);
 
 static const struct attribute *const netdev_sysfs_entries[] = {
+	&dev_attr_channel	.attr,
 	&dev_attr_chip		.attr,
 	&dev_attr_output	.attr,
 	0,
