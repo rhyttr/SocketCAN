@@ -165,24 +165,28 @@ static unsigned long rounded_tv2jif(const struct timeval *tv)
 /*
  * procfs functions
  */
-static char *bcm_proc_getifname(int ifindex)
+static char *bcm_proc_getifname(char *result, int ifindex)
 {
 	struct net_device *dev;
 
 	if (!ifindex)
 		return "any";
 
-	/* no usage counting */
+	read_lock(&dev_base_lock);
 	dev = __dev_get_by_index(&init_net, ifindex);
 	if (dev)
-		return dev->name;
+		strcpy(result, dev->name);
+	else
+		strcpy(result, "???");
+	read_unlock(&dev_base_lock);
 
-	return "???";
+	return result;
 }
 
 static int bcm_read_proc(char *page, char **start, off_t off,
 			 int count, int *eof, void *data)
 {
+	char ifname[IFNAMSIZ];
 	int len = 0;
 	struct sock *sk = (struct sock *)data;
 	struct bcm_sock *bo = bcm_sk(sk);
@@ -197,7 +201,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 	len += snprintf(page + len, PAGE_SIZE - len, " / dropped %lu",
 			bo->dropped_usr_msgs);
 	len += snprintf(page + len, PAGE_SIZE - len, " / bound %s",
-			bcm_proc_getifname(bo->ifindex));
+			bcm_proc_getifname(ifname, bo->ifindex));
 	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
 
 	list_for_each_entry(op, &bo->rx_ops, list) {
@@ -210,7 +214,7 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"rx_op: %03X %-5s ",
-				op->can_id, bcm_proc_getifname(op->ifindex));
+				op->can_id, bcm_proc_getifname(ifname, op->ifindex));
 		len += snprintf(page + len, PAGE_SIZE - len, "[%d]%c ",
 				op->nframes,
 				(op->flags & RX_CHECK_DLC)?'d':' ');
@@ -242,7 +246,8 @@ static int bcm_read_proc(char *page, char **start, off_t off,
 
 		len += snprintf(page + len, PAGE_SIZE - len,
 				"tx_op: %03X %s [%d] ",
-				op->can_id, bcm_proc_getifname(op->ifindex),
+				op->can_id,
+				bcm_proc_getifname(ifname, op->ifindex),
 				op->nframes);
 
 		if (op->j_ival1)
