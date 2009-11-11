@@ -31,103 +31,7 @@
 
 #include "softing.h"
 
-#define fw_dir "softing-4.6/"
-
-const struct can_bittiming_const softing_btr_const = {
-	.tseg1_min = 1,
-	.tseg1_max = 16,
-	.tseg2_min = 1,
-	.tseg2_max = 8,
-	.sjw_max = 4, /* overruled */
-	.brp_min = 1,
-	.brp_max = 32, /* overruled */
-	.brp_inc = 1,
-};
-
 static const struct softing_desc carddescs[] = {
-{
-	.name = "CANcard",
-	.manf = 0x0168, .prod = 0x001,
-	.generation = 1,
-	.freq = 16, .max_brp = 32, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
-}, {
-	.name = "CANcard-NEC",
-	.manf = 0x0168, .prod = 0x002,
-	.generation = 1,
-	.freq = 16, .max_brp = 32, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
-}, {
-	.name = "CANcard-SJA",
-	.manf = 0x0168, .prod = 0x004,
-	.generation = 1,
-	.freq = 20, .max_brp = 32, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cansja.bin",},
-}, {
-	.name = "CANcard-2",
-	.manf = 0x0168, .prod = 0x005,
-	.generation = 2,
-	.freq = 24, .max_brp = 64, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
-}, {
-	.name = "Vector-CANcard",
-	.manf = 0x0168, .prod = 0x081,
-	.generation = 1,
-	.freq = 16, .max_brp = 64, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
-}, {
-	.name = "Vector-CANcard-SJA",
-	.manf = 0x0168, .prod = 0x084,
-	.generation = 1,
-	.freq = 20, .max_brp = 32, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cansja.bin",},
-}, {
-	.name = "Vector-CANcard-2",
-	.manf = 0x0168, .prod = 0x085,
-	.generation = 2,
-	.freq = 24, .max_brp = 64, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
-}, {
-	.name = "EDICcard-NEC",
-	.manf = 0x0168, .prod = 0x102,
-	.generation = 1,
-	.freq = 16, .max_brp = 64, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
-}, {
-	.name = "EDICcard-2",
-	.manf = 0x0168, .prod = 0x105,
-	.generation = 2,
-	.freq = 24, .max_brp = 64, .max_sjw = 4,
-	.dpram_size = 0x0800,
-	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
-	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
-	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
-	},
-
 /* never tested, but taken from original softing */
 {	.name = "CAN-AC2-104",
 	.manf = 0x0000, .prod = 0x009,
@@ -141,17 +45,9 @@ static const struct softing_desc carddescs[] = {
 {0, 0,},
 };
 
-const struct softing_desc *softing_lookup_desc
-					(unsigned int manf, unsigned int prod)
-{
-	const struct softing_desc *lp = carddescs;
-	for (; lp->name; ++lp) {
-		if ((lp->manf == manf) && (lp->prod == prod))
-			return lp;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(softing_lookup_desc);
+MODULE_FIRMWARE(fw_dir "boot104.bin");
+MODULE_FIRMWARE(fw_dir "ld104.bin");
+MODULE_FIRMWARE(fw_dir "canpc104.bin");
 
 int softing_fct_cmd(struct softing *card, int cmd, int vector, const char *msg)
 {

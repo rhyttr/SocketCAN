@@ -627,6 +627,18 @@ static const struct net_device_ops softing_netdev_ops = {
 };
 #endif
 
+static const struct can_bittiming_const softing_btr_const = {
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 8,
+	.sjw_max = 4, /* overruled */
+	.brp_min = 1,
+	.brp_max = 32, /* overruled */
+	.brp_inc = 1,
+};
+
+
 static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 {
 	struct net_device *ndev;
@@ -715,10 +727,8 @@ int mk_softing(struct softing *card)
 	spin_lock_init(&card->spin);
 	tasklet_init(&card->irq.bh, softing_dev_svc, (unsigned long)card);
 
-	card->desc = softing_lookup_desc(card->id.manf, card->id.prod);
 	if (!card->desc) {
-		dev_alert(card->dev, "0x%04x:0x%04x not supported\n",
-			card->id.manf, card->id.prod);
+		dev_alert(card->dev, "no card description\n");
 		goto lookup_failed;
 	}
 	card->id.name = card->desc->name;

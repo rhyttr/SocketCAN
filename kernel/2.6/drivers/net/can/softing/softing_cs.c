@@ -49,6 +49,114 @@ struct softing_cs {
 };
 #define softing2cs(x) container_of((x), struct softing_cs, softing)
 
+/* card descriptions */
+static const struct softing_desc carddescs[] = {
+{
+	.name = "CANcard",
+	.manf = 0x0168, .prod = 0x001,
+	.generation = 1,
+	.freq = 16, .max_brp = 32, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
+}, {
+	.name = "CANcard-NEC",
+	.manf = 0x0168, .prod = 0x002,
+	.generation = 1,
+	.freq = 16, .max_brp = 32, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
+}, {
+	.name = "CANcard-SJA",
+	.manf = 0x0168, .prod = 0x004,
+	.generation = 1,
+	.freq = 20, .max_brp = 32, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cansja.bin",},
+}, {
+	.name = "CANcard-2",
+	.manf = 0x0168, .prod = 0x005,
+	.generation = 2,
+	.freq = 24, .max_brp = 64, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
+}, {
+	.name = "Vector-CANcard",
+	.manf = 0x0168, .prod = 0x081,
+	.generation = 1,
+	.freq = 16, .max_brp = 64, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
+}, {
+	.name = "Vector-CANcard-SJA",
+	.manf = 0x0168, .prod = 0x084,
+	.generation = 1,
+	.freq = 20, .max_brp = 32, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cansja.bin",},
+}, {
+	.name = "Vector-CANcard-2",
+	.manf = 0x0168, .prod = 0x085,
+	.generation = 2,
+	.freq = 24, .max_brp = 64, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
+}, {
+	.name = "EDICcard-NEC",
+	.manf = 0x0168, .prod = 0x102,
+	.generation = 1,
+	.freq = 16, .max_brp = 64, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancard.bin",},
+}, {
+	.name = "EDICcard-2",
+	.manf = 0x0168, .prod = 0x105,
+	.generation = 2,
+	.freq = 24, .max_brp = 64, .max_sjw = 4,
+	.dpram_size = 0x0800,
+	.boot = {0x0000, 0x000000, fw_dir "bcard2.bin",},
+	.load = {0x0120, 0x00f600, fw_dir "ldcard2.bin",},
+	.app = {0x0010, 0x0d0000, fw_dir "cancrd2.bin",},
+	},
+{0, 0,},
+};
+
+MODULE_FIRMWARE(fw_dir "bcard.bin");
+MODULE_FIRMWARE(fw_dir "ldcard.bin");
+MODULE_FIRMWARE(fw_dir "cancard.bin");
+MODULE_FIRMWARE(fw_dir "cansja.bin");
+
+MODULE_FIRMWARE(fw_dir "bcard2.bin");
+MODULE_FIRMWARE(fw_dir "ldcard2.bin");
+MODULE_FIRMWARE(fw_dir "cancrd2.bin");
+
+static const struct softing_desc *softing_cs_lookup_desc
+					(unsigned int manf, unsigned int prod)
+{
+	const struct softing_desc *lp = carddescs;
+	for (; lp->name; ++lp) {
+		if ((lp->manf == manf) && (lp->prod == prod))
+			return lp;
+	}
+	return 0;
+}
+
+
 struct lookup {
 	int i;
 	const char *a;
@@ -312,7 +420,11 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 	/* properties */
 	card->id.manf = pcmcia->manf_id;
 	card->id.prod = pcmcia->card_id;
-	card->desc = softing_lookup_desc(card->id.manf, card->id.prod);
+	card->desc = softing_cs_lookup_desc(card->id.manf, card->id.prod);
+	if (!card->desc) {
+		dev_alert(&pcmcia->dev, "unknown card\n");
+		goto description_failed;
+	}
 	if (card->desc->generation >= 2) {
 		card->fn.reset = card_reset_via_dpram;
 	} else {
@@ -380,6 +492,7 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 softing_failed:
 wrong_dpram:
 config_failed:
+description_failed:
 	kfree(cs);
 no_mem:
 	pcmcia_disable_device(pcmcia);

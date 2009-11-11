@@ -13,6 +13,9 @@
 struct softing;
 struct sofing_desc;
 
+/* softing firmware directory prefix */
+#define fw_dir "softing-4.6/"
+
 /* special attribute, so we should not rely on the ->priv pointers
  * before knowing how to interpret these
  */
@@ -35,9 +38,6 @@ struct softing_priv {
 	struct attribute_group sysfs;
 };
 #define netdev2softing(netdev)	((struct softing_priv *)netdev_priv(netdev))
-
-/* the 'all cards have the same' fields definition */
-extern const struct can_bittiming_const softing_btr_const;
 
 struct softing_desc {
 	unsigned int manf;
@@ -131,9 +131,6 @@ extern int	mk_softing(struct softing *);
  */
 extern void rm_softing(struct softing *);
 /* usefull functions during operation */
-
-extern const struct softing_desc *
-	softing_lookup_desc(unsigned int manf, unsigned int prod);
 
 extern int softing_default_output(struct softing *card
 			, struct softing_priv *priv);
