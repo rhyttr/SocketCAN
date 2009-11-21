@@ -1,0 +1,31 @@
+menuconfig CAN_CC770
+	tristate "Bosch CC770 and Intel AN82527 devices"
+	depends on CAN_DEV && HAS_IOMEM
+
+if CAN_CC770
+
+config CAN_CC770
+	tristate "Bosch CC770 and Intel AN82527"
+	---help---
+	  Driver for the Bosch CC770 and the compatible Intel AN82527
+	  CAN controllers.
+
+config CAN_CC770_ISA
+	depends on CAN_CC770 && ISA
+	tristate "ISA Bus based legacy CC770 driver"
+	---help---
+	  This driver adds legacy support for CC770 and AN82527 chips
+	  connected to the ISA bus using I/O port, memory mapped or
+	  indirect access.
+
+config CAN_CC770_OF_PLATFORM
+	depends on CAN_CC770 && PPC_OF
+	tristate "Generic OF Platform Bus based CC770 driver"
+	---help---
+	  This driver adds support for the CC770 and other AN82527
+	  compatible chips connected to the OpenFirmware "platform bus"
+	  found on embedded systems with OpenFirmware bindings, e.g. if
+	  you have a PowerPC based system you may want to enable this
+	  option.
+
+endif
