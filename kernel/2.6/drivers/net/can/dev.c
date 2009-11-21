@@ -770,8 +770,13 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 static int can_newlink(struct net_device *dev,
 		       struct nlattr *tb[], struct nlattr *data[])
+#else
+static int can_newlink(struct net *src_net, struct net_device *dev,
+		       struct nlattr *tb[], struct nlattr *data[])
+#endif
 {
 	return -EOPNOTSUPP;
 }
