@@ -95,104 +95,6 @@ config CAN_CC770_OF_PLATFORM
 	  you have a PowerPC based system you may want to enable this
 	  option.
 
-config CAN_SJA1000
-	depends on CAN_DEV && HAS_IOMEM
-	tristate "Philips SJA1000"
-	---help---
-	  Driver for the SJA1000 CAN controllers from Philips or NXP
-
-config CAN_SJA1000_ISA
-	depends on CAN_SJA1000 && ISA
-	tristate "ISA Bus based legacy SJA1000 driver"
-	---help---
-	  This driver adds legacy support for SJA1000 chips connected to
-	  the ISA bus using I/O port, memory mapped or indirect access.
-
-config CAN_SJA1000_PLATFORM
-	depends on CAN_SJA1000
-	tristate "Generic Platform Bus based SJA1000 driver"
-	---help---
-	  This driver adds support for the SJA1000 chips connected to
-	  the "platform bus" (Linux abstraction for directly to the
-	  processor attached devices).  Which can be found on various
-	  boards from Phytec (http://www.phytec.de) like the PCM027,
-	  PCM038.
-
-config CAN_SJA1000_OF_PLATFORM
-	depends on CAN_SJA1000 && PPC_OF
-	tristate "Generic OF Platform Bus based SJA1000 driver"
-	---help---
-	  This driver adds support for the SJA1000 chips connected to
-	  the OpenFirmware "platform bus" found on embedded systems with
-	  OpenFirmware bindings, e.g. if you have a PowerPC based system
-	  you may want to enable this option.
-
-config CAN_EMS_USB
-	tristate "EMS CPC-USB/ARM7"
-	depends on USB && CAN_DEV
-	---help---
-	  This driver is for the one channel CAN/USB interface CPC-USB
-	  from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.com).
-
-config CAN_EMS_PCI
-	tristate "EMS CPC-PCI, CPC-PCIe and CPC-104P Card"
-	depends on PCI && CAN_SJA1000
-	---help---
-	  This driver is for the one, two or four channel CPC-PCI,
-	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
-	  (http://www.ems-wuensche.de).
-
-config CAN_EMS_PCMCIA
-	tristate "EMS CPC-CARD Card"
-	depends on PCMCIA && CAN_SJA1000
-	---help---
-	  This driver is for the one or two channel CPC-CARD cards from
-	  EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
-
-config CAN_EMS_104M
-	tristate "EMS CPC-104M Card"
-	depends on ISA && CAN_SJA1000
-	---help---
-	  This driver is for the one, two or four channel CPC-104M cards
-	  from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
-
-config CAN_ESD_PCI
-	tristate "ESD PCI Cards"
-	depends on PCI && CAN_SJA1000
-	---help---
-	  This driver supports the esd PCI CAN cards CAN-PCI/200,
-	  CAN-PCI/266, CAN-PMC/266 (PMC), CAN-CPCI/200 (CompactPCI),
-	  CAN-PCIe2000 (PCI Express) and CAN-PCI104/200 (PCI104)
-	  from the esd electronic system design gmbh (http://www.esd.eu).
-
-config CAN_IXXAT_PCI
-	tristate "IXXAT PCI Card"
-	depends on PCI && CAN_SJA1000
-	---help---
-	  This driver is for the IXXAT PC-I 04/PCI card (1 or 2 channel)
-	  from the IXXAT Automation GmbH (http://www.ixxat.de).
-
-config CAN_PEAK_PCI
-	tristate "PEAK PCAN PCI Card"
-	depends on PCI && CAN_SJA1000
-	---help---
-	  This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
-	  2 channel) from PEAK Systems (http://www.peak-system.com).
-
-config CAN_PIPCAN
-	depends on CAN_SJA1000
-	tristate "MPL PIPCAN CAN module driver (SJA1000)"
-	---help---
-	  This driver adds support for the PIPCAN module used on some SBC
-	  boards from MPL AG (http://www.mpl.ch).
-
-config CAN_KVASER_PCI
-	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
-	depends on PCI && CAN_SJA1000
-	---help---
-	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
-	  4 channel) from Kvaser (http://www.kvaser.com).
-
 config CAN_ESD_PCI331
 	tristate "ESD CAN 331 Cards"
 	depends on PCI && CAN_DEV
@@ -256,6 +158,10 @@ config CAN_MCP251X
 	depends on CAN_DEV && SPI
 	---help---
 	  Driver for the Microchip MCP251x SPI CAN controllers.
+
+source "drivers/net/can/sja1000/Kconfig"
+
+source "drivers/net/can/usb/Kconfig"
 
 config CAN_DEBUG_DEVICES
 	bool "CAN devices debugging messages"
