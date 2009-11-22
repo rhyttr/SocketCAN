@@ -101,26 +101,6 @@ config CAN_SOFTING_CS
 	  This version of the driver is written against
 	  firmware version 4.6
 
-config CAN_MSCAN
-	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
-	tristate "Support for a Freescale MSCAN based chips"
-	---help---
-	  The Motorola Scalable Controller Area Network (MSCAN) definition
-	  is based on the MSCAN12 definition which is the specific
-	  implementation of the Motorola Scalable CAN concept targeted for
-	  the Motorola MC68HC12 Microcontroller Family.
-
-config CAN_MPC52XX
-	tristate "Freescale MPC5200 onboard CAN controller"
-	depends on CAN_MSCAN && (PPC_MPC52xx || PPC_52xx)
-	default LITE5200
-	---help---
-	  If you say yes here you get support for Freescale MPC5200
-	  onboard dualCAN controller.
-
-	  This driver can also be built as a module.  If so, the module
-	  will be called mpc52xx_can.
-
 config CAN_AT91
 	tristate "Atmel AT91 onchip CAN controller"
 	depends on CAN_DEV && ARCH_AT91SAM9263
@@ -135,6 +115,8 @@ config CAN_MCP251X
 	  Driver for the Microchip MCP251x SPI CAN controllers.
 
 source "drivers/net/can/cc770/Kconfig"
+
+source "drivers/net/can/mscan/Kconfig"
 
 source "drivers/net/can/sja1000/Kconfig"
 

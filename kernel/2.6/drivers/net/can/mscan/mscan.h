@@ -23,6 +23,7 @@
 #ifndef __MSCAN_H__
 #define __MSCAN_H__
 
+#include <linux/version.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 #include <linux/autoconf.h>
 #endif
@@ -136,6 +137,11 @@
 /* MSCAN Miscellaneous Register (CANMISC) bits */
 #define MSCAN_BOHOLD		0x01
 
+/* MSCAN Identifier Register (IDR) bits */
+#define MSCAN_SFF_RTR_SHIFT	4
+#define MSCAN_EFF_RTR_SHIFT	0
+#define MSCAN_EFF_FLAGS		0x18	/* IDE + SRR */
+
 #ifdef MSCAN_FOR_MPC5200
 #define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
 #define _MSCAN_RESERVED_DSR_SIZE	2
@@ -146,7 +152,7 @@
 
 /* Structure of the hardware registers */
 struct mscan_regs {
-	/* (see doco S12MSCANV3/D)		  MPC5200    MSCAN */
+	/* (see doc S12MSCANV3/D)		  MPC5200    MSCAN */
 	u8 canctl0;				/* + 0x00     0x00 */
 	u8 canctl1;				/* + 0x01     0x01 */
 	_MSCAN_RESERVED_(1, 2);			/* + 0x02          */
@@ -231,6 +237,64 @@ struct mscan_regs {
 #undef _MSCAN_RESERVED_
 #define MSCAN_REGION 	sizeof(struct mscan)
 
+#define MSCAN_NORMAL_MODE	0
+#define MSCAN_SLEEP_MODE	MSCAN_SLPRQ
+#define MSCAN_INIT_MODE		(MSCAN_INITRQ | MSCAN_SLPRQ)
+#define MSCAN_POWEROFF_MODE	(MSCAN_CSWAI | MSCAN_SLPRQ)
+#define MSCAN_SET_MODE_RETRIES	255
+#define MSCAN_ECHO_SKB_MAX	3
+
+#define BTR0_BRP_MASK		0x3f
+#define BTR0_SJW_SHIFT		6
+#define BTR0_SJW_MASK		(0x3 << BTR0_SJW_SHIFT)
+
+#define BTR1_TSEG1_MASK 	0xf
+#define BTR1_TSEG2_SHIFT	4
+#define BTR1_TSEG2_MASK 	(0x7 << BTR1_TSEG2_SHIFT)
+#define BTR1_SAM_SHIFT  	7
+
+#define BTR0_SET_BRP(brp)	(((brp) - 1) & BTR0_BRP_MASK)
+#define BTR0_SET_SJW(sjw)	((((sjw) - 1) << BTR0_SJW_SHIFT) & \
+				 BTR0_SJW_MASK)
+
+#define BTR1_SET_TSEG1(tseg1)	(((tseg1) - 1) &  BTR1_TSEG1_MASK)
+#define BTR1_SET_TSEG2(tseg2)	((((tseg2) - 1) << BTR1_TSEG2_SHIFT) & \
+				 BTR1_TSEG2_MASK)
+#define BTR1_SET_SAM(sam)	((sam) ? 1 << BTR1_SAM_SHIFT : 0)
+
+#define F_RX_PROGRESS	0
+#define F_TX_PROGRESS	1
+#define F_TX_WAIT_ALL	2
+
+#define TX_QUEUE_SIZE	3
+
+struct tx_queue_entry {
+	struct list_head list;
+	u8 mask;
+	u8 id;
+};
+
+struct mscan_priv {
+	struct can_priv can;	/* must be the first member */
+	long open_time;
+	unsigned long flags;
+	void __iomem *reg_base;	/* ioremap'ed address to registers */
+	u8 shadow_statflg;
+	u8 shadow_canrier;
+	u8 cur_pri;
+	u8 prev_buf_id;
+	u8 tx_active;
+
+	struct list_head tx_head;
+	struct tx_queue_entry tx_queue[TX_QUEUE_SIZE];
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
+	struct napi_struct napi;
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+	struct napi_struct napi;
+	struct net_device *dev;
+#endif
+};
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 struct mscan_platform_data {
 	u8 clock_src;		/* MSCAN_CLKSRC_BUS or MSCAN_CLKSRC_XTAL */
@@ -238,7 +302,7 @@ struct mscan_platform_data {
 };
 #endif
 
-struct net_device *alloc_mscandev(void);
+extern struct net_device *alloc_mscandev(void);
 /*
  * clock_src:
  *	1 = The MSCAN clock source is the onchip Bus Clock.
