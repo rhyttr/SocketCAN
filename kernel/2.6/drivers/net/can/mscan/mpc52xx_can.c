@@ -54,7 +54,7 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct net_device *dev;
 	struct mscan_platform_data *pdata = pdev->dev.platform_data;
-	struct can_priv *priv;
+	struct mscan_priv *priv;
 	u32 mem_size;
 	int ret = -ENODEV;
 
@@ -79,26 +79,25 @@ static int __devinit mpc52xx_can_probe(struct platform_device *pdev)
 
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
-	dev->base_addr = (unsigned long)ioremap_nocache(mem->start, mem_size);
-
-	if (!dev->base_addr) {
+	priv->reg_base = ioremap_nocache(mem->start, mem_size);
+	if (!priv->reg_base) {
 		dev_err(&pdev->dev, "failed to map can port\n");
 		ret = -ENOMEM;
 		goto fail_map;
 	}
 
-	priv->bittiming.clock = pdata->clock_frq;
+	priv->can.clock.freq = pdata->clock_frq;
 
 	platform_set_drvdata(pdev, dev);
 
 	ret = register_mscandev(dev, pdata->clock_src);
 	if (ret >= 0) {
-		dev_info(&pdev->dev, "probe for port 0x%lX done (irq=%d)\n",
-			 dev->base_addr, dev->irq);
+		dev_info(&pdev->dev, "probe for port 0x%p done (irq=%d)\n",
+			 priv->reg_base, dev->irq);
 		return ret;
 	}
 
-	iounmap((unsigned long *)dev->base_addr);
+	iounmap(priv->reg_base);
 
 fail_map:
 	release_mem_region(mem->start, mem_size);
@@ -112,12 +111,13 @@ req_error:
 static int __devexit mpc52xx_can_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
+	struct mscan_priv *priv = netdev_priv(dev);
 	struct resource *mem;
 
 	platform_set_drvdata(pdev, NULL);
 	unregister_mscandev(dev);
 
-	iounmap((volatile void __iomem *)dev->base_addr);
+	iounmap(priv->reg_base);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, mem->end - mem->start + 1);
 	free_candev(dev);
@@ -129,7 +129,8 @@ static struct mscan_regs saved_regs;
 static int mpc52xx_can_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
-	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct mscan_priv *priv = netdev_priv(dev);
+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
 
 	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
 
@@ -139,7 +140,8 @@ static int mpc52xx_can_suspend(struct platform_device *pdev, pm_message_t state)
 static int mpc52xx_can_resume(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
-	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct mscan_priv *priv = netdev_priv(dev);
+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
 
 	regs->canctl0 |= MSCAN_INITRQ;
 	while ((regs->canctl1 & MSCAN_INITAK) == 0)
@@ -337,7 +339,7 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 {
 	struct device_node *np = ofdev->node;
 	struct net_device *dev;
-	struct can_priv *priv;
+	struct mscan_priv *priv;
 	struct resource res;
 	void __iomem *base;
 	int err, irq, res_size, clock_src;
@@ -377,10 +379,10 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 		goto exit_dispose_irq;
 	}
 
-	dev->base_addr = (unsigned long)base;
-	dev->irq = irq;
-
 	priv = netdev_priv(dev);
+
+	priv->reg_base = base;
+	dev->irq = irq;
 
 	/*
 	 * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock
@@ -393,8 +395,8 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 		clock_src = MSCAN_CLKSRC_BUS;
 	else
 		clock_src = MSCAN_CLKSRC_XTAL;
-	priv->clock.freq = mpc52xx_can_clock_freq(np, clock_src);
-	if (!priv->clock.freq) {
+	priv->can.clock.freq = mpc52xx_can_clock_freq(np, clock_src);
+	if (!priv->can.clock.freq) {
 		dev_err(&ofdev->dev, "couldn't get MSCAN clock frequency\n");
 		err = -ENODEV;
 		goto exit_free_mscan;
@@ -411,8 +413,8 @@ static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
 
 	dev_set_drvdata(&ofdev->dev, dev);
 
-	dev_info(&ofdev->dev, "MSCAN at 0x%lx, irq %d, clock %d Hz\n",
-		 dev->base_addr, dev->irq, priv->clock.freq);
+	dev_info(&ofdev->dev, "MSCAN at 0x%p, irq %d, clock %d Hz\n",
+		 priv->reg_base, dev->irq, priv->can.clock.freq);
 
 	return 0;
 
@@ -431,13 +433,14 @@ exit_release_mem:
 static int __devexit mpc52xx_can_remove(struct of_device *ofdev)
 {
 	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
+	struct mscan_priv *priv = netdev_priv(dev);
 	struct device_node *np = ofdev->node;
 	struct resource res;
 
 	dev_set_drvdata(&ofdev->dev, NULL);
 
 	unregister_mscandev(dev);
-	iounmap((void __iomem *)dev->base_addr);
+	iounmap(priv->reg_base);
 	irq_dispose_mapping(dev->irq);
 	free_candev(dev);
 
@@ -452,7 +455,8 @@ static struct mscan_regs saved_regs;
 static int mpc52xx_can_suspend(struct of_device *ofdev, pm_message_t state)
 {
 	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
-	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct mscan_priv *priv = netdev_priv(dev);
+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
 
 	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
 
@@ -462,7 +466,8 @@ static int mpc52xx_can_suspend(struct of_device *ofdev, pm_message_t state)
 static int mpc52xx_can_resume(struct of_device *ofdev)
 {
 	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
-	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
+	struct mscan_priv *priv = netdev_priv(dev);
+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
 
 	regs->canctl0 |= MSCAN_INITRQ;
 	while ((regs->canctl1 & MSCAN_INITAK) == 0)
