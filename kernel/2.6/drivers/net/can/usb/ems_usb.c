@@ -316,7 +316,7 @@ static void ems_usb_rx_can_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
 		return;
 
 	cf->can_id = msg->msg.can_msg.id;
-	cf->can_dlc = GET_CAN_DLC(msg->msg.can_msg.length);
+	cf->can_dlc = get_can_dlc(msg->msg.can_msg.length);
 
 	if (msg->type == CPC_MSG_TYPE_EXT_CAN_FRAME
 	    || msg->type == CPC_MSG_TYPE_EXT_RTR_FRAME)

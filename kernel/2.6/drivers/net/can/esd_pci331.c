@@ -493,7 +493,7 @@ static void esd331_irq_rx(struct net_device *dev, struct esd331_can_msg *msg,
 	if (eff)
 		cfrm->can_id |= CAN_EFF_FLAG;
 
-	cfrm->can_dlc = GET_CAN_DLC(msg->len & ESD331_DLC_MASK);
+	cfrm->can_dlc = get_can_dlc(msg->len & ESD331_DLC_MASK);
 
 	for (i = 0; i < cfrm->can_dlc; ++i)
 		cfrm->data[i] = msg->data[i];

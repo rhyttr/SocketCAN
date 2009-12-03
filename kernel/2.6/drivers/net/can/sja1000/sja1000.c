@@ -332,7 +332,7 @@ static void sja1000_rx(struct net_device *dev)
 	if (fi & FI_RTR) {
 		id |= CAN_RTR_FLAG;
 	} else {
-		cf->can_dlc = GET_CAN_DLC(fi & 0x0F);
+		cf->can_dlc = get_can_dlc(fi & 0x0F);
 		for (i = 0; i < cf->can_dlc; i++)
 			cf->data[i] = priv->read_reg(priv, dreg++);
 	}

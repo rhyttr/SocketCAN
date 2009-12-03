@@ -63,7 +63,14 @@ struct can_priv {
 #define ND2D(_ndev)	(_ndev->dev.parent)
 #endif
 
-#define GET_CAN_DLC(i)	(min_t(__u8, (i), 8))
+/*
+ * get_can_dlc(value) - helper macro to cast a given data length code (dlc)
+ * to __u8 and ensure the dlc value to be max. 8 bytes.
+ *
+ * To be used in the CAN netdriver receive path to ensure conformance with
+ * ISO 11898-1 Chapter 8.4.2.3 (DLC field)
+ */
+#define get_can_dlc(i)	(min_t(__u8, (i), 8))
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #define IFF_ECHO IFF_LOOPBACK

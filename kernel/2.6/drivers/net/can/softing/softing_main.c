@@ -295,7 +295,7 @@ static int softing_dev_svc_once(struct softing *card)
 		if (cmd & CMD_ACK) {
 		}
 		 */
-		msg.can_dlc = GET_CAN_DLC(*ptr++);
+		msg.can_dlc = get_can_dlc(*ptr++);
 		if (cmd & CMD_XTD) {
 			msg.can_id |= CAN_EFF_FLAG;
 			msg.can_id |= (ptr[0] <<  0) | (ptr[1] <<  8)
