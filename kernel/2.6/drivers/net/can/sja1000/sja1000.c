@@ -305,15 +305,14 @@ static void sja1000_rx(struct net_device *dev)
 	uint8_t fi;
 	uint8_t dreg;
 	canid_t id;
-	uint8_t dlc;
 	int i;
 
+	/* create zero'ed CAN frame buffer */
 	skb = alloc_can_skb(dev, &cf);
 	if (skb == NULL)
 		return;
 
 	fi = priv->read_reg(priv, REG_FI);
-	dlc = fi & 0x0F;
 
 	if (fi & FI_FF) {
 		/* extended frame format (EFF) */
@@ -330,16 +329,15 @@ static void sja1000_rx(struct net_device *dev)
 		    | (priv->read_reg(priv, REG_ID2) >> 5);
 	}
 
-	if (fi & FI_RTR)
+	if (fi & FI_RTR) {
 		id |= CAN_RTR_FLAG;
+	} else {
+		cf->can_dlc = GET_CAN_DLC(fi & 0x0F);
+		for (i = 0; i < cf->can_dlc; i++)
+			cf->data[i] = priv->read_reg(priv, dreg++);
+	}
 
 	cf->can_id = id;
-	cf->can_dlc = dlc;
-	for (i = 0; i < dlc; i++)
-		cf->data[i] = priv->read_reg(priv, dreg++);
-
-	while (i < 8)
-		cf->data[i++] = 0;
 
 	/* release receive buffer */
 	priv->write_reg(priv, REG_CMR, CMD_RRB);
@@ -350,7 +348,7 @@ static void sja1000_rx(struct net_device *dev)
 	dev->last_rx = jiffies;
 #endif
 	stats->rx_packets++;
-	stats->rx_bytes += dlc;
+	stats->rx_bytes += cf->can_dlc;
 }
 
 static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)

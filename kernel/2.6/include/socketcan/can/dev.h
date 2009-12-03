@@ -63,6 +63,8 @@ struct can_priv {
 #define ND2D(_ndev)	(_ndev->dev.parent)
 #endif
 
+#define GET_CAN_DLC(i)	(min_t(__u8, (i), 8))
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #define IFF_ECHO IFF_LOOPBACK
 #endif

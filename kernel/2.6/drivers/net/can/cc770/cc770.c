@@ -513,7 +513,7 @@ static void cc770_rx(struct net_device *dev, unsigned int mo, u8 ctrl1)
 #endif
 	struct can_frame *cf;
 	struct sk_buff *skb;
-	u8 config, dlc;
+	u8 config;
 	u32 id;
 	int i;
 
@@ -547,13 +547,9 @@ static void cc770_rx(struct net_device *dev, unsigned int mo, u8 ctrl1)
 			id >>= 5;
 		}
 
-		dlc = (config & 0xf0) >> 4; /* strip length code */
-		if (dlc > 8)
-			dlc = 8;	/* limit count to 8 bytes */
-
 		cf->can_id = id;
-		cf->can_dlc = dlc;
-		for (i = 0; i < dlc; i++)
+		cf->can_dlc = GET_CAN_DLC((config & 0xf0) >> 4);
+		for (i = 0; i < cf->can_dlc; i++)
 			cf->data[i] = cc770_read_reg(priv, msgobj[mo].data[i]);
 	}
 	netif_rx(skb);
