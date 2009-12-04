@@ -57,6 +57,7 @@
 #include <asm/uaccess.h>
 #endif
 #include <linux/bitops.h>
+#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
@@ -499,7 +500,11 @@ static netdev_tx_t slc_xmit(struct sk_buff *skb, struct net_device *dev)
 
 out:
 	kfree_skb(skb);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	return 0;
+#else
+	return NETDEV_TX_OK;
+#endif
 }
 
 
@@ -534,6 +539,16 @@ static int slc_open(struct net_device *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
+/* Hook the destructor so we can free slcan devs at the right point in time */
+static void slc_free_netdev(struct net_device *dev)
+{
+	int i = dev->base_addr;
+	free_netdev(dev);
+	slcan_devs[i] = NULL;
+}
+#endif
+
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
 static const struct net_device_ops slc_netdev_ops = {
 	.ndo_open               = slc_open,
@@ -555,7 +570,11 @@ static void slc_setup(struct net_device *dev)
 	dev->stop		= slc_close;
 	dev->hard_start_xmit	= slc_xmit;
 #endif
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
+	dev->destructor		= slc_free_netdev;
+#else
 	dev->destructor		= free_netdev;
+#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	dev->get_stats		= slc_get_stats;
 #endif
@@ -654,8 +673,10 @@ static void slc_sync(void)
 static struct slcan *slc_alloc(dev_t line)
 {
 	int i;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	int sel = -1;
 	int score = -1;
+#endif
 	struct net_device *dev = NULL;
 	struct slcan       *sl;
 
@@ -667,6 +688,7 @@ static struct slcan *slc_alloc(dev_t line)
 		if (dev == NULL)
 			break;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 		sl = netdev_priv(dev);
 		if (sl->leased) {
 			if (sl->line != line)
@@ -713,6 +735,7 @@ static struct slcan *slc_alloc(dev_t line)
 			sl->flags &= (1 << SLF_INUSE);
 			return sl;
 		}
+#endif
 	}
 
 	/* Sorry, too many, all slots in use */
@@ -839,29 +862,11 @@ err_exit:
 }
 
 /*
-
-  FIXME: 1,2 are fixed 3 was never true anyway.
-
-   Let me to blame a bit.
-   1. TTY module calls this funstion on soft interrupt.
-   2. TTY module calls this function WITH MASKED INTERRUPTS!
-   3. TTY module does not notify us about line discipline
-      shutdown,
-
-   Seems, now it is clean. The solution is to consider netdevice and
-   line discipline sides as two independent threads.
-
-   By-product (not desired): slc? does not feel hangups and remains open.
-   It is supposed, that user level program (dip, diald, slattach...)
-   will catch SIGHUP and make the rest of work.
-
-   I see no way to make more with current tty code. --ANK
- */
-
-/*
  * Close down a SLCAN channel.
  * This means flushing out any pending queues, and then returning. This
  * call is serialized against other ldisc functions.
+ *
+ * We also use this method for a hangup event.
  */
 static void slcan_close(struct tty_struct *tty)
 {
@@ -876,8 +881,22 @@ static void slcan_close(struct tty_struct *tty)
 	if (!sl->leased)
 		sl->line = 0;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
+	/* Flush network side */
+	unregister_netdev(sl->dev);
+	/* This will complete via sl_free_netdev */
+#else
 	/* Count references from TTY module */
+#endif
 }
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
+static int slcan_hangup(struct tty_struct *tty)
+{
+	slcan_close(tty);
+	return 0;
+}
+#endif
 
 /* Perform I/O control on an active SLCAN channel. */
 static int slcan_ioctl(struct tty_struct *tty, struct file *file,
@@ -925,6 +944,9 @@ static struct tty_ldisc_ops slc_ldisc = {
 	.name 		= "slcan",
 	.open 		= slcan_open,
 	.close	 	= slcan_close,
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
+	.hangup	 	= slcan_hangup,
+#endif
 	.ioctl		= slcan_ioctl,
 	.receive_buf	= slcan_receive_buf,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
@@ -997,6 +1019,8 @@ static void __exit slcan_exit(void)
 		}
 	} while (busy && time_before(jiffies, timeout));
 
+	/* FIXME (2.6.32+): hangup is async so we should wait when doing
+	   this second phase */
 
 	for (i = 0; i < maxdev; i++) {
 		dev = slcan_devs[i];
