@@ -159,6 +159,12 @@ static int mscan_start(struct net_device *dev)
 	priv->shadow_canrier = 0;
 	priv->flags = 0;
 
+	if (priv->type == MSCAN_TYPE_MPC5121) {
+		/* Clear pending bus-off condition */
+		if (in_8(&regs->canmisc) & MSCAN_BOHOLD)
+			out_8(&regs->canmisc, MSCAN_BOHOLD);
+	}
+
 	err = mscan_set_mode(dev, MSCAN_NORMAL_MODE);
 	if (err)
 		return err;
@@ -170,8 +176,29 @@ static int mscan_start(struct net_device *dev)
 	out_8(&regs->cantier, 0);
 
 	/* Enable receive interrupts. */
-	out_8(&regs->canrier, MSCAN_OVRIE | MSCAN_RXFIE | MSCAN_CSCIE |
-	      MSCAN_RSTATE1 | MSCAN_RSTATE0 | MSCAN_TSTATE1 | MSCAN_TSTATE0);
+	out_8(&regs->canrier, MSCAN_RX_INTS_ENABLE);
+
+	return 0;
+}
+
+static int mscan_restart(struct net_device *dev)
+{
+	struct mscan_priv *priv = netdev_priv(dev);
+
+	if (priv->type == MSCAN_TYPE_MPC5121) {
+		struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
+
+		priv->can.state = CAN_STATE_ERROR_ACTIVE;
+		WARN(!(in_8(&regs->canmisc) & MSCAN_BOHOLD),
+		     "bus-off state expected");
+		out_8(&regs->canmisc, MSCAN_BOHOLD);
+		/* Re-enable receive interrupts. */
+		out_8(&regs->canrier, MSCAN_RX_INTS_ENABLE);
+	} else {
+		if (priv->can.state <= CAN_STATE_BUS_OFF)
+			mscan_set_mode(dev, MSCAN_INIT_MODE);
+		return mscan_start(dev);
+	}
 
 	return 0;
 }
@@ -377,9 +404,12 @@ static void mscan_get_err_frame(struct net_device *dev, struct can_frame *frame,
 			 * automatically. To avoid that we stop the chip doing
 			 * a light-weight stop (we are in irq-context).
 			 */
-			out_8(&regs->cantier, 0);
-			out_8(&regs->canrier, 0);
-			setbits8(&regs->canctl0, MSCAN_SLPRQ | MSCAN_INITRQ);
+			if (priv->type != MSCAN_TYPE_MPC5121) {
+				out_8(&regs->cantier, 0);
+				out_8(&regs->canrier, 0);
+				setbits8(&regs->canctl0,
+					 MSCAN_SLPRQ | MSCAN_INITRQ);
+			}
 			can_bus_off(dev);
 			break;
 		default:
@@ -553,9 +583,7 @@ static int mscan_do_set_mode(struct net_device *dev, enum can_mode mode)
 
 	switch (mode) {
 	case CAN_MODE_START:
-		if (priv->can.state <= CAN_STATE_BUS_OFF)
-			mscan_set_mode(dev, MSCAN_INIT_MODE);
-		ret = mscan_start(dev);
+		ret = mscan_restart(dev);
 		if (ret)
 			break;
 		if (netif_queue_stopped(dev))
@@ -662,17 +690,20 @@ static const struct net_device_ops mscan_netdev_ops = {
 };
 #endif
 
-int register_mscandev(struct net_device *dev, int clock_src)
+int register_mscandev(struct net_device *dev, int mscan_clksrc)
 {
 	struct mscan_priv *priv = netdev_priv(dev);
 	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
 	u8 ctl1;
 
 	ctl1 = in_8(&regs->canctl1);
-	if (clock_src)
+	if (mscan_clksrc)
 		ctl1 |= MSCAN_CLKSRC;
 	else
 		ctl1 &= ~MSCAN_CLKSRC;
+
+	if (priv->type == MSCAN_TYPE_MPC5121)
+		ctl1 |= MSCAN_BORM; /* bus-off recovery upon request */
 
 	ctl1 |= MSCAN_CANE;
 	out_8(&regs->canctl1, ctl1);
