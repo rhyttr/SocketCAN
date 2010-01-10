@@ -32,6 +32,7 @@
 #include <sysdev/fsl_soc.h>
 #endif
 #include <linux/io.h>
+#include <asm/clk_interface.h>
 #include <asm/mpc52xx.h>
 
 #include "mscan.h"
