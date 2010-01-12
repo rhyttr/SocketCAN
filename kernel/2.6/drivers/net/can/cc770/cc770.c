@@ -440,6 +440,9 @@ static netdev_tx_t cc770_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	u32 id;
 	int i;
 
+	if (can_dropped_invalid_skb(dev, skb))
+		return NETDEV_TX_OK;
+
 	if ((cc770_read_reg(priv,
 			    msgobj[mo].ctrl1) & TXRQST_UNC) == TXRQST_SET) {
 		dev_err(ND2D(dev), "TX register is still occupied!\n");

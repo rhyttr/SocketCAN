@@ -48,6 +48,7 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <socketcan/can.h>
+#include <socketcan/can/dev.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 #include <net/rtnetlink.h>
 #endif
@@ -102,6 +103,7 @@ static struct net_device **vcan_devs; /* root pointer to netdevice structs */
 
 static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 {
+	struct can_frame *cf = (struct can_frame *)skb->data;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = &dev->stats;
 #else
@@ -109,7 +111,7 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 #endif
 
 	stats->rx_packets++;
-	stats->rx_bytes += skb->len;
+	stats->rx_bytes += cf->can_dlc;
 
 	skb->protocol  = htons(ETH_P_CAN);
 	skb->pkt_type  = PACKET_BROADCAST;
@@ -121,6 +123,7 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
 
 static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 {
+	struct can_frame *cf = (struct can_frame *)skb->data;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = &dev->stats;
 #else
@@ -128,8 +131,11 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 #endif
 	int loop;
 
+	if (can_dropped_invalid_skb(dev, skb))
+		return NETDEV_TX_OK;
+
 	stats->tx_packets++;
-	stats->tx_bytes += skb->len;
+	stats->tx_bytes += cf->can_dlc;
 
 	/* set flag whether this packet has to be looped back */
 	loop = skb->pkt_type == PACKET_LOOPBACK;
@@ -143,7 +149,7 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
 			 * CAN core already did the echo for us
 			 */
 			stats->rx_packets++;
-			stats->rx_bytes += skb->len;
+			stats->rx_bytes += cf->can_dlc;
 		}
 		kfree_skb(skb);
 		return NETDEV_TX_OK;

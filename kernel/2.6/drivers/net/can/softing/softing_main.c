@@ -64,6 +64,9 @@ static netdev_tx_t netdev_start_xmit(struct sk_buff *skb,
 	unsigned int fifo_wr;
 	struct can_frame msg;
 
+	if (can_dropped_invalid_skb(dev, skb))
+		return NETDEV_TX_OK;
+
 	if (in_interrupt()) {
 		bhlock = 0;
 		spin_lock(&card->spin);

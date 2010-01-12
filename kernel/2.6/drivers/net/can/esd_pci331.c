@@ -671,6 +671,9 @@ static netdev_tx_t esd331_start_xmit(struct sk_buff *skb,
 	struct esd331_can_msg msg;
 	int i;
 
+	if (can_dropped_invalid_skb(dev, skb))
+		return NETDEV_TX_OK;
+
 	if ((cf->can_id & CAN_EFF_FLAG) && (priv->board->eff_supp == 0)) {
 		stats->tx_dropped++;
 		kfree_skb(skb);

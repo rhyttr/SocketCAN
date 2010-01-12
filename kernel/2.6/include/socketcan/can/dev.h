@@ -80,6 +80,21 @@ struct can_priv {
 struct net_device_stats *can_get_stats(struct net_device *dev);
 #endif
 
+/* Drop a given socketbuffer if it does not contain a valid CAN frame. */
+static inline int can_dropped_invalid_skb(struct net_device *dev,
+					  struct sk_buff *skb)
+{
+	const struct can_frame *cf = (struct can_frame *)skb->data;
+
+	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
+		kfree_skb(skb);
+		dev->stats.tx_dropped++;
+		return 1;
+	}
+
+	return 0;
+}
+
 struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max);
 void free_candev(struct net_device *dev);
 
