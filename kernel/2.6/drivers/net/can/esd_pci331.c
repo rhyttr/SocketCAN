@@ -318,32 +318,6 @@ static int esd331_read(struct esd331_can_msg *mesg, struct esd331_pci *board)
 	return err;
 }
 
-static int esd331_send(struct esd331_pci *board, u8 pci331net, unsigned long id,
-			int eff, int rtr, u16 dlc, u8 *data)
-{
-	struct esd331_can_msg msg;
-	int i;
-
-	memset(&msg, 0, sizeof(msg));
-
-	if (eff) {
-		msg.cmmd = ESD331_I20_EX_BCAN;
-		msg.id = cpu_to_be16((id >> 16) & 0x1fff);
-		msg.x2 = cpu_to_be16(id);
-	} else {
-		msg.cmmd = ESD331_I20_BCAN;
-		msg.id = cpu_to_be16(id);
-	}
-	msg.net = pci331net;
-	msg.len = cpu_to_be16(rtr ? dlc | ESD331_RTR_FLAG : dlc);
-
-	i = (dlc < 8) ? dlc : 8;
-	while (i--)
-		msg.data[i] = data[i];
-
-	return esd331_write(&msg, board);
-}
-
 static int esd331_write_allid(u8 net, struct esd331_pci *board)
 {
 	struct esd331_can_msg mesg;
@@ -583,6 +557,7 @@ static void esd331_handle_messages(struct esd331_pci *board)
 		case ESD331_I20_TXDONE:
 		case ESD331_I20_EX_TXDONE:
 			stats->tx_packets++;
+			stats->tx_bytes += msg.x1;
 			can_get_echo_skb(dev, 0);
 			netif_wake_queue(dev);
 			break;
@@ -693,36 +668,44 @@ static netdev_tx_t esd331_start_xmit(struct sk_buff *skb,
 	struct net_device_stats *stats = &dev->stats;
 #endif
 	struct can_frame *cf = (struct can_frame *)skb->data;
-	int err;
-
-	can_put_echo_skb(skb, dev, 0);
+	struct esd331_can_msg msg;
+	int i;
 
 	if ((cf->can_id & CAN_EFF_FLAG) && (priv->board->eff_supp == 0)) {
-		stats->tx_errors++;
 		stats->tx_dropped++;
-		can_free_echo_skb(dev, 0);
-		err = -EOPNOTSUPP;
-		goto out;
+		kfree_skb(skb);
+		return NETDEV_TX_OK;
 	}
 
-	err = esd331_send(priv->board, priv->boards_net,
-				cf->can_id & CAN_EFF_MASK,
-				cf->can_id & CAN_EFF_FLAG,
-				cf->can_id & CAN_RTR_FLAG,
-				cf->can_dlc, cf->data);
-	if (err) {
-		stats->tx_fifo_errors++;
-		stats->tx_errors++;
-		stats->tx_dropped++;
+	memset(&msg, 0, sizeof(msg));
+	if (cf->can_id & CAN_EFF_FLAG) {
+		msg.cmmd = ESD331_I20_EX_BCAN;
+		msg.id = cpu_to_be16((cf->can_id & CAN_EFF_MASK) >> 16);
+		msg.x2 = cpu_to_be16(cf->can_id & CAN_EFF_MASK);
+	} else {
+		msg.cmmd = ESD331_I20_BCAN;
+		msg.id = cpu_to_be16(cf->can_id & CAN_EFF_MASK);
+	}
+	msg.x1 = cpu_to_be16(cf->can_dlc);
+	msg.net = priv->boards_net;
+	msg.len = cpu_to_be16((cf->can_id & CAN_RTR_FLAG) ?
+				cf->can_dlc | ESD331_RTR_FLAG : cf->can_dlc);
+
+	for (i = 0; i < cf->can_dlc; i++)
+		msg.data[i] = cf->data[i];
+
+	can_put_echo_skb(skb, dev, 0);
+	if (unlikely(esd331_write(&msg, priv->board))) {
 		can_free_echo_skb(dev, 0);
-		goto out;
+		dev_err(ND2D(dev), "Couldn't write frame to card's FIFO!\n");
+		stats->tx_dropped++;
+		return NETDEV_TX_OK;
 	}
 
 	netif_stop_queue(dev);
-	stats->tx_bytes += cf->can_dlc;
 	dev->trans_start = jiffies;
-out:
-	return err;
+
+	return NETDEV_TX_OK;
 }
 
 static int esd331_set_bittiming(struct net_device *dev)
