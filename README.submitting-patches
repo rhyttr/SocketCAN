@@ -1,0 +1,91 @@
+How to get your Socket-CAN changes into the Linux kernel or BerliOS repo
+========================================================================
+
+The Socket-CAN repository at BerliOS [1] allows to build *out-of-tree*
+Socket-CAN kernel modules and is mainly useful for old kernel versions
+and development. Currently it is based on Subversion but we want to
+switch to GIT sooner or later. We try to keep the BerliOS repo in sync
+with the kernel by backporting patches from the kernel and vice versa.
+
+If your changes are already mature in terms of functionality and code
+quality, you may want to get them immetiately into the mainline kernel.
+If you feel that's not already the case and some more discussion and
+feedback is required, it's useful to prepare and publish a patch for the
+BerliOS repo first. Also the requirements for acceptance are not that
+strict than for kernel inclusion. If kernel inclusion is your primary
+goal, it makes sense to start preparing patches for the kernel
+straightaway. An eventual backport to the BerliOS repo is usually quite
+simply and does not require a full review, reducing at the same time the
+maintainers workload.
+
+Patches for kernel inclusion:
+----------------------------
+
+For kernel inclusion you need to prepare patches against David Millers
+"net-next-2.6" GIT tree, which you can get as shown below:
+
+  $ git clone \
+    git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+
+In case your have a bug fix patch for a "-rcX" kernel release, you
+should use the tree "net-2.6" instead.
+
+Before publishing you should check the following items:
+
+- Please ensure that the patches comply with the Linux coding style
+  rules by reading the kernel's "Documentation/CodingStyle" and running
+  "scripts/checkpatch.pl".
+
+- The patch should contain a proper description and your "signed-off-by"
+  line.
+
+- Please use a prefix for the subject similar to the following:
+
+  "[PATCH net-next-2.6] can: sja1000: ..."
+
+- Please add a version string to the subject for revised patches, e.g.:
+
+  "[PATCH net-next-2.6 v2] can: sja1000: ..."
+
+  It's also common practice to describe briefly the changes.
+
+- Please send the patches *inline* and take care that your mail client
+  does *not* mangle the patches. "git-send-email" does a very good job,
+  especially for a series of patches.
+
+- "Documentation/SubmittingPatches" of the kernel tree contains further
+  useful information.
+
+The patch should finally be sent to "netdev@vger.kernel.org" [2] with a
+CC to "Socketcan-core@lists.berlios.de" [3] and maybe other related
+mailing lists, e.g. the Linux-USB mailing lists for CAN USB drivers.
+
+Note that you can use "strip-src" to convert a source file from the
+BerliOS repo for kernel inclusion as shown below:
+
+  $ cd <path>/trunk
+  $ ./strip-src -m -i -v2.6.32 \
+    kernel/2.6/drivers/net/can/sja1000/my_driver.c > \
+    ../net-next-2.6/drivers/net/can/sja1000/my_driver.c
+
+Patches for the BerliOS repo:
+----------------------------
+
+In principle the same rules apply as for kernel inclusion. But there is
+no need to make a CC to the netdev mailing list and the code should deal
+with version dependencies as usual using:
+
+  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
+  ...
+  #endif
+
+Also ND2D(dev) should be used to specifiy the platform device, e.g.:
+
+  dev_dbg(ND2D(dev), "data overrun interrupt\n");
+
+References:
+----------
+
+[1] http://developer.berlios.de/projects/socketcan/
+[2] http://vger.kernel.org/vger-lists.html#netdev
+[3] http://developer.berlios.de/mail/?group_id=6475
