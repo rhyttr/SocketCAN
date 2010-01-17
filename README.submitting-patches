@@ -8,14 +8,14 @@ switch to GIT sooner or later. We try to keep the BerliOS repo in sync
 with the kernel by backporting patches from the kernel and vice versa.
 
 If your changes are already mature in terms of functionality and code
-quality, you may want to get them immetiately into the mainline kernel.
+quality, you may want to get them immediately into the mainline kernel.
 If you feel that's not already the case and some more discussion and
 feedback is required, it's useful to prepare and publish a patch for the
 BerliOS repo first. Also the requirements for acceptance are not that
 strict than for kernel inclusion. If kernel inclusion is your primary
 goal, it makes sense to start preparing patches for the kernel
 straightaway. An eventual backport to the BerliOS repo is usually quite
-simply and does not require a full review, reducing at the same time the
+simple and does not require a full review, reducing at the same time the
 maintainers workload.
 
 Patches for kernel inclusion:
@@ -71,6 +71,10 @@ BerliOS repo for kernel inclusion as shown below:
 Patches for the BerliOS repo:
 ----------------------------
 
+You can checkout the BerliOS SVN repo [4] as shown below:
+
+  $ svn checkout http://svn.berlios.de/svnroot/repos/socketcan/trunk
+
 In principle the same rules apply as for kernel inclusion. But there is
 no need to make a CC to the netdev mailing list and the code should deal
 with version dependencies as usual using:
@@ -79,7 +83,16 @@ with version dependencies as usual using:
   ...
   #endif
 
-Also ND2D(dev) should be used to specifiy the platform device, e.g.:
+To allow building the Socket-CAN modules without depending on the kernel
+include files, you should use:
+
+  #include <socketcan/can...>
+
+instead of:
+
+  #include <linux/can...>
+
+Also ND2D(dev) should be used to specify the platform device, e.g.:
 
   dev_dbg(ND2D(dev), "data overrun interrupt\n");
 
@@ -89,3 +102,4 @@ References:
 [1] http://developer.berlios.de/projects/socketcan/
 [2] http://vger.kernel.org/vger-lists.html#netdev
 [3] http://developer.berlios.de/mail/?group_id=6475
+[4] http://developer.berlios.de/svn/?group_id=6475
