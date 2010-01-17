@@ -27,8 +27,8 @@ For kernel inclusion you need to prepare patches against David Millers
   $ git clone \
     git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
-In case your have a bug fix patch for a "-rcX" kernel release, you
-should use the tree "net-2.6" instead.
+In case you have a bug fix patch for a "-rcX" kernel release, you should
+use the tree "net-2.6" instead.
 
 Before publishing you should check the following items:
 
