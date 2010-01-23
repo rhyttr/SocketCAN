@@ -378,9 +378,28 @@ static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
 	struct dev_rcv_lists *d = NULL;
 	struct hlist_node *n;
 
+	/* find receive list for this device */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	/*
-	 * find receive list for this device
-	 *
+	 * Since 2.6.26 a new "midlevel private" ml_priv pointer has been
+	 * introduced in struct net_device. We use this pointer to omit the
+	 * linear walk through the can_rx_dev_list. A similar speedup has been
+	 * queued for 2.6.34 mainline but using the new netdev_rcu lists.
+	 */
+
+	/* dev == NULL is the indicator for the 'all' filterlist */
+	if (!dev)
+		return &can_rx_alldev_list;
+
+	/* do not search in rcu list when we have a direct reference */
+	if (dev->ml_priv)
+		return (struct dev_rcv_lists *)dev->ml_priv;
+
+	/* fall back to standard behaviour */
+#endif
+
+	/*
 	 * The hlist_for_each_entry*() macros curse through the list
 	 * using the pointer variable n and set d to the containing
 	 * struct in each list iteration.  Therefore, after list
@@ -914,6 +933,9 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 		d->dev = dev;
 
 		spin_lock(&can_rcvlists_lock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+		dev->ml_priv = d;
+#endif
 		hlist_add_head_rcu(&d->list, &can_rx_dev_list);
 		spin_unlock(&can_rcvlists_lock);
 
@@ -927,8 +949,12 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
 			if (d->entries) {
 				d->remove_on_zero_entries = 1;
 				d = NULL;
-			} else
+			} else {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+				dev->ml_priv = NULL;
+#endif
 				hlist_del_rcu(&d->list);
+			}
 		} else
 			printk(KERN_ERR "can: notifier: receive list not "
 			       "found for dev %s\n", dev->name);
