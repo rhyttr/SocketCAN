@@ -139,7 +139,9 @@ static void can_sock_destruct(struct sock *sk)
 #endif
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
+static int can_create(struct net *net, struct socket *sock, int protocol, int kern)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 static int can_create(struct net *net, struct socket *sock, int protocol)
 #else
 static int can_create(struct socket *sock, int protocol)
