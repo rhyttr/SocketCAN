@@ -210,7 +210,6 @@ static void can_print_rcvlist(struct seq_file *m, struct hlist_head *rx_list,
 	struct receiver *r;
 	struct hlist_node *n;
 
-	rcu_read_lock();
 	hlist_for_each_entry_rcu(r, n, rx_list, list) {
 		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
@@ -220,7 +219,6 @@ static void can_print_rcvlist(struct seq_file *m, struct hlist_head *rx_list,
 				(unsigned long)r->func, (unsigned long)r->data,
 				r->matches, r->ident);
 	}
-	rcu_read_unlock();
 }
 
 static void can_print_recv_banner(struct seq_file *m)
@@ -444,7 +442,6 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 	struct receiver *r;
 	struct hlist_node *n;
 
-	rcu_read_lock();
 	hlist_for_each_entry_rcu(r, n, rx_list, list) {
 		char *fmt = (r->can_id & CAN_EFF_FLAG)?
 			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
@@ -465,7 +462,6 @@ static int can_print_rcvlist(char *page, int len, struct hlist_head *rx_list,
 			break;
 		}
 	}
-	rcu_read_unlock();
 
 	return len;
 }
