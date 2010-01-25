@@ -24,6 +24,7 @@ obj-$(CONFIG_CAN_EMS_PCMCIA) += ems_pcmcia.o
 obj-$(CONFIG_CAN_EMS_104M) += ems_104m.o
 obj-$(CONFIG_CAN_ESD_PCI) += esd_pci.o
 obj-$(CONFIG_CAN_IXXAT_PCI) += ixxat_pci.o
+obj-$(CONFIG_CAN_PLX_PCI) += plx_pci.o
 obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
 obj-$(CONFIG_CAN_PIPCAN) += pipcan.o
 obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o

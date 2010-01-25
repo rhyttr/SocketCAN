@@ -81,6 +81,18 @@ config CAN_PEAK_PCI
 	  This driver is for the PCAN PCI, the PC-PCI CAN plug-in card (1 or
 	  2 channel) from PEAK Systems (http://www.peak-system.com).
 
+config CAN_PLX_PCI
+	tristate "PLX90xx PCI-bridge based Cards"
+	depends on PCI && CAN_SJA1000
+	---help---
+	  This driver is for CAN interface cards based on
+	  the PLX90xx PCI bridge.
+	  Driver supports now:
+	   - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
+	   - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
+	   - Adlink PCI-7841/cPCI-7841 SE card
+	   - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
+
 config CAN_PIPCAN
 	depends on CAN_SJA1000
 	tristate "MPL PIPCAN CAN module driver (SJA1000)"
