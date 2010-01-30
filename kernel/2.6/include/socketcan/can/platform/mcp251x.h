@@ -7,6 +7,8 @@
  *
  */
 
+#include <linux/spi/spi.h>
+
 /**
  * struct mcp251x_platform_data - MCP251X SPI CAN controller platform data
  * @oscillator_frequency:       - oscillator frequency in Hz

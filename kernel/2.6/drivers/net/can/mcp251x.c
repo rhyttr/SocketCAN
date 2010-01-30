@@ -234,8 +234,7 @@ struct mcp251x_priv {
 	struct workqueue_struct *wq;
 	struct work_struct tx_work;
 	struct work_struct irq_work;
-	struct completion awake;
-	int wake;
+
 	int force_quit;
 	int after_suspend;
 #define AFTER_SUSPEND_UP 1
@@ -363,8 +362,10 @@ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
 					  buf[i]);
 	} else {
 		mutex_lock(&priv->spi_lock);
+
 		memcpy(priv->spi_tx_buf, buf, TXBDAT_OFF + len);
 		mcp251x_spi_trans(spi, TXBDAT_OFF + len);
+
 		mutex_unlock(&priv->spi_lock);
 	}
 }
@@ -471,21 +472,6 @@ static void mcp251x_hw_sleep(struct spi_device *spi)
 	mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_SLEEP);
 }
 
-static void mcp251x_hw_wakeup(struct spi_device *spi)
-{
-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-
-	priv->wake = 1;
-
-	/* Can only wake up by generating a wake-up interrupt. */
-	mcp251x_write_bits(spi, CANINTE, CANINTE_WAKIE, CANINTE_WAKIE);
-	mcp251x_write_bits(spi, CANINTF, CANINTF_WAKIF, CANINTF_WAKIF);
-
-	/* Wait until the device is awake */
-	if (!wait_for_completion_timeout(&priv->awake, HZ))
-		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
-}
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 static int mcp251x_hard_start_xmit(struct sk_buff *skb, struct net_device *net)
 #else
@@ -535,21 +521,24 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
 
 static void mcp251x_set_normal_mode(struct spi_device *spi)
 {
+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
 	unsigned long timeout;
 
 	/* Enable interrupts */
 	mcp251x_write_reg(spi, CANINTE,
 			  CANINTE_ERRIE | CANINTE_TX2IE | CANINTE_TX1IE |
-			  CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE |
-			  CANINTF_MERRF);
+			  CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE);
 
 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		/* Put device into loopback mode */
 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
 	} else {
 		/* Put device into normal mode */
-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL);
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL |
+				  ((pdata->model == CAN_MCP251X_MCP2515 &&
+				    priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT) ?
+				   CANCTRL_OSM : 0));
 
 		/* Wait for the device to enter normal mode */
 		timeout = jiffies + HZ;
@@ -594,12 +583,10 @@ static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
 	mcp251x_do_set_bittiming(net);
 
 	/* Enable RX0->RX1 buffer roll over and disable filters */
-	mcp251x_write_bits(spi, RXBCTRL(0),
-			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1,
-			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1);
-	mcp251x_write_bits(spi, RXBCTRL(1),
-			   RXBCTRL_RXM0 | RXBCTRL_RXM1,
-			   RXBCTRL_RXM0 | RXBCTRL_RXM1);
+	mcp251x_write_reg(spi, RXBCTRL(0),
+			  RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1);
+	mcp251x_write_reg(spi, RXBCTRL(1),
+			  RXBCTRL_RXM0 | RXBCTRL_RXM1);
 	return 0;
 }
 
@@ -607,19 +594,30 @@ static void mcp251x_hw_reset(struct spi_device *spi)
 {
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
 	int ret;
+	unsigned long timeout;
 
 	mutex_lock(&priv->spi_lock);
 
 	priv->spi_tx_buf[0] = INSTRUCTION_RESET;
 
 	ret = spi_write(spi, priv->spi_tx_buf, 1);
+	if (ret)
+		dev_err(&spi->dev, "reset failed: ret = %d\n", ret);
 
 	mutex_unlock(&priv->spi_lock);
 
-	if (ret)
-		dev_err(&spi->dev, "reset failed: ret = %d\n", ret);
 	/* Wait for reset to finish */
+	timeout = jiffies + HZ;
 	mdelay(10);
+	while ((mcp251x_read_reg(spi, CANSTAT) & CANCTRL_REQOP_MASK)
+	       != CANCTRL_REQOP_CONF) {
+		schedule();
+		if (time_after(jiffies, timeout)) {
+			dev_err(&spi->dev, "MCP251x didn't"
+				" enter in conf mode after reset\n");
+			break;
+		}
+	}
 }
 
 static int mcp251x_hw_probe(struct spi_device *spi)
@@ -685,7 +683,6 @@ static int mcp251x_open(struct net_device *net)
 		return ret;
 	}
 
-	mcp251x_hw_wakeup(spi);
 	mcp251x_hw_reset(spi);
 	ret = mcp251x_setup(net, priv, spi);
 	if (ret) {
@@ -763,7 +760,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 						 irq_work);
 	struct spi_device *spi = priv->spi;
 	struct net_device *net = priv->net;
-	u8 txbnctrl;
 	u8 intf;
 	enum can_state new_state;
 
@@ -791,10 +787,8 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 		return;
 
 	while (!priv->force_quit && !freezing(current)) {
-		u8 eflag = mcp251x_read_reg(spi, EFLG);
+		u8 eflag;
 		int can_id = 0, data1 = 0;
-
-		mcp251x_write_reg(spi, EFLG, 0x00);
 
 		if (priv->restart_tx) {
 			priv->restart_tx = 0;
@@ -805,14 +799,21 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 			can_id |= CAN_ERR_RESTARTED;
 		}
 
-		if (priv->wake) {
-			/* Wait whilst the device wakes up */
-			mdelay(10);
-			priv->wake = 0;
-		}
-
 		intf = mcp251x_read_reg(spi, CANINTF);
+
+		if (intf & CANINTF_RX0IF) {
+			mcp251x_hw_rx(spi, 0);
+			/* Free one buffer ASAP */
+			mcp251x_write_bits(spi, CANINTF, intf & CANINTF_RX0IF, 0x00);
+                }
+
+		if (intf & CANINTF_RX1IF)
+			mcp251x_hw_rx(spi, 1);
+
 		mcp251x_write_bits(spi, CANINTF, intf, 0x00);
+
+		eflag = mcp251x_read_reg(spi, EFLG);
+		mcp251x_write_reg(spi, EFLG, 0x00);
 
 		/* Update can state */
 		if (eflag & EFLG_TXBO) {
@@ -894,19 +895,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 		if (intf == 0)
 			break;
 
-		if (intf & CANINTF_WAKIF)
-			complete(&priv->awake);
-
-		if (intf & CANINTF_MERRF) {
-			/* If there are pending Tx buffers, restart queue */
-			txbnctrl = mcp251x_read_reg(spi, TXBCTRL(0));
-			if (!(txbnctrl & TXBCTRL_TXREQ)) {
-				if (priv->tx_skb || priv->tx_len)
-					mcp251x_clean(net);
-				netif_wake_queue(net);
-			}
-		}
-
 		if (intf & (CANINTF_TX2IF | CANINTF_TX1IF | CANINTF_TX0IF)) {
 			net->stats.tx_packets++;
 			net->stats.tx_bytes += priv->tx_len - 1;
@@ -916,12 +904,6 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
 			}
 			netif_wake_queue(net);
 		}
-
-		if (intf & CANINTF_RX0IF)
-			mcp251x_hw_rx(spi, 0);
-
-		if (intf & CANINTF_RX1IF)
-			mcp251x_hw_rx(spi, 1);
 	}
 }
 
@@ -1021,8 +1003,6 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 
 	INIT_WORK(&priv->tx_work, mcp251x_tx_work_handler);
 	INIT_WORK(&priv->irq_work, mcp251x_irq_work_handler);
-
-	init_completion(&priv->awake);
 
 	/* Configure the SPI bus */
 	spi->mode = SPI_MODE_0;
