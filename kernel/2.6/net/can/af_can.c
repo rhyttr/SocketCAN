@@ -537,6 +537,11 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
 
 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+	if (dev && dev->type != ARPHRD_CAN)
+		return -ENODEV;
+#endif
+
 	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
 	if (!r)
 		return -ENOMEM;
@@ -609,6 +614,11 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
 	struct hlist_head *rl;
 	struct hlist_node *next;
 	struct dev_rcv_lists *d;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+	if (dev && dev->type != ARPHRD_CAN)
+		return;
+#endif
 
 	spin_lock(&can_rcvlists_lock);
 
