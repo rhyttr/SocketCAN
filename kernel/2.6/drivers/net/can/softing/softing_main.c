@@ -671,6 +671,7 @@ static struct softing_priv *mk_netdev(struct softing *card, u16 chip_id)
 	ndev->hard_start_xmit	= netdev_start_xmit;
 #endif
 	priv->can.do_set_mode	= candev_set_mode;
+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
 
 	return priv;
 }

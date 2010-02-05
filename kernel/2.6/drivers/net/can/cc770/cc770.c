@@ -863,6 +863,7 @@ struct net_device *alloc_cc770dev(int sizeof_priv)
 	priv->can.bittiming_const = &cc770_bittiming_const;
 	priv->can.do_set_bittiming = cc770_set_bittiming;
 	priv->can.do_set_mode = cc770_set_mode;
+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
 
 	memcpy(priv->obj_flags, cc770_obj_flags, sizeof(cc770_obj_flags));
 

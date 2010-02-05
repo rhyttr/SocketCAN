@@ -533,7 +533,10 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		/* Put device into loopback mode */
 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
-	} else {
+	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
+		/* Put device into listen-only mode */
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LISTEN_ONLY);
+ 	} else {
 		/* Put device into normal mode */
 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL |
 				  ((pdata->model == CAN_MCP251X_MCP2515 &&
@@ -946,6 +949,10 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
 	priv->can.bittiming_const = &mcp251x_bittiming_const;
 	priv->can.do_set_mode = mcp251x_do_set_mode;
 	priv->can.clock.freq = pdata->oscillator_frequency / 2;
+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
+		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
+	if (pdata->model == CAN_MCP251X_MCP2515)
+		priv->can.ctrlmode_supported |= CAN_CTRLMODE_ONE_SHOT;
 	priv->net = net;
 	dev_set_drvdata(&spi->dev, priv);
 

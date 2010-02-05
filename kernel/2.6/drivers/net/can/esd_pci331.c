@@ -784,6 +784,7 @@ static struct net_device *__devinit esd331_pci_add_chan(struct pci_dev *pdev,
 
 	priv->can.do_set_bittiming = esd331_set_bittiming;
 	priv->can.do_set_mode = esd331_set_mode;
+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
 
 	err = register_candev(dev);
 	if (err) {
