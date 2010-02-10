@@ -859,7 +859,7 @@ retry_features:
 	for (i = 0; i < board->net_count; ++i) {
 		board->dev[i] = esd331_pci_add_chan(pdev, board, i);
 		if (IS_ERR(board->dev[i])) {
-			err = (int)board->dev[i];
+			err = PTR_ERR(board->dev[i]);
 			goto failure_iounmap_base2;
 		}
 		if (esd331_write_allid(i, board)) {
