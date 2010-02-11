@@ -83,14 +83,14 @@ config CAN_PEAK_PCI
 
 config CAN_PLX_PCI
 	tristate "PLX90xx PCI-bridge based Cards"
-	depends on PCI && CAN_SJA1000
+	depends on PCI
 	---help---
 	  This driver is for CAN interface cards based on
 	  the PLX90xx PCI bridge.
 	  Driver supports now:
-	   - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
 	   - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
 	   - Adlink PCI-7841/cPCI-7841 SE card
+	   - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
 	   - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
 
 config CAN_PIPCAN

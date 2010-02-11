@@ -6,7 +6,6 @@
  *	Copyright (C) 2008 Markus Plessing <plessing@ems-wuensche.com>
  *	Copyright (C) 2008 Sebastian Haas <haas@ems-wuensche.com>
  *
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the version 2 of the GNU General Public License
  * as published by the Free Software Foundation
@@ -40,11 +39,11 @@
 #define DRV_NAME  "sja1000_plx_pci"
 
 MODULE_AUTHOR("Pavel Cheblakov <P.B.Cheblakov@inp.nsk.su>");
-MODULE_DESCRIPTION("Socket-CAN driver for the PLX90xx PCI-bridge cards with "
-		   "SJA1000 chips");
-MODULE_SUPPORTED_DEVICE("Marathon CAN-bus-PCI, "
-			"Adlink PCI-7841/cPCI-7841, "
+MODULE_DESCRIPTION("Socket-CAN driver for PLX90xx PCI-bridge cards with "
+		   "the SJA1000 chips");
+MODULE_SUPPORTED_DEVICE("Adlink PCI-7841/cPCI-7841, "
 			"Adlink PCI-7841/cPCI-7841 SE, "
+			"Marathon CAN-bus-PCI, "
 			"TEWS TECHNOLOGIES TPMC810");
 MODULE_LICENSE("GPL v2");
 
@@ -58,10 +57,8 @@ struct plx_pci_card {
 
 #define PLX_PCI_CAN_CLOCK (16000000 / 2)
 
-/*
- * the PLX90xx registers
- */
-#define PLX_INTCSR	0x4c		/* Interrup Control/Status */
+/* PLX90xx registers */
+#define PLX_INTCSR	0x4c		/* Interrupt Control/Status */
 #define PLX_CNTRL	0x50		/* User I/O, Direct Slave Response,
 					 * Serial EEPROM, and Initialization
 					 * Control register
@@ -89,6 +86,20 @@ struct plx_pci_card {
  * is driven by the first one CLKOUT output.
  */
 #define PLX_PCI_CDR			(CDR_CBP | CDR_CLKOUT_MASK)
+
+/* SJA1000 Control Register in the BasicCAN Mode */
+#define REG_CR				0x00
+
+/* States of some SJA1000 registers after hardware reset in the BasicCAN mode*/
+#define REG_CR_BASICCAN_INITIAL		0x21
+#define REG_CR_BASICCAN_INITIAL_MASK	0xa1
+#define REG_SR_BASICCAN_INITIAL		0x0c
+#define REG_IR_BASICCAN_INITIAL		0xe0
+
+/* States of some SJA1000 registers after hardware reset in the PeliCAN mode*/
+#define REG_MOD_PELICAN_INITIAL		0x01
+#define REG_SR_PELICAN_INITIAL		0x3c
+#define REG_IR_PELICAN_INITIAL		0x00
 
 #define ADLINK_PCI_VENDOR_ID		0x144A
 #define ADLINK_PCI_DEVICE_ID		0x7841
@@ -124,14 +135,6 @@ struct plx_pci_card_info {
 	void (*reset_func)(struct pci_dev *pdev);
 };
 
-static struct plx_pci_card_info plx_pci_card_info_marathon __devinitdata = {
-	"Marathon CAN-bus-PCI", 2,
-	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
-	{0, 0x00, 0x00}, { {2, 0x00, 0x00}, {4, 0x00, 0x00} },
-	&plx_pci_reset_marathon
-	/* based on PLX9052 */
-};
-
 static struct plx_pci_card_info plx_pci_card_info_adlink __devinitdata = {
 	"Adlink PCI-7841/cPCI-7841", 2,
 	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
@@ -148,6 +151,14 @@ static struct plx_pci_card_info plx_pci_card_info_adlink_se __devinitdata = {
 	/* based on PLX9052 */
 };
 
+static struct plx_pci_card_info plx_pci_card_info_marathon __devinitdata = {
+	"Marathon CAN-bus-PCI", 2,
+	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
+	{0, 0x00, 0x00}, { {2, 0x00, 0x00}, {4, 0x00, 0x00} },
+	&plx_pci_reset_marathon
+	/* based on PLX9052 */
+};
+
 static struct plx_pci_card_info plx_pci_card_info_tews __devinitdata = {
 	"TEWS TECHNOLOGIES TPMC810", 2,
 	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
@@ -156,14 +167,7 @@ static struct plx_pci_card_info plx_pci_card_info_tews __devinitdata = {
 	/* based on PLX9030 */
 };
 
-static struct pci_device_id plx_pci_tbl[] = {
-	{
-		/* Marathon CAN-bus-PCI card */
-		PCI_VENDOR_ID_PLX, MARATHON_PCI_DEVICE_ID,
-		PCI_ANY_ID, PCI_ANY_ID,
-		0, 0,
-		(kernel_ulong_t)&plx_pci_card_info_marathon
-	},
+static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl) = {
 	{
 		/* Adlink PCI-7841/cPCI-7841 */
 		ADLINK_PCI_VENDOR_ID, ADLINK_PCI_DEVICE_ID,
@@ -177,6 +181,13 @@ static struct pci_device_id plx_pci_tbl[] = {
 		PCI_ANY_ID, PCI_ANY_ID,
 		PCI_CLASS_COMMUNICATION_OTHER << 8, ~0,
 		(kernel_ulong_t)&plx_pci_card_info_adlink_se
+	},
+	{
+		/* Marathon CAN-bus-PCI card */
+		PCI_VENDOR_ID_PLX, MARATHON_PCI_DEVICE_ID,
+		PCI_ANY_ID, PCI_ANY_ID,
+		0, 0,
+		(kernel_ulong_t)&plx_pci_card_info_marathon
 	},
 	{
 		/* TEWS TECHNOLOGIES TPMC810 card */
@@ -212,9 +223,10 @@ static inline int plx_pci_check_sja1000(const struct sja1000_priv *priv)
 	 * Check registers after hardware reset (the Basic mode)
 	 * See states on p. 10 of the Datasheet.
 	 */
-	if ((priv->read_reg(priv, REG_MOD) & 0xa1) == 0x21 &&
-	    (priv->read_reg(priv, REG_SR) == 0x0c) &&
-	    (priv->read_reg(priv, REG_IR) == 0xe0))
+	if ((priv->read_reg(priv, REG_CR) & REG_CR_BASICCAN_INITIAL_MASK) ==
+	    REG_CR_BASICCAN_INITIAL &&
+	    (priv->read_reg(priv, REG_SR) == REG_SR_BASICCAN_INITIAL) &&
+	    (priv->read_reg(priv, REG_IR) == REG_IR_BASICCAN_INITIAL))
 		flag = 1;
 
 	/* Bring the SJA1000 into the PeliCAN mode*/
@@ -224,16 +236,16 @@ static inline int plx_pci_check_sja1000(const struct sja1000_priv *priv)
 	 * Check registers after reset in the PeliCAN mode.
 	 * See states on p. 23 of the Datasheet.
 	 */
-	if ((priv->read_reg(priv, REG_MOD) & 0xf1) == 0x01 &&
-	    (priv->read_reg(priv, REG_SR) & 0x37) == 0x34 &&
-	    (priv->read_reg(priv, REG_IR) & 0xfb) == 0x00)
+	if (priv->read_reg(priv, REG_MOD) == REG_MOD_PELICAN_INITIAL &&
+	    priv->read_reg(priv, REG_SR) == REG_SR_PELICAN_INITIAL &&
+	    priv->read_reg(priv, REG_IR) == REG_IR_PELICAN_INITIAL)
 		return flag;
 
 	return 0;
 }
 
 /*
- * The PLX90xx software reset
+ * PLX90xx software reset
  * Also LRESET# asserts and brings to reset device on the Local Bus (if wired).
  * For most cards it's enough for reset the SJA1000 chips.
  */
@@ -311,7 +323,7 @@ static void plx_pci_del_card(struct pci_dev *pdev)
 }
 
 /*
- * Probe the PLX90xx based device for the SJA1000 chips and register each
+ * Probe PLX90xx based device for the SJA1000 chips and register each
  * available CAN channel to SJA1000 Socket-CAN subsystem.
  */
 static int __devinit plx_pci_add_card(struct pci_dev *pdev,
@@ -347,7 +359,7 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
 
 	card->channels = 0;
 
-	/* Remap the PLX90xx configuration space */
+	/* Remap PLX90xx configuration space */
 	addr = pci_iomap(pdev, ci->conf_map.bar, ci->conf_map.size);
 	if (!addr) {
 		err = -ENOMEM;
@@ -466,4 +478,3 @@ static void __exit plx_pci_exit(void)
 
 module_init(plx_pci_init);
 module_exit(plx_pci_exit);
-
