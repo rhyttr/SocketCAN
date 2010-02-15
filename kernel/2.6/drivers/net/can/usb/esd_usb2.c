@@ -1038,9 +1038,17 @@ static int esd_usb2_probe(struct usb_interface *intf,
 	dev->version = le32_to_cpu(msg.msg.version_reply.version);
 
 #ifdef CONFIG_SYSFS
-	device_create_file(&intf->dev, &dev_attr_firmware);
-	device_create_file(&intf->dev, &dev_attr_hardware);
-	device_create_file(&intf->dev, &dev_attr_nets);
+	if (device_create_file(&intf->dev, &dev_attr_firmware))
+		dev_err(&intf->dev,
+			"Couldn't create device file for firmware\n");
+
+	if (device_create_file(&intf->dev, &dev_attr_hardware))
+		dev_err(&intf->dev,
+			"Couldn't create device file for hardware\n");
+
+	if (device_create_file(&intf->dev, &dev_attr_nets))
+		dev_err(&intf->dev,
+			"Couldn't create device file for nets\n");
 #endif
 
 	/* do per device probing */
