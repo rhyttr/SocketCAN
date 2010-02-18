@@ -185,8 +185,6 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 		return;
 	}
 
-	gwj->handled_frames++;
-
 	/* mark routed frames with a 'special' sk value */
 	nskb->sk = GW_SK_MAGIC;
 	nskb->dev = gwj->dst_dev;
@@ -201,6 +199,8 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 	/* send to netdevice */
 	if (can_send(nskb, gwj->flags & CAN_TX_LOOPBACK))
 		gwj->dropped_frames++;
+	else
+		gwj->handled_frames++;
 }
 
 static inline int can_gw_register_filter(struct gw_job *gwj)
@@ -409,8 +409,10 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	dev_put(gwj->src_dev);
 	dev_put(gwj->dst_dev);
 
-	if (!err)
-		return 0;
+	if (err)
+		goto fail;
+
+	return 0;
 
 put_src_dst_fail:
 	dev_put(gwj->dst_dev);
