@@ -15,6 +15,7 @@ export CONFIG_CAN=m
 export CONFIG_CAN_RAW=m
 export CONFIG_CAN_BCM=m
 export CONFIG_CAN_ISOTP=m
+export CONFIG_CAN_GW=m
 
 else
 
@@ -31,5 +32,8 @@ can-bcm-objs		:= bcm.o
 
 obj-$(CONFIG_CAN_ISOTP)	+= can-isotp.o
 can-isotp-objs		:= isotp.o
+
+obj-$(CONFIG_CAN_GW)	+= can-gw.o
+can-gw-objs		:= gw.o
 
 endif
