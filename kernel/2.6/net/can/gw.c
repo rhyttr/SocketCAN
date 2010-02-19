@@ -334,16 +334,16 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	    nla_len(tb[CGW_MOD_AND]) == CGW_MODATTR_LEN) {
 		nla_memcpy(&buf, tb[CGW_MOD_AND], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.and, &buf[1],
+		memcpy(&gwj->ccgw.modframe.and, buf,
 		       sizeof(struct can_frame));
 
-		if (buf[0] & CGW_MOD_ID)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_and_id;
 
-		if (buf[0] & CGW_MOD_DLC)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_and_dlc;
 
-		if (buf[0] & CGW_MOD_DATA)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_and_data;
 	}
 
@@ -351,16 +351,16 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	    nla_len(tb[CGW_MOD_OR]) == CGW_MODATTR_LEN) {
 		nla_memcpy(&buf, tb[CGW_MOD_OR], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.or, &buf[1],
+		memcpy(&gwj->ccgw.modframe.or, buf,
 		       sizeof(struct can_frame));
 
-		if (buf[0] & CGW_MOD_ID)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_or_id;
 
-		if (buf[0] & CGW_MOD_DLC)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_or_dlc;
 
-		if (buf[0] & CGW_MOD_DATA)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_or_data;
 	}
 
@@ -368,16 +368,16 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	    nla_len(tb[CGW_MOD_XOR]) == CGW_MODATTR_LEN) {
 		nla_memcpy(&buf, tb[CGW_MOD_XOR], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.xor, &buf[1],
+		memcpy(&gwj->ccgw.modframe.xor, buf,
 		       sizeof(struct can_frame));
 
-		if (buf[0] & CGW_MOD_ID)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_id;
 
-		if (buf[0] & CGW_MOD_DLC)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_dlc;
 
-		if (buf[0] & CGW_MOD_DATA)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_data;
 	}
 
@@ -385,16 +385,16 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	    nla_len(tb[CGW_MOD_SET]) == CGW_MODATTR_LEN) {
 		nla_memcpy(&buf, tb[CGW_MOD_SET], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.set, &buf[1],
+		memcpy(&gwj->ccgw.modframe.set, buf,
 		       sizeof(struct can_frame));
 
-		if (buf[0] & CGW_MOD_ID)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_set_id;
 
-		if (buf[0] & CGW_MOD_DLC)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_set_dlc;
 
-		if (buf[0] & CGW_MOD_DATA)
+		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_set_data;
 	}
 

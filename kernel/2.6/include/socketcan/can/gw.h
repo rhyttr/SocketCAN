@@ -65,8 +65,8 @@ enum {
  * Specifies a modification that's done to a received CAN frame before it is
  * send out to the destination interface.
  *
- * <u8> affected CAN frame elements
  * <struct can_frame> data used as operator
+ * <u8> affected CAN frame elements
  *
  * Remark: The attribute data is a linear buffer. Beware of sending structs!
  */
