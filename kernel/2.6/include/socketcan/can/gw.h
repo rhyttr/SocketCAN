@@ -58,7 +58,7 @@ enum {
 /*
  * CAN rtnetlink attribute contents in detail
  *
- * CGW_FILTER (length 32 bytes):
+ * CGW_FILTER (length 8 bytes):
  * Sets a CAN receive filter for the gateway job specified by the
  * struct can_filter described in include/linux/can.h
  *
