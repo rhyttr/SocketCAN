@@ -111,7 +111,7 @@ struct gw_job {
 };
 
 /* content of u32 gwjob.flags */
-#define CAN_TX_LOOPBACK 0x00000001
+#define CAN_TX_ECHO 0x00000001
 #define CAN_TX_SRC_TSTAMP 0x00000002
 
 /* modification functions that are invoked in the hot path in gw_rcv */
@@ -202,7 +202,7 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 		nskb->tstamp.tv64 = 0;
 
 	/* send to netdevice */
-	if (can_send(nskb, gwj->flags & CAN_TX_LOOPBACK))
+	if (can_send(nskb, gwj->flags & CAN_TX_ECHO))
 		gwj->dropped_frames++;
 	else
 		gwj->handled_frames++;
@@ -317,8 +317,8 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 
 	gwj->flags = 0;
 
-	if (r->can_txflags & CAN_GW_TXFLAGS_LOOPBACK)
-		gwj->flags |= CAN_TX_LOOPBACK;
+	if (r->can_txflags & CAN_GW_TXFLAGS_ECHO)
+		gwj->flags |= CAN_TX_ECHO;
 
 	if (r->can_txflags & CAN_GW_TXFLAGS_SRC_TSTAMP)
 		gwj->flags |= CAN_TX_SRC_TSTAMP;
