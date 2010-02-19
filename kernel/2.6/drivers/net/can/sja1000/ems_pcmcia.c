@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Sebastian Haas <haas@ems-wuensche.com>
+ * Copyright (C) 2010 Markus Plessing <plessing@ems-wuensche.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the version 2 of the GNU General Public License
@@ -344,7 +345,9 @@ static int __devinit ems_pcmcia_probe(struct pcmcia_device *dev)
 
 	/* Interrupt setup */
 	dev->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	dev->irq.IRQInfo1 = IRQ_LEVEL_ID;
+#endif
 
 	/* General socket configuration */
 	dev->conf.Attributes = CONF_ENABLE_IRQ;
@@ -352,7 +355,11 @@ static int __devinit ems_pcmcia_probe(struct pcmcia_device *dev)
 	dev->conf.ConfigIndex = 1;
 	dev->conf.Present = PRESENT_OPTION;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	dev->win = NULL;
+#else
+	dev->win = 0;
+#endif
 
 	ems_pcmcia_config(dev);
 
@@ -374,31 +381,60 @@ static void __devinit ems_pcmcia_config(struct pcmcia_device *dev)
 	req.Base = req.Size = 0;
 	req.AccessSpeed = 0;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	csval = pcmcia_request_window(&dev, &req, &dev->win);
+#else
+	csval = pcmcia_request_window(dev, &req, &dev->win);
+#endif
 	if (csval) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 		cs_error(dev, RequestWindow, csval);
+#else
+		dev_err(&dev->dev, "RequestWindow failed (err=%d)\n",
+			csval);
+#endif
 		return;
 	}
 
 	mem.CardOffset = mem.Page = 0;
 	mem.CardOffset = dev->conf.ConfigBase;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	csval = pcmcia_map_mem_page(dev->win, &mem);
+#else
+	csval = pcmcia_map_mem_page(dev, dev->win, &mem);
+#endif
+
 	if (csval) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 		cs_error(dev, MapMemPage, csval);
+#else
+		dev_err(&dev->dev, "MapMemPage failed (err=%d)\n",
+			csval);
+#endif
 		return;
 	}
 
 	csval = pcmcia_request_irq(dev, &dev->irq);
 	if (csval) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 		cs_error(dev, RequestIRQ, csval);
+#else
+		dev_err(&dev->dev, "RequestIRQ failed (err=%d)\n",
+			csval);
+#endif
 		return;
 	}
 
 	/* This actually configures the PCMCIA socket */
 	csval = pcmcia_request_configuration(dev, &dev->conf);
 	if (csval) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 		cs_error(dev, RequestConfiguration, csval);
+#else
+		dev_err(&dev->dev, "RequestConfig failed (err=%d)\n",
+			csval);
+#endif
 		return;
 	}
 
