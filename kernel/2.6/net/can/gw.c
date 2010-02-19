@@ -171,7 +171,7 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 	}
 
 	/*
-	 * clone the given skb, which has not been done in can_rv()
+	 * clone the given skb, which has not been done in can_rcv()
 	 *
 	 * When there is at least one modification function activated,
 	 * we need to copy the skb as we want to modify skb->data.
@@ -199,7 +199,7 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 
 	/* clear the skb timestamp if not configured the other way */
 	if (!(gwj->flags & CAN_TX_SRC_TSTAMP))
-		skb->tstamp.tv64 = 0;
+		nskb->tstamp.tv64 = 0;
 
 	/* send to netdevice */
 	if (can_send(nskb, gwj->flags & CAN_TX_LOOPBACK))
