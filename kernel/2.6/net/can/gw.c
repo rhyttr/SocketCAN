@@ -112,6 +112,7 @@ struct gw_job {
 
 /* content of u32 gwjob.flags */
 #define CAN_TX_LOOPBACK 0x00000001
+#define CAN_TX_SRC_TSTAMP 0x00000002
 
 /* modification functions that are invoked in the hot path in gw_rcv */
 void mod_and_id (struct can_frame *cf, struct can_can_gw *mod) {
@@ -195,6 +196,10 @@ static void gw_rcv(struct sk_buff *skb, void *data)
 	/* perform preprocessed modification functions if there are any */
 	while (modidx < MAX_MODFUNCTIONS && gwj->ccgw.modfunc[modidx])
 		(*gwj->ccgw.modfunc[modidx++])(cf, &gwj->ccgw);
+
+	/* clear the skb timestamp if not configured the other way */
+	if (!(gwj->flags & CAN_TX_SRC_TSTAMP))
+		skb->tstamp.tv64 = 0;
 
 	/* send to netdevice */
 	if (can_send(nskb, gwj->flags & CAN_TX_LOOPBACK))
@@ -314,6 +319,9 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 
 	if (r->can_txflags & CAN_GW_TXFLAGS_LOOPBACK)
 		gwj->flags |= CAN_TX_LOOPBACK;
+
+	if (r->can_txflags & CAN_GW_TXFLAGS_SRC_TSTAMP)
+		gwj->flags |= CAN_TX_SRC_TSTAMP;
 
 	memset(&gwj->ccgw, 0, sizeof(gwj->ccgw)); 
 

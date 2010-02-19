@@ -27,6 +27,7 @@ struct rtcanmsg {
 };
 
 #define CAN_GW_TXFLAGS_LOOPBACK 0x01
+#define CAN_GW_TXFLAGS_SRC_TSTAMP 0x02
 
 /* CAN rtnetlink attribute definitions */
 enum {
