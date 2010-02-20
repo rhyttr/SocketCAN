@@ -279,12 +279,10 @@ static int gw_dump_jobs(struct sk_buff *skb, struct netlink_callback *cb)
 	return 0;
 }
 
-static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
+/* check for attributes / filters for the CAN->CAN gateway */
+static int can_can_parse_attr(struct nlmsghdr *nlh, struct can_can_gw *ccgw)
 {
-
-	struct rtcanmsg *r;
 	struct nlattr *tb[CGW_MAX+1];
-	struct gw_job *gwj;
 	int modidx = 0;
 	int err = 0;
 
@@ -294,6 +292,92 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	} __attribute__((packed)) mb;
 
 	BUILD_BUG_ON(sizeof(mb) != CGW_MODATTR_LEN);
+
+	memset(ccgw, 0, sizeof(*ccgw)); 
+
+	err = nlmsg_parse(nlh, sizeof(struct rtcanmsg), tb, CGW_MAX, NULL);
+	if (err < 0)
+		return err;
+
+	/* check for can_filter in attributes */
+	if (tb[CGW_FILTER] &&
+	    nla_len(tb[CGW_FILTER]) == sizeof(struct can_filter))
+		nla_memcpy(&ccgw->filter, tb[CGW_FILTER],
+			   sizeof(struct can_filter));
+
+	/* check for AND/OR/XOR/SET modifications */
+	if (tb[CGW_MOD_AND] &&
+	    nla_len(tb[CGW_MOD_AND]) == CGW_MODATTR_LEN) {
+		nla_memcpy(&mb, tb[CGW_MOD_AND], CGW_MODATTR_LEN);
+
+		canframecpy(&ccgw->modframe.and, &mb.cf);
+
+		if (mb.modtype & CGW_MOD_ID)
+			ccgw->modfunc[modidx++] = mod_and_id;
+
+		if (mb.modtype & CGW_MOD_DLC)
+			ccgw->modfunc[modidx++] = mod_and_dlc;
+
+		if (mb.modtype & CGW_MOD_DATA)
+			ccgw->modfunc[modidx++] = mod_and_data;
+	}
+
+	if (tb[CGW_MOD_OR] &&
+	    nla_len(tb[CGW_MOD_OR]) == CGW_MODATTR_LEN) {
+		nla_memcpy(&mb, tb[CGW_MOD_OR], CGW_MODATTR_LEN);
+
+		canframecpy(&ccgw->modframe.or, &mb.cf);
+
+		if (mb.modtype & CGW_MOD_ID)
+			ccgw->modfunc[modidx++] = mod_or_id;
+
+		if (mb.modtype & CGW_MOD_DLC)
+			ccgw->modfunc[modidx++] = mod_or_dlc;
+
+		if (mb.modtype & CGW_MOD_DATA)
+			ccgw->modfunc[modidx++] = mod_or_data;
+	}
+
+	if (tb[CGW_MOD_XOR] &&
+	    nla_len(tb[CGW_MOD_XOR]) == CGW_MODATTR_LEN) {
+		nla_memcpy(&mb, tb[CGW_MOD_XOR], CGW_MODATTR_LEN);
+
+		canframecpy(&ccgw->modframe.xor, &mb.cf);
+
+		if (mb.modtype & CGW_MOD_ID)
+			ccgw->modfunc[modidx++] = mod_xor_id;
+
+		if (mb.modtype & CGW_MOD_DLC)
+			ccgw->modfunc[modidx++] = mod_xor_dlc;
+
+		if (mb.modtype & CGW_MOD_DATA)
+			ccgw->modfunc[modidx++] = mod_xor_data;
+	}
+
+	if (tb[CGW_MOD_SET] &&
+	    nla_len(tb[CGW_MOD_SET]) == CGW_MODATTR_LEN) {
+		nla_memcpy(&mb, tb[CGW_MOD_SET], CGW_MODATTR_LEN);
+
+		canframecpy(&ccgw->modframe.set, &mb.cf);
+
+		if (mb.modtype & CGW_MOD_ID)
+			ccgw->modfunc[modidx++] = mod_set_id;
+
+		if (mb.modtype & CGW_MOD_DLC)
+			ccgw->modfunc[modidx++] = mod_set_dlc;
+
+		if (mb.modtype & CGW_MOD_DATA)
+			ccgw->modfunc[modidx++] = mod_set_data;
+	}
+
+	return 0;
+}
+
+static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
+{
+	struct rtcanmsg *r;
+	struct gw_job *gwj;
+	int err = 0;
 
 	printk(KERN_INFO "%s: len %d attrlen %d\n", __FUNCTION__,
 	       nlmsg_len(nlh), nlmsg_attrlen(nlh, sizeof(*r)));
@@ -341,84 +425,9 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	if (r->can_txflags & CAN_GW_TXFLAGS_SRC_TSTAMP)
 		gwj->flags |= CAN_TX_SRC_TSTAMP;
 
-	memset(&gwj->ccgw, 0, sizeof(gwj->ccgw)); 
-
-	/* check for additional attributes / filters here */
-
-	err = nlmsg_parse(nlh, sizeof(*r), tb, CGW_MAX, NULL);
+	err = can_can_parse_attr(nlh, &gwj->ccgw);
 	if (err < 0)
 		goto put_src_dst_fail;
-
-	/* check for can_filter in attributes */
-	if (tb[CGW_FILTER] &&
-	    nla_len(tb[CGW_FILTER]) == sizeof(struct can_filter))
-		nla_memcpy(&gwj->ccgw.filter, tb[CGW_FILTER],
-			   sizeof(struct can_filter));
-
-	/* check for AND/OR/XOR/SET modifications */
-	if (tb[CGW_MOD_AND] &&
-	    nla_len(tb[CGW_MOD_AND]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&mb, tb[CGW_MOD_AND], CGW_MODATTR_LEN);
-
-		canframecpy(&gwj->ccgw.modframe.and, &mb.cf);
-
-		if (mb.modtype & CGW_MOD_ID)
-			gwj->ccgw.modfunc[modidx++] = mod_and_id;
-
-		if (mb.modtype & CGW_MOD_DLC)
-			gwj->ccgw.modfunc[modidx++] = mod_and_dlc;
-
-		if (mb.modtype & CGW_MOD_DATA)
-			gwj->ccgw.modfunc[modidx++] = mod_and_data;
-	}
-
-	if (tb[CGW_MOD_OR] &&
-	    nla_len(tb[CGW_MOD_OR]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&mb, tb[CGW_MOD_OR], CGW_MODATTR_LEN);
-
-		canframecpy(&gwj->ccgw.modframe.or, &mb.cf);
-
-		if (mb.modtype & CGW_MOD_ID)
-			gwj->ccgw.modfunc[modidx++] = mod_or_id;
-
-		if (mb.modtype & CGW_MOD_DLC)
-			gwj->ccgw.modfunc[modidx++] = mod_or_dlc;
-
-		if (mb.modtype & CGW_MOD_DATA)
-			gwj->ccgw.modfunc[modidx++] = mod_or_data;
-	}
-
-	if (tb[CGW_MOD_XOR] &&
-	    nla_len(tb[CGW_MOD_XOR]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&mb, tb[CGW_MOD_XOR], CGW_MODATTR_LEN);
-
-		canframecpy(&gwj->ccgw.modframe.xor, &mb.cf);
-
-		if (mb.modtype & CGW_MOD_ID)
-			gwj->ccgw.modfunc[modidx++] = mod_xor_id;
-
-		if (mb.modtype & CGW_MOD_DLC)
-			gwj->ccgw.modfunc[modidx++] = mod_xor_dlc;
-
-		if (mb.modtype & CGW_MOD_DATA)
-			gwj->ccgw.modfunc[modidx++] = mod_xor_data;
-	}
-
-	if (tb[CGW_MOD_SET] &&
-	    nla_len(tb[CGW_MOD_SET]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&mb, tb[CGW_MOD_SET], CGW_MODATTR_LEN);
-
-		canframecpy(&gwj->ccgw.modframe.set, &mb.cf);
-
-		if (mb.modtype & CGW_MOD_ID)
-			gwj->ccgw.modfunc[modidx++] = mod_set_id;
-
-		if (mb.modtype & CGW_MOD_DLC)
-			gwj->ccgw.modfunc[modidx++] = mod_set_dlc;
-
-		if (mb.modtype & CGW_MOD_DATA)
-			gwj->ccgw.modfunc[modidx++] = mod_set_data;
-	}
 
 	spin_lock(&can_gw_list_lock);
 
@@ -434,6 +443,8 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	if (err)
 		goto fail;
 
+	printk(KERN_INFO "%s: added entry %p\n", __FUNCTION__, gwj);
+
 	return 0;
 
 put_src_dst_fail:
@@ -447,9 +458,63 @@ fail:
 
 static int gw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 {
-	printk(KERN_INFO "%s (TODO)\n", __FUNCTION__);
+	struct gw_job *gwj = NULL;
+	struct hlist_node *n, *nx;
+	struct rtcanmsg *r;
+	struct can_can_gw ccgw;
+	u32 flags = 0;
+	int err = 0;
 
-	return 0;
+	printk(KERN_INFO "%s: len %d attrlen %d\n", __FUNCTION__,
+	       nlmsg_len(nlh), nlmsg_attrlen(nlh, sizeof(*r)));
+
+	if (nlmsg_len(nlh) < sizeof(*r))
+                return -EINVAL;
+
+        r = nlmsg_data(nlh);
+        if (r->can_family != AF_CAN)
+                return -EPFNOSUPPORT;
+
+	if (r->can_txflags & CAN_GW_TXFLAGS_ECHO)
+		flags |= CAN_TX_ECHO;
+
+	if (r->can_txflags & CAN_GW_TXFLAGS_SRC_TSTAMP)
+		flags |= CAN_TX_SRC_TSTAMP;
+
+	err = can_can_parse_attr(nlh, &ccgw);
+	if (err < 0)
+		return err;
+
+	err = -EINVAL;
+
+	spin_lock(&can_gw_list_lock);
+
+	/* remove only the first matching entry */
+	hlist_for_each_entry_safe(gwj, n, nx, &can_gw_list, list) {
+
+		if (gwj->dst_dev->ifindex != r->dst_ifindex)
+			continue;
+
+		if (gwj->src_dev->ifindex != r->src_ifindex)
+			continue;
+
+		if (gwj->flags != flags)
+			continue;
+
+		if (memcmp(&gwj->ccgw, &ccgw, sizeof(ccgw)))
+			continue;
+
+		hlist_del(&gwj->list);
+		can_gw_unregister_filter(gwj);
+		kfree(gwj);
+		err = 0;
+		printk(KERN_INFO "%s: removed entry %p\n", __FUNCTION__, gwj);
+		break;
+	}
+
+	spin_unlock(&can_gw_list_lock);
+	
+	return err;
 }
 
 static __init int gw_module_init(void)
