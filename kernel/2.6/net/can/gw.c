@@ -152,6 +152,18 @@ void mod_set_data (struct can_frame *cf, struct can_can_gw *mod) {
 	*(u64 *)cf->data = *(u64 *)mod->modframe.set.data;
 }
 
+static inline void canframecpy(struct can_frame *dst, struct can_frame *src)
+{
+	/*
+	 * Copy the struct members separately to ensure that no uninitialized
+	 * data are copied in the 3 bytes hole of the struct. This is needed
+	 * to make easy compares of the data in the struct can_can_gw.
+	 */
+
+	dst->can_id = src->can_id;
+	dst->can_dlc = src->can_dlc;
+	*(u64 *)dst->data = *(u64 *)src->data;
+}
 
 /* the receive & process & send function */
 static void gw_rcv(struct sk_buff *skb, void *data)
@@ -273,9 +285,15 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	struct rtcanmsg *r;
 	struct nlattr *tb[CGW_MAX+1];
 	struct gw_job *gwj;
-	u8 buf[CGW_MODATTR_LEN];
 	int modidx = 0;
 	int err = 0;
+
+	struct {
+		struct can_frame cf;
+		u8 modtype;
+	} __attribute__((packed)) mb;
+
+	BUILD_BUG_ON(sizeof(mb) != CGW_MODATTR_LEN);
 
 	printk(KERN_INFO "%s: len %d attrlen %d\n", __FUNCTION__,
 	       nlmsg_len(nlh), nlmsg_attrlen(nlh, sizeof(*r)));
@@ -340,69 +358,65 @@ static int gw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	/* check for AND/OR/XOR/SET modifications */
 	if (tb[CGW_MOD_AND] &&
 	    nla_len(tb[CGW_MOD_AND]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&buf, tb[CGW_MOD_AND], CGW_MODATTR_LEN);
+		nla_memcpy(&mb, tb[CGW_MOD_AND], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.and, buf,
-		       sizeof(struct can_frame));
+		canframecpy(&gwj->ccgw.modframe.and, &mb.cf);
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
+		if (mb.modtype & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_and_id;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
+		if (mb.modtype & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_and_dlc;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
+		if (mb.modtype & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_and_data;
 	}
 
 	if (tb[CGW_MOD_OR] &&
 	    nla_len(tb[CGW_MOD_OR]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&buf, tb[CGW_MOD_OR], CGW_MODATTR_LEN);
+		nla_memcpy(&mb, tb[CGW_MOD_OR], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.or, buf,
-		       sizeof(struct can_frame));
+		canframecpy(&gwj->ccgw.modframe.or, &mb.cf);
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
+		if (mb.modtype & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_or_id;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
+		if (mb.modtype & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_or_dlc;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
+		if (mb.modtype & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_or_data;
 	}
 
 	if (tb[CGW_MOD_XOR] &&
 	    nla_len(tb[CGW_MOD_XOR]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&buf, tb[CGW_MOD_XOR], CGW_MODATTR_LEN);
+		nla_memcpy(&mb, tb[CGW_MOD_XOR], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.xor, buf,
-		       sizeof(struct can_frame));
+		canframecpy(&gwj->ccgw.modframe.xor, &mb.cf);
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
+		if (mb.modtype & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_id;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
+		if (mb.modtype & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_dlc;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
+		if (mb.modtype & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_xor_data;
 	}
 
 	if (tb[CGW_MOD_SET] &&
 	    nla_len(tb[CGW_MOD_SET]) == CGW_MODATTR_LEN) {
-		nla_memcpy(&buf, tb[CGW_MOD_SET], CGW_MODATTR_LEN);
+		nla_memcpy(&mb, tb[CGW_MOD_SET], CGW_MODATTR_LEN);
 
-		memcpy(&gwj->ccgw.modframe.set, buf,
-		       sizeof(struct can_frame));
+		canframecpy(&gwj->ccgw.modframe.set, &mb.cf);
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_ID)
+		if (mb.modtype & CGW_MOD_ID)
 			gwj->ccgw.modfunc[modidx++] = mod_set_id;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DLC)
+		if (mb.modtype & CGW_MOD_DLC)
 			gwj->ccgw.modfunc[modidx++] = mod_set_dlc;
 
-		if (buf[sizeof(struct can_frame)] & CGW_MOD_DATA)
+		if (mb.modtype & CGW_MOD_DATA)
 			gwj->ccgw.modfunc[modidx++] = mod_set_data;
 	}
 
