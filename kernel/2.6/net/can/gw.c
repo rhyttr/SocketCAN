@@ -48,6 +48,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/rcupdate.h>
+#include <linux/rculist.h>
 #include <linux/net.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
