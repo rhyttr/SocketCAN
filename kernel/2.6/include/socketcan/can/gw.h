@@ -37,6 +37,8 @@ enum {
 	CGW_MOD_OR,	/* CAN frame modification binary OR */
 	CGW_MOD_XOR,	/* CAN frame modification binary XOR */
 	CGW_MOD_SET,	/* CAN frame modification set alternate values */
+	CGW_HANDLED,	/* number of handled CAN frames */
+	CGW_DROPPED,	/* number of dropped CAN frames */
 	__CGW_MAX
 };
 
