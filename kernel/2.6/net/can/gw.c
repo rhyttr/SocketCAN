@@ -568,6 +568,22 @@ fail:
 	return err;
 }
 
+static void gw_remove_all_jobs(void)
+{
+	struct gw_job *gwj = NULL;
+	struct hlist_node *n, *nx;
+
+	spin_lock(&can_gw_list_lock);
+
+	hlist_for_each_entry_safe(gwj, n, nx, &can_gw_list, list) {
+		hlist_del(&gwj->list);
+		can_gw_unregister_filter(gwj);
+		kfree(gwj);
+	}
+
+	spin_unlock(&can_gw_list_lock);
+}
+
 static int gw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 {
 	struct gw_job *gwj = NULL;
@@ -583,6 +599,12 @@ static int gw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
         r = nlmsg_data(nlh);
         if (r->can_family != AF_CAN)
                 return -EPFNOSUPPORT;
+
+	/* if_index set to 0 => remove all entries */
+	if (!r->src_ifindex && !r->dst_ifindex) {
+		gw_remove_all_jobs();
+		return 0;
+	}
 
 	if (r->can_txflags & CAN_GW_TXFLAGS_ECHO)
 		flags |= CAN_TX_ECHO;
@@ -654,22 +676,11 @@ static __init int gw_module_init(void)
 
 static __exit void gw_module_exit(void)
 {
-	struct gw_job *gwj = NULL;
-	struct hlist_node *n, *nx;
-
 	rtnl_unregister_all(PF_CAN);
 
 	unregister_netdevice_notifier(&notifier);
 
-	spin_lock(&can_gw_list_lock);
-
-	hlist_for_each_entry_safe(gwj, n, nx, &can_gw_list, list) {
-		hlist_del(&gwj->list);
-		can_gw_unregister_filter(gwj);
-		kfree(gwj);
-	}
-
-	spin_unlock(&can_gw_list_lock);
+	gw_remove_all_jobs();
 
 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
 
