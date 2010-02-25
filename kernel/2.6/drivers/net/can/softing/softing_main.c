@@ -427,7 +427,6 @@ static int netdev_open(struct net_device *ndev)
 	ret = softing_cycle(card, priv, 1);
 	if (ret)
 		goto failed;
-	netif_start_queue(ndev);
 	return 0;
 failed:
 	return ret;
@@ -478,12 +477,11 @@ int softing_card_irq(struct softing *card, int enable)
 	}
 	if (!card->irq.requested && (card->irq.nr)) {
 		irqreturn_t(*fn) (int, void *);
-		unsigned int flags;
-		flags = IRQF_DISABLED | IRQF_SHARED;/*| IRQF_TRIGGER_LOW; */
 		fn = dev_interrupt_nshared;
 		if (card->desc->generation >= 2)
 			fn = dev_interrupt_shared;
-		ret = request_irq(card->irq.nr, fn, flags, card->id.name, card);
+		ret = request_irq(card->irq.nr, fn, IRQF_SHARED,
+				card->id.name, card);
 		if (ret) {
 			dev_alert(card->dev, "%s, request_irq(%u) failed\n",
 				card->id.name, card->irq.nr);

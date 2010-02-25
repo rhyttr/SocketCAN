@@ -356,21 +356,26 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 		csdev->win.Base = mem->win[0].host_addr;
 		csdev->win.Size = mem->win[0].len;
 		csdev->win.AccessSpeed = 0;
-		ret = pcmcia_request_window(&pdev, &csdev->win, &pdev->win);
+		/* softing specific: choose slower access for old cards */
+		if (sdev->desc->generation < 2) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)
+			pdev->win->ctl.flags
+				= MAP_ACTIVE | MAP_USE_WAIT;
+			pdev->win->ctl.speed = 3;
+#else
+			csdev->win.Attributes |= WIN_USE_WAIT;
+			csdev->win.AccessSpeed = 3;
+#endif
+		}
+		ret = pcmcia_request_window(pdev, &csdev->win, &pdev->win);
 		if (ret) {
 			dev_alert(&pdev->dev,
 				"pcmcia_request_window() mismatch\n");
 			goto do_next;
 		}
-		/* softing specific: choose slower access for old cards */
-		if (sdev->desc->generation < 2) {
-			pdev->win->ctl.flags
-				= MAP_ACTIVE | MAP_USE_WAIT;
-			pdev->win->ctl.speed = 3;
-		}
 		map.Page = 0;
 		map.CardOffset = mem->win[0].card_addr;
-		if (pcmcia_map_mem_page(pdev->win, &map)) {
+		if (pcmcia_map_mem_page(pdev, pdev->win, &map)) {
 			dev_alert(&pdev->dev,
 				"pcmcia_map_mem_page() mismatch\n");
 			goto do_next_win;
@@ -435,7 +440,9 @@ static int __devinit driver_probe(struct pcmcia_device *pcmcia)
 	card->nbus = 2;
 	/* pcmcia presets */
 	pcmcia->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)
 	pcmcia->irq.IRQInfo1 = IRQ_LEVEL_ID;
+#endif
 	pcmcia->irq.Handler	= 0;
 	pcmcia->conf.Attributes = 0;
 	pcmcia->conf.IntType = INT_MEMORY_AND_IO;

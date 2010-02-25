@@ -597,13 +597,6 @@ int softing_cycle(struct softing *card, struct softing_priv *bus, int up)
 
 	softing_initialize_timestamp(card);
 
-	/*run once */
-	/*the bottom halve will start flushing the tx-queue too */
-	/*tasklet_schedule(&card->irq.bh);*/
-	ret = softing_card_irq(card, 1);
-	if (ret)
-		goto failed;
-
 	/*
 	 * do socketcan notifications/status changes
 	 * from here, no errors should occur, or the failed: part
@@ -627,6 +620,11 @@ int softing_cycle(struct softing *card, struct softing_priv *bus, int up)
 		}
 		netif_wake_queue(pbus->netdev);
 	}
+
+	/* enable interrupts */
+	ret = softing_card_irq(card, 1);
+	if (ret)
+		goto failed;
 card_done:
 	mutex_unlock(&card->fw.lock);
 	return 0;
