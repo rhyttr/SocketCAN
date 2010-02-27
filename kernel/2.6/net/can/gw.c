@@ -117,45 +117,45 @@ struct gw_job {
 	};
 };
 
-/* content of u32 gwjob.flags */
+/* content of u32 gw_job.flags */
 #define CAN_TX_ECHO 0x00000001
 #define CAN_TX_SRC_TSTAMP 0x00000002
 
 /* modification functions that are invoked in the hot path in gw_rcv */
-void mod_and_id (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_and_id (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_id &= mod->modframe.and.can_id;
 }
-void mod_and_dlc (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_and_dlc (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_dlc &= mod->modframe.and.can_dlc;
 }
-void mod_and_data (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_and_data (struct can_frame *cf, struct can_can_gw *mod) {
 	*(u64 *)cf->data &= *(u64 *)mod->modframe.and.data;
 }
-void mod_or_id (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_or_id (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_id |= mod->modframe.or.can_id;
 }
-void mod_or_dlc (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_or_dlc (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_dlc |= mod->modframe.or.can_dlc;
 }
-void mod_or_data (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_or_data (struct can_frame *cf, struct can_can_gw *mod) {
 	*(u64 *)cf->data |= *(u64 *)mod->modframe.or.data;
 }
-void mod_xor_id (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_xor_id (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_id ^= mod->modframe.xor.can_id;
 }
-void mod_xor_dlc (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_xor_dlc (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_dlc ^= mod->modframe.xor.can_dlc;
 }
-void mod_xor_data (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_xor_data (struct can_frame *cf, struct can_can_gw *mod) {
 	*(u64 *)cf->data ^= *(u64 *)mod->modframe.xor.data;
 }
-void mod_set_id (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_set_id (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_id = mod->modframe.set.can_id;
 }
-void mod_set_dlc (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_set_dlc (struct can_frame *cf, struct can_can_gw *mod) {
 	cf->can_dlc = mod->modframe.set.can_dlc;
 }
-void mod_set_data (struct can_frame *cf, struct can_can_gw *mod) {
+static void mod_set_data (struct can_frame *cf, struct can_can_gw *mod) {
 	*(u64 *)cf->data = *(u64 *)mod->modframe.set.data;
 }
 
