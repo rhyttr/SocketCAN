@@ -367,7 +367,11 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 			csdev->win.AccessSpeed = 3;
 #endif
 		}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)
+		ret = pcmcia_request_window(&pdev, &csdev->win, &pdev->win);
+#else
 		ret = pcmcia_request_window(pdev, &csdev->win, &pdev->win);
+#endif
 		if (ret) {
 			dev_alert(&pdev->dev,
 				"pcmcia_request_window() mismatch\n");
@@ -375,7 +379,11 @@ static int dev_conf_check(struct pcmcia_device *pdev,
 		}
 		map.Page = 0;
 		map.CardOffset = mem->win[0].card_addr;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)
+		if (pcmcia_map_mem_page(pdev->win, &map)) {
+#else
 		if (pcmcia_map_mem_page(pdev, pdev->win, &map)) {
+#endif
 			dev_alert(&pdev->dev,
 				"pcmcia_map_mem_page() mismatch\n");
 			goto do_next_win;
