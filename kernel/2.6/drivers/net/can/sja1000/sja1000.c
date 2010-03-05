@@ -520,7 +520,7 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
 
 		if (isrc & IRQ_TI) {
 			/* transmission complete interrupt */
-		  	stats->tx_bytes += priv->read_reg(priv, REG_FI) & 0xf;
+			stats->tx_bytes += priv->read_reg(priv, REG_FI) & 0xf;
 			stats->tx_packets++;
 			can_get_echo_skb(dev, 0);
 			netif_wake_queue(dev);
@@ -564,7 +564,7 @@ static int sja1000_open(struct net_device *dev)
 
 	/* register interrupt handler, if not done by the device driver */
 	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
-		err = request_irq(dev->irq, &sja1000_interrupt, priv->irq_flags,
+		err = request_irq(dev->irq, sja1000_interrupt, priv->irq_flags,
 				  dev->name, (void *)dev);
 		if (err) {
 			close_candev(dev);

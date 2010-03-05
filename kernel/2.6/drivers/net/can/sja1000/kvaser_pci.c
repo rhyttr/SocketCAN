@@ -119,7 +119,7 @@ static struct pci_device_id kvaser_pci_tbl[] = {
 #else
 static DEFINE_PCI_DEVICE_TABLE(kvaser_pci_tbl) = {
 #endif
- 	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
+	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
 	{KVASER_PCI_VENDOR_ID2, KVASER_PCI_DEVICE_ID2, PCI_ANY_ID, PCI_ANY_ID,},
 	{ 0,}
 };
