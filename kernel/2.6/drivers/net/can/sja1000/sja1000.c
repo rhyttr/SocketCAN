@@ -307,7 +307,7 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
 
 	priv->write_reg(priv, REG_CMR, CMD_TR);
 
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 static void sja1000_rx(struct net_device *dev)
@@ -638,9 +638,9 @@ EXPORT_SYMBOL_GPL(free_sja1000dev);
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
 static const struct net_device_ops sja1000_netdev_ops = {
-	.ndo_open               = sja1000_open,
-	.ndo_stop               = sja1000_close,
-	.ndo_start_xmit         = sja1000_start_xmit,
+	.ndo_open = sja1000_open,
+	.ndo_stop = sja1000_close,
+	.ndo_start_xmit = sja1000_start_xmit,
 };
 #endif
 
@@ -649,6 +649,7 @@ int register_sja1000dev(struct net_device *dev)
 	if (!sja1000_probe_chip(dev))
 		return -ENODEV;
 
+	dev->flags |= IFF_ECHO;	/* we support local echo */
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
 	dev->netdev_ops = &sja1000_netdev_ops;
 #else
@@ -656,8 +657,6 @@ int register_sja1000dev(struct net_device *dev)
 	dev->stop = sja1000_close;
 	dev->hard_start_xmit = sja1000_start_xmit;
 #endif
-
-	dev->flags |= IFF_ECHO;	/* we support local echo */
 
 	set_reset_mode(dev);
 	chipset_init(dev);
