@@ -31,8 +31,8 @@
 #include <linux/of_platform.h>
 #include <sysdev/fsl_soc.h>
 #endif
+#include <linux/clk.h>
 #include <linux/io.h>
-#include <asm/clk_interface.h>
 #include <asm/mpc52xx.h>
 
 #include "mscan.h"
@@ -88,7 +88,7 @@ static u32 __devinit mpc52xx_can_get_clock(struct of_device *ofdev,
 		return 0;
 
 	if (*mscan_clksrc == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
- 		return freq;
+		return freq;
 
 	/* Determine SYS_XTAL_IN frequency from the clock domain settings */
 	np_cdm = of_find_matching_node(NULL, mpc52xx_cdm_ids);
