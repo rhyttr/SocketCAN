@@ -114,8 +114,12 @@ struct kvaser_pci {
 #define KVASER_PCI_VENDOR_ID2     0x1a07    /* the PCI device and vendor IDs */
 #define KVASER_PCI_DEVICE_ID2     0x0008
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 static struct pci_device_id kvaser_pci_tbl[] = {
-	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
+#else
+static DEFINE_PCI_DEVICE_TABLE(kvaser_pci_tbl) = {
+#endif
+ 	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
 	{KVASER_PCI_VENDOR_ID2, KVASER_PCI_DEVICE_ID2, PCI_ANY_ID, PCI_ANY_ID,},
 	{ 0,}
 };

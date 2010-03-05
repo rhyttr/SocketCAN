@@ -109,8 +109,12 @@ struct ems_pci_card {
 #define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
 #define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 static struct pci_device_id ems_pci_tbl[] = {
-	/* CPC-PCI v1 */
+#else
+static DEFINE_PCI_DEVICE_TABLE(ems_pci_tbl) = {
+#endif
+ 	/* CPC-PCI v1 */
 	{PCI_VENDOR_ID_SIEMENS, 0x2104, PCI_ANY_ID, PCI_ANY_ID,},
 	/* CPC-PCI v2 */
 	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030, PCI_VENDOR_ID_PLX, 0x4000},
