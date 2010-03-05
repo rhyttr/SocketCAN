@@ -28,7 +28,7 @@
 #include <linux/pci.h>
 #include <socketcan/can.h>
 #include <socketcan/can/dev.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 16)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #include <linux/io.h>
 #else
 #include <asm/io.h>
@@ -384,7 +384,7 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
 		card->net_dev[i] = dev;
 		priv = netdev_priv(dev);
 		priv->priv = card;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 		priv->irq_flags = SA_SHIRQ;
 #else
 		priv->irq_flags = IRQF_SHARED;
