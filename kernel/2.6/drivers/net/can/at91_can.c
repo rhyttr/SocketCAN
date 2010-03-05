@@ -355,7 +355,8 @@ static netdev_tx_t at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (unlikely(!(at91_read(priv, AT91_MSR(mb)) & AT91_MSR_MRDY))) {
 		netif_stop_queue(dev);
 
-		dev_err(ND2D(dev), "BUG! TX buffer full when queue awake!\n");
+		dev_err(ND2D(dev),
+			"BUG! TX buffer full when queue awake!\n");
 		return NETDEV_TX_BUSY;
 	}
 
@@ -1055,7 +1056,7 @@ static int __init at91_can_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
-	if (!res || !irq) {
+	if (!res || irq <= 0) {
 		err = -ENODEV;
 		goto exit_put;
 	}
