@@ -122,42 +122,22 @@ struct gw_job {
 #define CAN_TX_SRC_TSTAMP 0x00000002
 
 /* modification functions that are invoked in the hot path in gw_rcv */
-static void mod_and_id (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_id &= mod->modframe.and.can_id;
-}
-static void mod_and_dlc (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_dlc &= mod->modframe.and.can_dlc;
-}
-static void mod_and_data (struct can_frame *cf, struct can_can_gw *mod) {
-	*(u64 *)cf->data &= *(u64 *)mod->modframe.and.data;
-}
-static void mod_or_id (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_id |= mod->modframe.or.can_id;
-}
-static void mod_or_dlc (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_dlc |= mod->modframe.or.can_dlc;
-}
-static void mod_or_data (struct can_frame *cf, struct can_can_gw *mod) {
-	*(u64 *)cf->data |= *(u64 *)mod->modframe.or.data;
-}
-static void mod_xor_id (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_id ^= mod->modframe.xor.can_id;
-}
-static void mod_xor_dlc (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_dlc ^= mod->modframe.xor.can_dlc;
-}
-static void mod_xor_data (struct can_frame *cf, struct can_can_gw *mod) {
-	*(u64 *)cf->data ^= *(u64 *)mod->modframe.xor.data;
-}
-static void mod_set_id (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_id = mod->modframe.set.can_id;
-}
-static void mod_set_dlc (struct can_frame *cf, struct can_can_gw *mod) {
-	cf->can_dlc = mod->modframe.set.can_dlc;
-}
-static void mod_set_data (struct can_frame *cf, struct can_can_gw *mod) {
-	*(u64 *)cf->data = *(u64 *)mod->modframe.set.data;
-}
+
+#define MODFUNC(func, op) static void func (struct can_frame *cf, \
+					    struct can_can_gw *mod) { op ; }
+
+MODFUNC(mod_and_id, cf->can_id &= mod->modframe.and.can_id)
+MODFUNC(mod_and_dlc, cf->can_dlc &= mod->modframe.and.can_dlc)
+MODFUNC(mod_and_data, *(u64 *)cf->data &= *(u64 *)mod->modframe.and.data)
+MODFUNC(mod_or_id, cf->can_id |= mod->modframe.or.can_id)
+MODFUNC(mod_or_dlc, cf->can_dlc |= mod->modframe.or.can_dlc)
+MODFUNC(mod_or_data, *(u64 *)cf->data |= *(u64 *)mod->modframe.or.data)
+MODFUNC(mod_xor_id, cf->can_id ^= mod->modframe.xor.can_id)
+MODFUNC(mod_xor_dlc, cf->can_dlc ^= mod->modframe.xor.can_dlc)
+MODFUNC(mod_xor_data, *(u64 *)cf->data ^= *(u64 *)mod->modframe.xor.data)
+MODFUNC(mod_set_id, cf->can_id = mod->modframe.set.can_id)
+MODFUNC(mod_set_dlc, cf->can_dlc = mod->modframe.set.can_dlc)
+MODFUNC(mod_set_data, *(u64 *)cf->data = *(u64 *)mod->modframe.set.data)
 
 static inline void canframecpy(struct can_frame *dst, struct can_frame *src)
 {
