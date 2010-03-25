@@ -1,10 +1,5 @@
 This is a list of knwon driver issues:
 
-drivers/net/can/at91_can.c:
-  FIXME: bus-off handling
-  FIXME: review non-standard error counting and statistics
-  FIXME: to be tested
-
 drivers/net/can/mcp251x.c:
 
   FIXME: echo support missing (requilred for IFF_ECHO)
@@ -20,10 +15,3 @@ drivers/net/can/softing/softing_main.c:
   FIXME: check softing_flush_echo_skb and bus_off handling.
   FIXME: to be tested
 
-drivers/net/can/mscan/mscan.c:
-  FIXME: don't use netdev->base_addr
-
-drivers/net/can/mscan/mpc52xx_can.c:
-
-  FIXME: add support for the MPC512x as well
-  FIXME: rename mpc52xx to mpc5xxx
