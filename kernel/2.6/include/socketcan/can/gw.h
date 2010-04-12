@@ -77,13 +77,15 @@ struct cgw_csum_xor {
 	__s8 from_idx;
 	__s8 to_idx;
 	__s8 result_idx;
-	__u8 prefix_value;
+	__u8 init_xor_val;
 } __attribute__ ((packed));
 
 struct cgw_csum_crc8 {
 	__s8 from_idx;
 	__s8 to_idx;
 	__s8 result_idx;
+	__u8 init_crc_val;
+	__u8 final_xor_val;
 	__u8 crctab[256];
 } __attribute__ ((packed));
 
@@ -110,14 +112,34 @@ struct cgw_csum_crc8 {
  * <u8> affected CAN frame elements
  *
  * CGW_CS_XOR (length 4 bytes):
- * Set a simple XOR checksum starting with the initial prefix-value into
+ * Set a simple XOR checksum starting with an initial value into
  * data[result-idx] using data[start-idx] .. data[end-idx]
  *
- * CGW_CS_CRC8 (length 259 bytes):
- * Set a CRC8 value into data[result-idx] using a given 256 byte CRC8 table and
- * a defined input data[start-idx] .. data[end-idx]
+ * The XOR checksum is calculated like this:
  *
- * Remark: The attribute data is a linear buffer. Beware of sending structs!
+ * xor = init_xor_val
+ * 
+ * for (i = from_idx .. to_idx)
+ *      xor ^= can_frame.data[i]
+ *
+ * can_frame.data[ result_idx ] = xor
+ *
+ * CGW_CS_CRC8 (length 261 bytes):
+ * Set a CRC8 value into data[result-idx] using a given 256 byte CRC8 table,
+ * a given initial value and a defined input data[start-idx] .. data[end-idx].
+ * Finally the result value is XOR'ed with the final_xor_val.
+ *
+ * The CRC8 checksum is calculated like this:
+ *
+ * crc = init_crc_val
+ * 
+ * for (i = from_idx .. to_idx)
+ *      crc = crctab[ crc ^ can_frame.data[i] ]
+ *
+ * can_frame.data[ result_idx ] = crc ^ final_xor_val
+ *
+ * Remark: In general the attribute data is a linear buffer.
+ *         Beware of sending unpacked or aligned structs!
  */
 
 #endif

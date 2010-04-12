@@ -62,7 +62,7 @@
 #include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define CAN_GW_VERSION "20100410"
+#define CAN_GW_VERSION "20100412"
 static __initdata const char banner[] =
 	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
 
@@ -78,7 +78,6 @@ static struct notifier_block notifier;
 static struct kmem_cache *cgw_cache __read_mostly;
 
 #define CGW_SK_MAGIC ((void *)(&notifier))
-#define CGW_CS_DISABLED 42
 
 /* structure that contains the (on-the-fly) CAN frame modifications */
 struct cf_mod {
@@ -102,6 +101,10 @@ struct cf_mod {
 		struct cgw_csum_xor xor;
 		struct cgw_csum_crc8 crc8;
 	} csum;
+	struct {
+		void (*xor)(struct can_frame *cf, struct cgw_csum_xor *xor);
+		void (*crc8)(struct can_frame *cf, struct cgw_csum_crc8 *crc8);
+	} csumfunc;
 };
 
 
@@ -190,14 +193,100 @@ static int cgw_chk_csum_parms(s8 fr, s8 to, s8 re)
 		return -EINVAL;
 } 
 
-static void cgw_csum_do_xor(struct can_frame *cf, struct cgw_csum_xor *xor)
+static inline int calc_idx(int idx, int rx_dlc)
 {
-	/* TODO: perform checksum update */
+	if (idx < 0)
+		return rx_dlc + idx;
+	else
+		return idx;
 }
 
-static void cgw_csum_do_crc8(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
+static void cgw_csum_xor_rel(struct can_frame *cf, struct cgw_csum_xor *xor)
 {
-	/* TODO: perform checksum update */
+	int from = calc_idx(xor->from_idx, cf->can_dlc);
+	int to = calc_idx(xor->to_idx, cf->can_dlc);
+	int res = calc_idx(xor->result_idx, cf->can_dlc);
+	u8 val = xor->init_xor_val;
+	int i;
+
+	if (from < 0 || to < 0 || res < 0)
+		return;
+
+	if (from <= to) {
+		for (i = from; i <= to; i++)
+			val ^= cf->data[i]; 
+	} else {
+		for (i = from; i >= to; i--)
+			val ^= cf->data[i]; 
+	}
+
+	cf->data[res] = val;
+}
+
+static void cgw_csum_xor_pos(struct can_frame *cf, struct cgw_csum_xor *xor)
+{
+	u8 val = xor->init_xor_val;
+	int i;
+
+	for (i = xor->from_idx; i <= xor->to_idx; i++)
+		val ^= cf->data[i];
+
+	cf->data[xor->result_idx] = val;
+}
+
+static void cgw_csum_xor_neg(struct can_frame *cf, struct cgw_csum_xor *xor)
+{
+	u8 val = xor->init_xor_val;
+	int i;
+
+	for (i = xor->from_idx; i >= xor->to_idx; i--)
+		val ^= cf->data[i];
+
+	cf->data[xor->result_idx] = val;
+}
+
+static void cgw_csum_crc8_rel(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
+{
+	int from = calc_idx(crc8->from_idx, cf->can_dlc);
+	int to = calc_idx(crc8->to_idx, cf->can_dlc);
+	int res = calc_idx(crc8->result_idx, cf->can_dlc);
+	u8 crc = crc8->init_crc_val;
+	int i;
+
+	if (from < 0 || to < 0 || res < 0)
+		return;
+
+	if (from <= to) {
+		for (i = crc8->from_idx; i <= crc8->to_idx; i++)
+			crc = crc8->crctab[crc^cf->data[i]];
+	} else {
+		for (i = crc8->from_idx; i >= crc8->to_idx; i--)
+			crc = crc8->crctab[crc^cf->data[i]];
+	}
+
+	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
+}
+
+static void cgw_csum_crc8_pos(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
+{
+	u8 crc = crc8->init_crc_val;
+	int i;
+
+	for (i = crc8->from_idx; i <= crc8->to_idx; i++)
+		crc = crc8->crctab[crc^cf->data[i]];
+
+	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
+}
+
+static void cgw_csum_crc8_neg(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
+{
+	u8 crc = crc8->init_crc_val;
+	int i;
+
+	for (i = crc8->from_idx; i >= crc8->to_idx; i--)
+		crc = crc8->crctab[crc^cf->data[i]];
+
+	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
 }
 
 /* the receive & process & send function */
@@ -246,11 +335,11 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
 
 	/* check for checksum updates when the CAN frame has been modified */
 	if (modidx) {
-		if (gwj->mod.csum.xor.from_idx != CGW_CS_DISABLED)
-			cgw_csum_do_xor(cf, &gwj->mod.csum.xor);
+		if (gwj->mod.csumfunc.crc8)
+			(*gwj->mod.csumfunc.crc8)(cf, &gwj->mod.csum.crc8);
 
-		if (gwj->mod.csum.crc8.from_idx != CGW_CS_DISABLED)
-			cgw_csum_do_crc8(cf, &gwj->mod.csum.crc8);
+		if (gwj->mod.csumfunc.xor)
+			(*gwj->mod.csumfunc.xor)(cf, &gwj->mod.csum.xor);
 	}
 
 	/* clear the skb timestamp if not configured the other way */
@@ -381,22 +470,22 @@ static int cgw_put_job(struct sk_buff *skb, struct cgw_job *gwj)
 			nlh->nlmsg_len += NLA_HDRLEN + NLA_ALIGN(sizeof(mb));
 	}
 
-	if (gwj->mod.csum.xor.from_idx != CGW_CS_DISABLED) {
-		if (nla_put(skb, CGW_CS_XOR, CGW_CS_XOR_LEN,
-			    &gwj->mod.csum.xor) < 0)
-			goto cancel;
-		else
-			nlh->nlmsg_len += NLA_HDRLEN + \
-				NLA_ALIGN(CGW_CS_XOR_LEN);
-	}
-
-	if (gwj->mod.csum.crc8.from_idx != CGW_CS_DISABLED) {
+	if (gwj->mod.csumfunc.crc8) {
 		if (nla_put(skb, CGW_CS_CRC8, CGW_CS_CRC8_LEN,
 			    &gwj->mod.csum.crc8) < 0)
 			goto cancel;
 		else
 			nlh->nlmsg_len += NLA_HDRLEN + \
 				NLA_ALIGN(CGW_CS_CRC8_LEN);
+	}
+
+	if (gwj->mod.csumfunc.xor) {
+		if (nla_put(skb, CGW_CS_XOR, CGW_CS_XOR_LEN,
+			    &gwj->mod.csum.xor) < 0)
+			goto cancel;
+		else
+			nlh->nlmsg_len += NLA_HDRLEN + \
+				NLA_ALIGN(CGW_CS_XOR_LEN);
 	}
 
 	if (gwj->gwtype == CGW_TYPE_CAN_CAN) {
@@ -464,8 +553,6 @@ static int cgw_parse_attr(struct nlmsghdr *nlh, struct cf_mod *mod,
 
 	/* initialize modification & checksum data space */
 	memset(mod, 0, sizeof(*mod)); 
-	mod->csum.xor.from_idx = CGW_CS_DISABLED;
-	mod->csum.crc8.from_idx = CGW_CS_DISABLED;
 
 	err = nlmsg_parse(nlh, sizeof(struct rtcanmsg), tb, CGW_MAX, NULL);
 	if (err < 0)
@@ -544,26 +631,58 @@ static int cgw_parse_attr(struct nlmsghdr *nlh, struct cf_mod *mod,
 	/* check for checksum operations after CAN frame modifications */
 	if (modidx) {
 
-		if (tb[CGW_CS_XOR] &&
-		    nla_len(tb[CGW_CS_XOR]) == CGW_CS_XOR_LEN) {
-			nla_memcpy(&mod->csum.xor, tb[CGW_CS_XOR],
-				   CGW_CS_XOR_LEN);
-			err = cgw_chk_csum_parms(mod->csum.xor.from_idx,
-						 mod->csum.xor.to_idx,
-						 mod->csum.xor.result_idx);
-			if (err)
-				return err;
-		}
-
 		if (tb[CGW_CS_CRC8] &&
 		    nla_len(tb[CGW_CS_CRC8]) == CGW_CS_CRC8_LEN) {
-			nla_memcpy(&mod->csum.crc8, tb[CGW_CS_CRC8],
-				   CGW_CS_CRC8_LEN);
-			err = cgw_chk_csum_parms(mod->csum.crc8.from_idx,
-						 mod->csum.crc8.to_idx,
-						 mod->csum.crc8.result_idx);
+
+			struct cgw_csum_crc8 *c = (struct cgw_csum_crc8 *)\
+				nla_data(tb[CGW_CS_CRC8]);
+
+			err = cgw_chk_csum_parms(c->from_idx, c->to_idx,
+						 c->result_idx);
 			if (err)
 				return err;
+
+			nla_memcpy(&mod->csum.crc8, tb[CGW_CS_CRC8],
+				   CGW_CS_CRC8_LEN);
+
+			/*
+			 * select dedicated processing function to reduce
+			 * runtime operations in receive hot path.
+			 */
+			if (c->from_idx < 0 || c->to_idx < 0 ||
+			    c->result_idx < 0)
+				mod->csumfunc.crc8 = cgw_csum_crc8_rel;
+			else if (c->from_idx <= c->to_idx)
+				mod->csumfunc.crc8 = cgw_csum_crc8_pos;
+			else
+				mod->csumfunc.crc8 = cgw_csum_crc8_neg;
+		}
+
+		if (tb[CGW_CS_XOR] &&
+		    nla_len(tb[CGW_CS_XOR]) == CGW_CS_XOR_LEN) {
+
+			struct cgw_csum_xor *c = (struct cgw_csum_xor *)\
+				nla_data(tb[CGW_CS_XOR]);
+
+			err = cgw_chk_csum_parms(c->from_idx, c->to_idx,
+						 c->result_idx);
+			if (err)
+				return err;
+
+			nla_memcpy(&mod->csum.xor, tb[CGW_CS_XOR],
+				   CGW_CS_XOR_LEN);
+
+			/*
+			 * select dedicated processing function to reduce
+			 * runtime operations in receive hot path.
+			 */
+			if (c->from_idx < 0 || c->to_idx < 0 ||
+			    c->result_idx < 0)
+				mod->csumfunc.xor = cgw_csum_xor_rel;
+			else if (c->from_idx <= c->to_idx)
+				mod->csumfunc.xor = cgw_csum_xor_pos;
+			else
+				mod->csumfunc.xor = cgw_csum_xor_neg;
 		}
 	}
 
