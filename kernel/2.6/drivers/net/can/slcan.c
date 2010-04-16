@@ -124,7 +124,6 @@ module_param(debug, int, S_IRUGO);
  * to use the slcan driver with an existing kernel.
  */
 
-#define SLC_CHECK_TRANSMIT
 #define SLCAN_MAGIC 0x53CA
 
 static int maxdev = 10;		/* MAX number of SLCAN channels;
@@ -387,9 +386,6 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 #else
 	actual = sl->tty->ops->write(sl->tty, sl->xbuff, strlen(sl->xbuff));
 #endif
-#ifdef SLC_CHECK_TRANSMIT
-	sl->dev->trans_start = jiffies;
-#endif
 	sl->xleft = strlen(sl->xbuff) - actual;
 	sl->xhead = sl->xbuff + actual;
 	stats->tx_bytes += cf->can_dlc;
@@ -429,40 +425,6 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 #endif
 	sl->xleft -= actual;
 	sl->xhead += actual;
-}
-
-static void slc_tx_timeout(struct net_device *dev)
-{
-	struct slcan *sl = netdev_priv(dev);
-
-	spin_lock(&sl->lock);
-
-	if (netif_queue_stopped(dev)) {
-		if (!netif_running(dev))
-			goto out;
-
-		/* May be we must check transmitter timeout here ?
-		 *      14 Oct 1994 Dmitry Gorodchanin.
-		 */
-#ifdef SLC_CHECK_TRANSMIT
-		if (time_before(jiffies, dev->trans_start + 20 * HZ))  {
-			/* 20 sec timeout not reached */
-			goto out;
-		}
-		printk(KERN_WARNING "%s: transmit timed out, %s?\n", dev->name,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
-		       (sl->tty->driver->chars_in_buffer(sl->tty) || sl->xleft)
-#else
-		       (tty_chars_in_buffer(sl->tty) || sl->xleft)
-#endif
-		       ? "bad line quality" : "driver error");
-		sl->xleft = 0;
-		sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
-		netif_wake_queue(sl->dev);
-#endif
-	}
-out:
-	spin_unlock(&sl->lock);
 }
 
 
@@ -554,9 +516,6 @@ static const struct net_device_ops slc_netdev_ops = {
 	.ndo_open               = slc_open,
 	.ndo_stop               = slc_close,
 	.ndo_start_xmit         = slc_xmit,
-#ifdef SLC_CHECK_TRANSMIT
-	.ndo_tx_timeout		= slc_tx_timeout,
-#endif
 };
 #endif
 
@@ -585,12 +544,6 @@ static void slc_setup(struct net_device *dev)
 
 	dev->mtu		= sizeof(struct can_frame);
 	dev->type		= ARPHRD_CAN;
-#ifdef SLC_CHECK_TRANSMIT
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,28)
-	dev->tx_timeout		= slc_tx_timeout;
-#endif
-	dev->watchdog_timeo	= 20*HZ;
-#endif
 
 	/* New-style flags. */
 	dev->flags		= IFF_NOARP;
