@@ -87,11 +87,24 @@ struct cgw_csum_crc8 {
 	__u8 init_crc_val;
 	__u8 final_xor_val;
 	__u8 crctab[256];
+	__u8 profile;
+	__u8 profile_data[20];
 } __attribute__ ((packed));
 
 /* length of checksum operation parameters. idx = index in CAN frame data[] */
 #define CGW_CS_XOR_LEN  sizeof(struct cgw_csum_xor)
 #define CGW_CS_CRC8_LEN  sizeof(struct cgw_csum_crc8)
+
+/* CRC8 profiles (compute CRC for additional data elements - see below) */
+enum {
+	CGW_CRC8PRF_UNSPEC,
+	CGW_CRC8PRF_1U8,	/* compute one additional u8 value */
+	CGW_CRC8PRF_16U8,	/* u8 value table indexed by data[1] & 0xF */
+	CGW_CRC8PRF_SFFID_XOR,	/* (can_id & 0xFF) ^ (can_id >> 8 & 0xFF) */
+	__CGW_CRC8PRF_MAX
+};
+
+#define CGW_CRC8PRF_MAX (__CGW_CRC8PRF_MAX - 1)
 
 /*
  * CAN rtnetlink attribute contents in detail
@@ -124,7 +137,7 @@ struct cgw_csum_crc8 {
  *
  * can_frame.data[ result_idx ] = xor
  *
- * CGW_CS_CRC8 (length 261 bytes):
+ * CGW_CS_CRC8 (length 282 bytes):
  * Set a CRC8 value into data[result-idx] using a given 256 byte CRC8 table,
  * a given initial value and a defined input data[start-idx] .. data[end-idx].
  * Finally the result value is XOR'ed with the final_xor_val.
@@ -137,6 +150,13 @@ struct cgw_csum_crc8 {
  *      crc = crctab[ crc ^ can_frame.data[i] ]
  *
  * can_frame.data[ result_idx ] = crc ^ final_xor_val
+ *
+ * The calculated CRC may contain additional source data elements that can be
+ * defined in the handling of 'checksum profiles' e.g. shown in AUTOSAR specs
+ * like http://www.autosar.org/download/R4.0/AUTOSAR_SWS_E2ELibrary.pdf
+ * E.g. the profile_data[] may contain additional u8 values (called DATA_IDs)
+ * that are used depending on counter values inside the CAN frame data[].
+ * So far only three profiles have been implemented for illustration.
  *
  * Remark: In general the attribute data is a linear buffer.
  *         Beware of sending unpacked or aligned structs!

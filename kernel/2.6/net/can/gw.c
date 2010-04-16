@@ -264,6 +264,23 @@ static void cgw_csum_crc8_rel(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
 			crc = crc8->crctab[crc^cf->data[i]];
 	}
 
+	switch (crc8->profile) {
+
+	case CGW_CRC8PRF_1U8:
+		crc = crc8->crctab[crc^crc8->profile_data[0]];
+		break;
+
+	case  CGW_CRC8PRF_16U8:
+		crc = crc8->crctab[crc^crc8->profile_data[cf->data[1] & 0xF]];
+		break;
+
+	case CGW_CRC8PRF_SFFID_XOR:
+		crc = crc8->crctab[crc^(cf->can_id & 0xFF)^
+				   (cf->can_id >> 8 & 0xFF)];
+		break;
+
+	}
+
 	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
 }
 
@@ -275,6 +292,22 @@ static void cgw_csum_crc8_pos(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
 	for (i = crc8->from_idx; i <= crc8->to_idx; i++)
 		crc = crc8->crctab[crc^cf->data[i]];
 
+	switch (crc8->profile) {
+
+	case CGW_CRC8PRF_1U8:
+		crc = crc8->crctab[crc^crc8->profile_data[0]];
+		break;
+
+	case  CGW_CRC8PRF_16U8:
+		crc = crc8->crctab[crc^crc8->profile_data[cf->data[1] & 0xF]];
+		break;
+
+	case CGW_CRC8PRF_SFFID_XOR:
+		crc = crc8->crctab[crc^(cf->can_id & 0xFF)^
+				   (cf->can_id >> 8 & 0xFF)];
+		break;
+	}
+
 	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
 }
 
@@ -285,6 +318,22 @@ static void cgw_csum_crc8_neg(struct can_frame *cf, struct cgw_csum_crc8 *crc8)
 
 	for (i = crc8->from_idx; i >= crc8->to_idx; i--)
 		crc = crc8->crctab[crc^cf->data[i]];
+
+	switch (crc8->profile) {
+
+	case CGW_CRC8PRF_1U8:
+		crc = crc8->crctab[crc^crc8->profile_data[0]];
+		break;
+
+	case  CGW_CRC8PRF_16U8:
+		crc = crc8->crctab[crc^crc8->profile_data[cf->data[1] & 0xF]];
+		break;
+
+	case CGW_CRC8PRF_SFFID_XOR:
+		crc = crc8->crctab[crc^(cf->can_id & 0xFF)^
+				   (cf->can_id >> 8 & 0xFF)];
+		break;
+	}
 
 	cf->data[crc8->result_idx] = crc^crc8->final_xor_val;
 }
