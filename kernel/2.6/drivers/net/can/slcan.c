@@ -623,7 +623,7 @@ static void slc_sync(void)
 
 
 /* Find a free SLCAN channel, and link in this `tty' line. */
-static struct slcan *slc_alloc(dev_t line)
+static struct slcan *slc_alloc(dev_t line, char forcednum)
 {
 	int i;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
@@ -680,10 +680,18 @@ static struct slcan *slc_alloc(dev_t line)
 		}
 	}
 
+	/* Check if the user specified an exact interface to use */
+	if (forcednum) {
+		sel = forcednum - '0';
+		score = 0;
+		i = sel;
+		dev = slcan_devs[i];
+	}
+
 	if (sel >= 0) {
 		i = sel;
 		dev = slcan_devs[i];
-		if (score > 1) {
+		if ((score > 1) && (dev)) {
 			sl = netdev_priv(dev);
 			sl->flags &= (1 << SLF_INUSE);
 			return sl;
@@ -766,7 +774,21 @@ static int slcan_open(struct tty_struct *tty)
 
 	/* OK.  Find a free SLCAN channel to use. */
 	err = -ENFILE;
-	sl = slc_alloc(tty_devnum(tty));
+
+	/* Look to see if the user has requested a specific channel
+	 * to be used (encoded as '0' plus the interface number requested in
+	 * the otherwise unused swtch termios variable )
+	 * stty swtch 'channel' device
+	 *  where 'channel' is '0' to maxdevs (0)
+	 *  where device is the name of the serial device (/dev/ttyUSB0)
+	 */
+	if ((SWTC_CHAR(tty)>='0') && (SWTC_CHAR(tty)<'0'+maxdev)){
+		sl = slc_alloc(tty_devnum(tty),SWTC_CHAR(tty));
+	} else {
+		/* OK.  Find a free SLCAN channel to use. */
+		sl = slc_alloc(tty_devnum(tty),0);
+	}
+
 	if (sl == NULL)
 		goto err_exit;
 
