@@ -706,7 +706,7 @@ static struct slcan *slc_alloc(dev_t line)
 
 	if (!dev) {
 		char name[IFNAMSIZ];
-		sprintf(name, "slc%d", i);
+		sprintf(name, "can%d", i);
 
 		dev = alloc_netdev(sizeof(*sl), name, slc_setup);
 		if (!dev)
