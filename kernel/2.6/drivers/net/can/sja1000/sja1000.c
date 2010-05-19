@@ -90,23 +90,16 @@ static struct can_bittiming_const sja1000_bittiming_const = {
 
 static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
 {
-	/* the command register needs some locking on SMP systems */
-
-#ifdef CONFIG_SMP
-
 	unsigned long flags;
 
+	/*
+	 * The command register needs some locking and time to settle
+	 * the write_reg() operation - especially on SMP systems.
+	 */
 	spin_lock_irqsave(&priv->cmdreg_lock, flags);
 	priv->write_reg(priv, REG_CMR, val);
 	priv->read_reg(priv, REG_SR);
 	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
-
-#else
-
-	/* write to the command register without locking */
-	priv->write_reg(priv, REG_CMR, val);
-
-#endif
 }
 
 static int sja1000_probe_chip(struct net_device *dev)
@@ -643,6 +636,8 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
 	priv->can.do_get_berr_counter = sja1000_get_berr_counter;
 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
 		CAN_CTRLMODE_BERR_REPORTING;
+
+	spin_lock_init(&priv->cmdreg_lock);
 
 	if (sizeof_priv)
 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
