@@ -43,8 +43,8 @@
 #endif
 
 MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
-MODULE_DESCRIPTION("Socket-CAN driver for PEAK PCAN PCI cards");
-MODULE_SUPPORTED_DEVICE("PEAK PCAN PCI CAN card");
+MODULE_DESCRIPTION("Socket-CAN driver for PEAK PCAN PCI/PCIe cards");
+MODULE_SUPPORTED_DEVICE("PEAK PCAN PCI/PCIe CAN card");
 MODULE_LICENSE("GPL v2");
 
 struct peak_pci {
@@ -77,10 +77,14 @@ struct peak_pci {
 #define PCI_PORT_SIZE        0x0400	/* size of a channel io-memory */
 
 #define PEAK_PCI_VENDOR_ID   0x001C	/* the PCI device and vendor IDs */
-#define PEAK_PCI_DEVICE_ID   0x0001
+#define PEAK_PCI_DEVICE_ID   0x0001	/* PCAN PCI and PCIe slot cards */
+#define PEAK_PCIE_CARD_ID    0x0002	/* PCAN ExpressCard */
+
+/* TODO: Add LED Status support for PCAN ExpressCard */
 
 static struct pci_device_id peak_pci_tbl[] = {
 	{PEAK_PCI_VENDOR_ID, PEAK_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_CARD_ID, PCI_ANY_ID, PCI_ANY_ID,},
 	{0,}
 };
 
