@@ -25,6 +25,7 @@ This file contains
     4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
     4.3 connected transport protocols (SOCK_SEQPACKET)
     4.4 unconnected transport protocols (SOCK_DGRAM)
+    4.5 Timestamps
 
   5 Socket CAN core module
     5.1 can.ko module params
@@ -334,7 +335,7 @@ solution for a couple of reasons:
             return 1;
     }
 
-    /* paraniod check ... */
+    /* paranoid check ... */
     if (nbytes < sizeof(struct can_frame)) {
             fprintf(stderr, "read: incomplete CAN frame\n");
             return 1;
@@ -475,6 +476,27 @@ solution for a couple of reasons:
   4.3 connected transport protocols (SOCK_SEQPACKET)
   4.4 unconnected transport protocols (SOCK_DGRAM)
 
+  4.5 Timestamps
+  
+  For applications in the CAN environment it is often of interest an
+  accurate timestamp of the instant a message from CAN bus has been received.
+  Such a timestamp can be read with ioctl(2) after reading a message from
+  the socket. Example:
+
+    struct timeval tv;
+    ioctl(s, SIOCGSTAMP, &tv);
+
+  The timestamp on Linux has a resolution of one microsecond and it is set
+  automatically at the reception of a CAN frame.
+
+  Alternatively the timestamp can be obtained as a control message (cmsg) using
+  the recvmsg() system call. After enabling the timestamps in the cmsg's by
+
+    const int timestamp = 1;
+    setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &timestamp, sizeof(timestamp));  
+
+  the data structures filled by recvmsg() need to be parsed for
+  cmsg->cmsg_type == SO_TIMESTAMP to get the timestamp. See cmsg() manpage.
 
 5. Socket CAN core module
 -------------------------
