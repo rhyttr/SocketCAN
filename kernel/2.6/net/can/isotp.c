@@ -132,10 +132,13 @@ struct isotp_sock {
 	canid_t txid;
 	canid_t rxid;
 	ktime_t tx_gap;
+	ktime_t last_cf_tstamp;
 	struct hrtimer rxtimer, txtimer;
 	struct tasklet_struct txtsklet;
 	struct can_isotp_options opt;
 	struct can_isotp_fc_options rxfc, txfc;
+	__u32 force_tx_stmin;
+	__u32 force_rx_stmin;
 	struct tpcon rx, tx;
 	struct notifier_block notifier;
 	wait_queue_head_t wait;
@@ -276,11 +279,17 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct can_frame *cf, int ae)
 		    ((so->txfc.stmin < 0xF1) || (so->txfc.stmin > 0xF9)))
 			so->txfc.stmin = 0x7F;
 
+		/* reset CF frame rx timestamp for rx stmin enforcement */
+		so->last_cf_tstamp = ktime_set(0,0);
+
 		so->tx_gap = ktime_set(0,0);
 		/* add transmission time for CAN frame N_As */
 		so->tx_gap = ktime_add_ns(so->tx_gap, so->opt.frame_txtime);
 		/* add waiting time for consecutive frames N_Cs */
-		if (so->txfc.stmin < 0x80)
+		if (so->opt.flags & CAN_ISOTP_FORCE_TXSTMIN) 
+			so->tx_gap = ktime_add_ns(so->tx_gap,
+						  so->force_tx_stmin);
+		else if (so->txfc.stmin < 0x80)
 			so->tx_gap = ktime_add_ns(so->tx_gap,
 						  so->txfc.stmin * 1000000);
 		else
@@ -396,6 +405,16 @@ static int isotp_rcv_cf(struct sock *sk, struct can_frame *cf, int ae,
 
 	if (so->rx.state != ISOTP_WAIT_DATA)
 		return 0;
+
+	/* drop if timestamp gap is less than force_rx_stmin nano secs */
+	if (so->opt.flags & CAN_ISOTP_FORCE_RXSTMIN) {
+
+		if (ktime_to_ns(ktime_sub(skb->tstamp, so->last_cf_tstamp)) <
+		    so->force_rx_stmin)
+			return 0;
+
+		so->last_cf_tstamp = skb->tstamp; 
+	}
 
 	hrtimer_cancel(&so->rxtimer);
 
@@ -950,6 +969,22 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 			return -EFAULT;
 		break;
 
+	case CAN_ISOTP_TX_STMIN:
+		if (optlen != sizeof(__u32))
+			return -EINVAL;
+
+		if (copy_from_user(&so->force_tx_stmin, optval, optlen))
+			return -EFAULT;
+		break;
+
+	case CAN_ISOTP_RX_STMIN:
+		if (optlen != sizeof(__u32))
+			return -EINVAL;
+
+		if (copy_from_user(&so->force_rx_stmin, optval, optlen))
+			return -EFAULT;
+		break;
+
 	default:
 		ret = -ENOPROTOOPT;
 	}
@@ -982,6 +1017,16 @@ static int isotp_getsockopt(struct socket *sock, int level, int optname,
 	case CAN_ISOTP_RECV_FC:
 		len = min_t(int, len, sizeof(struct can_isotp_fc_options));
 		val = &so->rxfc;
+		break;
+
+	case CAN_ISOTP_TX_STMIN:
+		len = min_t(int, len, sizeof(__u32));
+		val = &so->force_tx_stmin;
+		break;
+
+	case CAN_ISOTP_RX_STMIN:
+		len = min_t(int, len, sizeof(__u32));
+		val = &so->force_rx_stmin;
 		break;
 
 	default:

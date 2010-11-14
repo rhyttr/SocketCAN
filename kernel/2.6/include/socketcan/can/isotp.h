@@ -22,8 +22,19 @@
 
 /* for socket options affecting the socket (not the global system) */
 
-#define CAN_ISOTP_OPTS		1
-#define CAN_ISOTP_RECV_FC	2
+#define CAN_ISOTP_OPTS		1	/* pass struct can_isotp_options */
+
+#define CAN_ISOTP_RECV_FC	2	/* pass struct can_isotp_fc_options */
+
+/* sockopts to force stmin timer values for protocol regression tests */
+
+#define CAN_ISOTP_TX_STMIN	3	/* pass __u32 value in nano secs    */
+					/* use this time instead of value   */
+					/* provided in FC from the receiver */
+
+#define CAN_ISOTP_RX_STMIN	4	/* pass __u32 value in nano secs   */
+					/* ignore received CF frames which */
+					/* timestamps differ less than val */
 
 struct can_isotp_options {
 
@@ -62,13 +73,15 @@ struct can_isotp_fc_options {
 
 /* flags for isotp behaviour */
 
-#define CAN_ISOTP_LISTEN_MODE	0x01	/* listen only (do not send FC) */
-#define CAN_ISOTP_EXTEND_ADDR	0x02	/* enable extended addressing */
-#define CAN_ISOTP_TX_PADDING	0x04	/* enable CAN frame padding tx path */
-#define CAN_ISOTP_RX_PADDING	0x08	/* enable CAN frame padding rx path */
-#define CAN_ISOTP_CHK_PAD_LEN	0x10	/* check received CAN frame padding */
-#define CAN_ISOTP_CHK_PAD_DATA	0x20	/* check received CAN frame padding */
-#define CAN_ISOTP_HALF_DUPLEX	0x40	/* half duplex error state handling */
+#define CAN_ISOTP_LISTEN_MODE	0x001	/* listen only (do not send FC) */
+#define CAN_ISOTP_EXTEND_ADDR	0x002	/* enable extended addressing */
+#define CAN_ISOTP_TX_PADDING	0x004	/* enable CAN frame padding tx path */
+#define CAN_ISOTP_RX_PADDING	0x008	/* enable CAN frame padding rx path */
+#define CAN_ISOTP_CHK_PAD_LEN	0x010	/* check received CAN frame padding */
+#define CAN_ISOTP_CHK_PAD_DATA	0x020	/* check received CAN frame padding */
+#define CAN_ISOTP_HALF_DUPLEX	0x040	/* half duplex error state handling */
+#define CAN_ISOTP_FORCE_TXSTMIN	0x080	/* ignore stmin from received FC */
+#define CAN_ISOTP_FORCE_RXSTMIN	0x100	/* ignore CFs depending on rx stmin */
 
 
 /* default values */
