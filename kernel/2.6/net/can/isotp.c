@@ -132,7 +132,7 @@ struct isotp_sock {
 	canid_t txid;
 	canid_t rxid;
 	ktime_t tx_gap;
-	ktime_t last_cf_tstamp;
+	ktime_t lastrxcf_tstamp;
 	struct hrtimer rxtimer, txtimer;
 	struct tasklet_struct txtsklet;
 	struct can_isotp_options opt;
@@ -214,6 +214,9 @@ static int isotp_send_fc(struct sock *sk, int ae)
 	/* reset blocksize counter */
 	so->rx.bs = 0;
 
+	/* reset last CF frame rx timestamp for rx stmin enforcement */
+	so->lastrxcf_tstamp = ktime_set(0,0);
+
 	/* start rx timeout watchdog */
 	hrtimer_start(&so->rxtimer, ktime_set(1,0), HRTIMER_MODE_REL);
 	return 0;
@@ -278,9 +281,6 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct can_frame *cf, int ae)
 		if ((so->txfc.stmin > 0x7F) && 
 		    ((so->txfc.stmin < 0xF1) || (so->txfc.stmin > 0xF9)))
 			so->txfc.stmin = 0x7F;
-
-		/* reset CF frame rx timestamp for rx stmin enforcement */
-		so->last_cf_tstamp = ktime_set(0,0);
 
 		so->tx_gap = ktime_set(0,0);
 		/* add transmission time for CAN frame N_As */
@@ -409,11 +409,11 @@ static int isotp_rcv_cf(struct sock *sk, struct can_frame *cf, int ae,
 	/* drop if timestamp gap is less than force_rx_stmin nano secs */
 	if (so->opt.flags & CAN_ISOTP_FORCE_RXSTMIN) {
 
-		if (ktime_to_ns(ktime_sub(skb->tstamp, so->last_cf_tstamp)) <
+		if (ktime_to_ns(ktime_sub(skb->tstamp, so->lastrxcf_tstamp)) <
 		    so->force_rx_stmin)
 			return 0;
 
-		so->last_cf_tstamp = skb->tstamp; 
+		so->lastrxcf_tstamp = skb->tstamp; 
 	}
 
 	hrtimer_cancel(&so->rxtimer);
