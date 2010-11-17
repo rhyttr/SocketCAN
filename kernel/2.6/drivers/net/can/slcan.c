@@ -80,16 +80,6 @@ MODULE_DESCRIPTION("serial line CAN interface");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 
-#ifdef CONFIG_CAN_DEBUG_DEVICES
-static int debug;
-module_param(debug, int, S_IRUGO);
-#define DBG(args...)       (debug & 1 ? \
-			       (printk(KERN_DEBUG "slcan %s: ", __func__), \
-				printk(args)) : 0)
-#else
-#define DBG(args...)
-#endif
-
 #ifndef N_SLCAN
 #error Your kernel does not support tty line discipline N_SLCAN
 #endif
@@ -360,8 +350,6 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 
 	for (i = 0; i < cf->can_dlc; i++)
 		sprintf(&sl->xbuff[idx + 2*i], "%02X", cf->data[i]);
-
-	DBG("ASCII frame = '%s'\n", sl->xbuff);
 
 	strcat(sl->xbuff, "\r"); /* add terminating character */
 
