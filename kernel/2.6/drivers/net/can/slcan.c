@@ -3,16 +3,9 @@
  *
  * This file is derived from linux/drivers/net/slip.c
  *
- * Therefore it has the same (strange?) behaviour not to unregister the
- * netdevice when detaching the tty. Is there any better solution?
- *
- * Do not try to attach, detach and re-attach a tty for this reason ...
- *
  * slip.c Authors  : Laurence Culhane <loz@holmes.demon.co.uk>
  *                   Fred N. van Kempen <waltje@uwalt.nl.mugnet.org>
- * slcan.c Author  : Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
- *
- * Copyright (c) 2007-2009 Volkswagen Group Electronic Research
+ * slcan.c Author  : Oliver Hartkopp <socketcan@hartkopp.net>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -85,7 +78,7 @@ static __initdata const char banner[] =
 MODULE_ALIAS_LDISC(N_SLCAN);
 MODULE_DESCRIPTION("serial line CAN interface");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 
 #ifdef CONFIG_CAN_DEBUG_DEVICES
 static int debug;
