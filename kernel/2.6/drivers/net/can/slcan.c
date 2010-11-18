@@ -66,7 +66,6 @@
 #include <linux/if_slip.h>
 #include <linux/delay.h>
 #include <linux/init.h>
-
 #include <socketcan/can.h>
 
 #include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
@@ -79,7 +78,16 @@ MODULE_ALIAS_LDISC(N_SLCAN);
 MODULE_DESCRIPTION("serial line CAN interface");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
+static inline void *kzalloc(size_t size, unsigned int __nocast flags)
+{
+	void *ret = kmalloc(size, flags);
+	if (ret)
+		memset(ret, 0, size);
+	return ret;
+}
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
 #ifndef N_SLCAN
 #error Your kernel does not support tty line discipline N_SLCAN
 #endif
@@ -106,6 +114,7 @@ MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
  * rebuild to use the right value for N_SLCAN. This workaround will allow  
  * to use the slcan driver with an existing kernel.
  */
+#endif
 
 #define SLCAN_MAGIC 0x53CA
 
@@ -148,7 +157,6 @@ struct slcan {
 };
 
 static struct net_device **slcan_devs;
-
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 /* Netdevice get statistics request */
@@ -355,13 +363,13 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 
 	/* Order of next two lines is *very* important.
 	 * When we are sending a little amount of data,
-	 * the transfer may be completed inside driver.write()
+	 * the transfer may be completed inside the ops->write()
 	 * routine, because it's running with interrupts enabled.
 	 * In this case we *never* got WRITE_WAKEUP event,
 	 * if we did not request it before write operation.
 	 *       14 Oct 1994  Dmitry Gorodchanin.
 	 */
-	sl->tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
+	set_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 	actual = sl->tty->driver->write(sl->tty, sl->xbuff, strlen(sl->xbuff));
 #else
@@ -394,7 +402,7 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 		/* Now serial buffer is almost free & we can start
 		 * transmission of another packet */
 		stats->tx_packets++;
-		tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 		netif_wake_queue(sl->dev);
 		return;
 	}
@@ -407,11 +415,6 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 	sl->xleft -= actual;
 	sl->xhead += actual;
 }
-
-
-/******************************************
- *   Routines looking at netdevice side.
- ******************************************/
 
 /* Send a can_frame to a TTY queue. */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
@@ -431,7 +434,6 @@ static netdev_tx_t slc_xmit(struct sk_buff *skb, struct net_device *dev)
 		printk(KERN_WARNING "%s: xmit: iface is down\n", dev->name);
 		goto out;
 	}
-
 	if (sl->tty == NULL) {
 		spin_unlock(&sl->lock);
 		goto out;
@@ -451,6 +453,10 @@ out:
 }
 
 
+/******************************************
+ *   Routines looking at netdevice side.
+ ******************************************/
+
 /* Netdevice UP -> DOWN routine */
 static int slc_close(struct net_device *dev)
 {
@@ -459,7 +465,7 @@ static int slc_close(struct net_device *dev)
 	spin_lock_bh(&sl->lock);
 	if (sl->tty) {
 		/* TTY discipline is running. */
-		sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+		clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
 	}
 	netif_stop_queue(dev);
 	sl->rcount   = 0;
@@ -500,11 +506,10 @@ static const struct net_device_ops slc_netdev_ops = {
 };
 #endif
 
-/* Netdevice register callback */
 static void slc_setup(struct net_device *dev)
 {
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,28)
-	dev->netdev_ops = &slc_netdev_ops;
+	dev->netdev_ops		= &slc_netdev_ops;
 #else
 	dev->open		= slc_open;
 	dev->stop		= slc_close;
@@ -532,7 +537,7 @@ static void slc_setup(struct net_device *dev)
 }
 
 /******************************************
- * Routines looking at TTY side.
+  Routines looking at TTY side.
  ******************************************/
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
@@ -561,8 +566,7 @@ static void slcan_receive_buf(struct tty_struct *tty,
 	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 
-	if (!sl || sl->magic != SLCAN_MAGIC ||
-	    !netif_running(sl->dev))
+	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev))
 		return;
 
 	/* Read the characters out of the buffer */
@@ -582,7 +586,6 @@ static void slcan_receive_buf(struct tty_struct *tty,
  ************************************/
 
 /* Collect hanged up channels */
-
 static void slc_sync(void)
 {
 	int i;
@@ -597,11 +600,10 @@ static void slc_sync(void)
 		sl = netdev_priv(dev);
 		if (sl->tty || sl->leased)
 			continue;
-		if (dev->flags&IFF_UP)
+		if (dev->flags & IFF_UP)
 			dev_close(dev);
 	}
 }
-
 
 /* Find a free SLCAN channel, and link in this `tty' line. */
 static struct slcan *slc_alloc(dev_t line)
@@ -734,7 +736,7 @@ static int slcan_open(struct tty_struct *tty)
 	/* Collect hanged up channels. */
 	slc_sync();
 
-	sl = (struct slcan *) tty->disc_data;
+	sl = tty->disc_data;
 
 	err = -EEXIST;
 	/* First make sure we're not already connected. */
@@ -772,11 +774,9 @@ static int slcan_open(struct tty_struct *tty)
 
 	/* Done.  We have linked the TTY line to a channel. */
 	rtnl_unlock();
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 	tty->receive_room = 65536;	/* We don't flow control */
 #endif
-
 	return sl->dev->base_addr;
 
 err_free_chan:
@@ -798,6 +798,7 @@ err_exit:
  *
  * We also use this method for a hangup event.
  */
+
 static void slcan_close(struct tty_struct *tty)
 {
 	struct slcan *sl = (struct slcan *) tty->disc_data;
@@ -885,10 +886,6 @@ static struct tty_ldisc_ops slc_ldisc = {
 	.write_wakeup	= slcan_write_wakeup,
 };
 
-/************************************
- * general slcan module init/exit
- ************************************/
-
 static int __init slcan_init(void)
 {
 	int status;
@@ -899,18 +896,15 @@ static int __init slcan_init(void)
 	printk(banner);
 	printk(KERN_INFO "slcan: %d dynamic interface channels.\n", maxdev);
 
-	slcan_devs = kmalloc(sizeof(struct net_device *)*maxdev, GFP_KERNEL);
+	slcan_devs = kzalloc(sizeof(struct net_device *)*maxdev, GFP_KERNEL);
 	if (!slcan_devs) {
 		printk(KERN_ERR "slcan: can't allocate slcan device array!\n");
 		return -ENOMEM;
 	}
 
-	/* Clear the pointer array, we allocate devices when we need them */
-	memset(slcan_devs, 0, sizeof(struct net_device *)*maxdev);
-
 	/* Fill in our line protocol discipline, and register it */
 	status = tty_register_ldisc(N_SLCAN, &slc_ldisc);
-	if (status != 0)  {
+	if (status)  {
 		printk(KERN_ERR "slcan: can't register line discipline\n");
 		kfree(slcan_devs);
 	}
@@ -949,8 +943,8 @@ static void __exit slcan_exit(void)
 		}
 	} while (busy && time_before(jiffies, timeout));
 
-	/* FIXME (2.6.32+): hangup is async so we should wait when doing
-	   this second phase */
+	/* FIXME: hangup is async so we should wait when doing this second
+	   phase */
 
 	for (i = 0; i < maxdev; i++) {
 		dev = slcan_devs[i];
