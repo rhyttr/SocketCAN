@@ -609,8 +609,10 @@ static void slc_sync(void)
 static struct slcan *slc_alloc(dev_t line)
 {
 	int i;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	int sel = -1;
 	int score = -1;
+#endif
 	struct net_device *dev = NULL;
 	struct slcan       *sl;
 
@@ -622,6 +624,7 @@ static struct slcan *slc_alloc(dev_t line)
 		if (dev == NULL)
 			break;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 		sl = netdev_priv(dev);
 		if (sl->leased) {
 			if (sl->line != line)
@@ -668,6 +671,7 @@ static struct slcan *slc_alloc(dev_t line)
 			sl->flags &= (1 << SLF_INUSE);
 			return sl;
 		}
+#endif
 	}
 
 	/* Sorry, too many, all slots in use */
