@@ -221,8 +221,6 @@ static void slc_bump(struct slcan *sl)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = slc_get_stats(sl->dev);
-#else
-	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 	struct sk_buff *skb;
 	struct can_frame cf;
@@ -251,6 +249,7 @@ static void slc_bump(struct slcan *sl)
 	if (strict_strtoul(sl->rbuff+1, 16, &ultmp))
 		return;
 #endif
+
 	cf.can_id = ultmp;
 
 	if (!(cmd & 0x20)) /* NO tiny chars => extended frame format */
@@ -289,8 +288,13 @@ static void slc_bump(struct slcan *sl)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
 	sl->dev->last_rx = jiffies;
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	stats->rx_packets++;
 	stats->rx_bytes += cf.can_dlc;
+#else
+	sl->dev->stats.rx_packets++;
+	sl->dev->stats.rx_bytes += cf.can_dlc;
+#endif
 }
 
 /* parse tty input stream */
@@ -298,8 +302,6 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = slc_get_stats(sl->dev);
-#else
-	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 
 	if ((s == '\r') || (s == '\a')) { /* CR or BEL ends the pdu */
@@ -314,7 +316,11 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 				sl->rbuff[sl->rcount++] = s;
 				return;
 			} else {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 				stats->rx_over_errors++;
+#else
+				sl->dev->stats.rx_over_errors++;
+#endif
 				set_bit(SLF_ERROR, &sl->flags);
 			}
 		}
@@ -330,8 +336,6 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = slc_get_stats(sl->dev);
-#else
-	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 	int actual, idx, i;
 	char cmd;
@@ -371,7 +375,11 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
 #endif
 	sl->xleft = strlen(sl->xbuff) - actual;
 	sl->xhead = sl->xbuff + actual;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	stats->tx_bytes += cf->can_dlc;
+#else
+	sl->dev->stats.tx_bytes += cf->can_dlc;
+#endif
 }
 
 /*
@@ -384,8 +392,6 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 	struct slcan *sl = (struct slcan *) tty->disc_data;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = slc_get_stats(sl->dev);
-#else
-	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 
 	/* First make sure we're connected. */
@@ -395,7 +401,11 @@ static void slcan_write_wakeup(struct tty_struct *tty)
 	if (sl->xleft <= 0)  {
 		/* Now serial buffer is almost free & we can start
 		 * transmission of another packet */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 		stats->tx_packets++;
+#else
+		sl->dev->stats.tx_packets++;
+#endif
 		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 		netif_wake_queue(sl->dev);
 		return;
@@ -556,8 +566,6 @@ static void slcan_receive_buf(struct tty_struct *tty,
 	struct slcan *sl = (struct slcan *) tty->disc_data;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	struct net_device_stats *stats = slc_get_stats(sl->dev);
-#else
-	struct net_device_stats *stats = &sl->dev->stats;
 #endif
 
 	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev))
@@ -567,7 +575,11 @@ static void slcan_receive_buf(struct tty_struct *tty,
 	while (count--) {
 		if (fp && *fp++) {
 			if (!test_and_set_bit(SLF_ERROR, &sl->flags))
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 				stats->rx_errors++;
+#else
+				sl->dev->stats.rx_errors++;
+#endif
 			cp++;
 			continue;
 		}
