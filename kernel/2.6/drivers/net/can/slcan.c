@@ -50,20 +50,14 @@
 #include <asm/uaccess.h>
 #endif
 #include <linux/bitops.h>
-#include <linux/sched.h>
 #include <linux/string.h>
-#include <linux/mm.h>
-#include <linux/interrupt.h>
-#include <linux/in.h>
 #include <linux/tty.h>
 #include <linux/errno.h>
 #include <linux/netdevice.h>
-#include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
-#include <linux/if_slip.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <socketcan/can.h>
