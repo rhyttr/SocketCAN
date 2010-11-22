@@ -1,0 +1,83 @@
+============================================================================
+
+can-core.txt : core module description
+
+Part of the documentation for the socketCAN subsystem
+
+This file contains:
+
+  1 Socket CAN core module
+    1.1 can.ko module params
+    1.2 procfs content
+    1.3 writing own CAN protocol modules
+
+============================================================================
+
+1. Socket CAN core module
+-------------------------
+
+  The Socket CAN core module implements the protocol family
+  PF_CAN. CAN protocol modules are loaded by the core module at
+  runtime. The core module provides an interface for CAN protocol
+  modules to subscribe needed CAN IDs (see overview.txt, chapter 3.1).
+
+  1.1 can.ko module params
+
+  - stats_timer: To calculate the Socket CAN core statistics
+    (e.g. current/maximum frames per second) this 1 second timer is
+    invoked at can.ko module start time by default. This timer can be
+    disabled by using stattimer=0 on the module commandline.
+
+  - debug: (removed since SocketCAN SVN r546)
+
+  1.2 procfs content
+
+  As described in overview.txt, chapter 3.1 the Socket CAN core uses
+  several filter lists to deliver received CAN frames to CAN protocol
+  modules. These receive lists, their filters and the count of filter
+  matches can be checked in the appropriate receive list. All entries
+  contain the device and a protocol module identifier:
+
+    foo@bar:~$ cat /proc/net/can/rcvlist_all
+
+    receive list 'rx_all':
+      (vcan3: no entry)
+      (vcan2: no entry)
+      (vcan1: no entry)
+      device   can_id   can_mask  function  userdata   matches  ident
+       vcan0     000    00000000  f88e6370  f6c6f400         0  raw
+      (any: no entry)
+
+  In this example an application requests any CAN traffic from vcan0.
+
+    rcvlist_all - list for unfiltered entries (no filter operations)
+    rcvlist_eff - list for single extended frame (EFF) entries
+    rcvlist_err - list for error frames masks
+    rcvlist_fil - list for mask/value filters
+    rcvlist_inv - list for mask/value filters (inverse semantic)
+    rcvlist_sff - list for single standard frame (SFF) entries
+
+  Additional procfs files in /proc/net/can
+
+    stats       - Socket CAN core statistics (rx/tx frames, match ratios, ...)
+    reset_stats - manual statistic reset
+    version     - prints the Socket CAN core version and the ABI version
+
+  1.3 writing own CAN protocol modules
+
+  To implement a new protocol in the protocol family PF_CAN a new
+  protocol has to be defined in include/linux/can.h .
+  The prototypes and definitions to use the Socket CAN core can be
+  accessed by including include/linux/can/core.h .
+  In addition to functions that register the CAN protocol and the
+  CAN device notifier chain there are functions to subscribe CAN
+  frames received by CAN interfaces and to send CAN frames:
+
+    can_rx_register   - subscribe CAN frames from a specific interface
+    can_rx_unregister - unsubscribe CAN frames from a specific interface
+    can_send          - transmit a CAN frame (optional with local loopback)
+
+  For details see the kerneldoc documentation in net/can/af_can.c or
+  the source code of net/can/raw.c or net/can/bcm.c .
+
+

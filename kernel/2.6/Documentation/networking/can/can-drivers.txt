@@ -1,0 +1,265 @@
+============================================================================
+
+can-drivers.txt : CAN network drivers
+
+Part of the documentation for the socketCAN subsystem
+
+This file contains:
+
+  1 CAN network drivers
+    1.1 general settings
+    1.2 local loopback of sent frames
+    1.3 CAN controller hardware filters
+    1.4 The virtual CAN driver (vcan)
+    1.5 The CAN network device driver interface
+      1.5.1 Netlink interface to set/get devices properties
+      1.5.2 Setting the CAN bit-timing
+      1.5.3 Starting and stopping the CAN network device
+    1.6 supported CAN hardware
+
+============================================================================
+
+1. CAN network drivers
+----------------------
+
+  Writing a CAN network device driver is much easier than writing a
+  CAN character device driver. Similar to other known network device
+  drivers you mainly have to deal with:
+
+  - TX: Put the CAN frame from the socket buffer to the CAN controller.
+  - RX: Put the CAN frame from the CAN controller to the socket buffer.
+
+  See e.g. at Documentation/networking/netdevices.txt . The differences
+  for writing CAN network device driver are described below:
+
+  1.1 general settings
+
+    dev->type  = ARPHRD_CAN; /* the netdevice hardware type */
+    dev->flags = IFF_NOARP;  /* CAN has no arp */
+
+    dev->mtu   = sizeof(struct can_frame);
+
+  The struct can_frame is the payload of each socket buffer in the
+  protocol family PF_CAN.
+
+  1.2 local loopback of sent frames
+
+  As described in can-sockets.txt (chapter 1.2) the CAN network device
+  driver should support a local loopback functionality similar to the
+  local echo e.g. of tty devices. In this case the driver flag IFF_ECHO
+  has to be set to prevent the PF_CAN core from locally echoing sent
+  frames (aka loopback) as fallback solution:
+
+    dev->flags = (IFF_NOARP | IFF_ECHO);
+
+  1.3 CAN controller hardware filters
+
+  To reduce the interrupt load on deep embedded systems some CAN
+  controllers support the filtering of CAN IDs or ranges of CAN IDs.
+  These hardware filter capabilities vary from controller to
+  controller and have to be identified as not feasible in a multi-user
+  networking approach. The use of the very controller specific
+  hardware filters could make sense in a very dedicated use-case, as a
+  filter on driver level would affect all users in the multi-user
+  system. The high efficient filter sets inside the PF_CAN core allow
+  to set different multiple filters for each socket separately.
+  Therefore the use of hardware filters goes to the category 'handmade
+  tuning on deep embedded systems'. The author is running a MPC603e
+  @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
+  load without any problems ...
+
+  1.4 The virtual CAN driver (vcan)
+
+  Similar to the network loopback devices, vcan offers a virtual local
+  CAN interface. A full qualified address on CAN consists of
+
+  - a unique CAN Identifier (CAN ID)
+  - the CAN bus this CAN ID is transmitted on (e.g. can0)
+
+  so in common use cases more than one virtual CAN interface is needed.
+
+  The virtual CAN interfaces allow the transmission and reception of CAN
+  frames without real CAN controller hardware. Virtual CAN network
+  devices are usually named 'vcanX', like vcan0 vcan1 vcan2 ...
+  When compiled as a module the virtual CAN driver module is called vcan.ko
+
+  Since Linux Kernel version 2.6.24 the vcan driver supports the Kernel
+  netlink interface to create vcan network devices. The creation and
+  removal of vcan network devices can be managed with the ip(8) tool:
+
+  - Create a virtual CAN network interface:
+       $ ip link add type vcan
+
+  - Create a virtual CAN network interface with a specific name 'vcan42':
+       $ ip link add dev vcan42 type vcan
+
+  - Remove a (virtual CAN) network interface 'vcan42':
+       $ ip link del vcan42
+
+  1.5 The CAN network device driver interface
+
+  The CAN network device driver interface provides a generic interface
+  to setup, configure and monitor CAN network devices. The user can then
+  configure the CAN device, like setting the bit-timing parameters, via
+  the netlink interface using the program "ip" from the "IPROUTE2"
+  utility suite. The following chapter describes briefly how to use it.
+  Furthermore, the interface uses a common data structure and exports a
+  set of common functions, which all real CAN network device drivers
+  should use. Please have a look to the SJA1000 or MSCAN driver to
+  understand how to use them. The name of the module is can-dev.ko.
+
+  1.5.1 Netlink interface to set/get devices properties
+
+  The CAN device must be configured via netlink interface. The supported
+  netlink message types are defined and briefly described in
+  "include/linux/can/netlink.h". CAN link support for the program "ip"
+  of the IPROUTE2 utility suite is avaiable and it can be used as shown
+  below:
+
+  - Setting CAN device properties:
+
+    $ ip link set can0 type can help
+    Usage: ip link set DEVICE type can
+        [ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
+        [ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
+          phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
+
+        [ loopback { on | off } ]
+        [ listen-only { on | off } ]
+        [ triple-sampling { on | off } ]
+
+        [ restart-ms TIME-MS ]
+        [ restart ]
+
+        Where: BITRATE       := { 1..1000000 }
+               SAMPLE-POINT  := { 0.000..0.999 }
+               TQ            := { NUMBER }
+               PROP-SEG      := { 1..8 }
+               PHASE-SEG1    := { 1..8 }
+               PHASE-SEG2    := { 1..8 }
+               SJW           := { 1..4 }
+               RESTART-MS    := { 0 | NUMBER }
+
+  - Display CAN device details and statistics:
+
+    $ ip -details -statistics link show can0
+    2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UP qlen 10
+      link/can
+      can <TRIPLE-SAMPLING> state ERROR-ACTIVE restart-ms 100
+      bitrate 125000 sample_point 0.875
+      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
+      sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
+      clock 8000000
+      re-started bus-errors arbit-lost error-warn error-pass bus-off
+      41         17457      0          41         42         41
+      RX: bytes  packets  errors  dropped overrun mcast
+      140859     17608    17457   0       0       0
+      TX: bytes  packets  errors  dropped carrier collsns
+      861        112      0       41      0       0
+
+  More info to the above output:
+
+    "<TRIPLE-SAMPLING>"
+    Shows the list of selected CAN controller modes: LOOPBACK,
+    LISTEN-ONLY, or TRIPLE-SAMPLING.
+
+    "state ERROR-ACTIVE"
+    The current state of the CAN controller: "ERROR-ACTIVE",
+    "ERROR-WARNING", "ERROR-PASSIVE", "BUS-OFF" or "STOPPED"
+
+    "restart-ms 100"
+    Automatic restart delay time. If set to a non-zero value, a
+    restart of the CAN controller will be triggered automatically
+    in case of a bus-off condition after the specified delay time
+    in milliseconds. By default it's off.
+
+    "bitrate 125000 sample_point 0.875"
+    Shows the real bit-rate in bits/sec and the sample-point in the
+    range 0.000..0.999. If the calculation of bit-timing parameters
+    is enabled in the kernel (CONFIG_CAN_CALC_BITTIMING=y), the
+    bit-timing can be defined by setting the "bitrate" argument.
+    Optionally the "sample-point" can be specified. By default it's
+    0.000 assuming CIA-recommended sample-points.
+
+    "tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1"
+    Shows the time quanta in ns, propagation segment, phase buffer
+    segment 1 and 2 and the synchronisation jump width in units of
+    tq. They allow to define the CAN bit-timing in a hardware
+    independent format as proposed by the Bosch CAN 2.0 spec (see
+    chapter 8 of http://www.semiconductors.bosch.de/pdf/can2spec.pdf).
+
+    "sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
+     clock 8000000"
+    Shows the bit-timing constants of the CAN controller, here the
+    "sja1000". The minimum and maximum values of the time segment 1
+    and 2, the synchronisation jump width in units of tq, the
+    bitrate pre-scaler and the CAN system clock frequency in Hz.
+    These constants could be used for user-defined (non-standard)
+    bit-timing calculation algorithms in user-space.
+
+    "re-started bus-errors arbit-lost error-warn error-pass bus-off"
+    Shows the number of restarts, bus and arbitration lost errors,
+    and the state changes to the error-warning, error-passive and
+    bus-off state. RX overrun errors are listed in the "overrun"
+    field of the standard network statistics.
+
+  1.5.2 Setting the CAN bit-timing
+
+  The CAN bit-timing parameters can always be defined in a hardware
+  independent format as proposed in the Bosch CAN 2.0 specification
+  specifying the arguments "tq", "prop_seg", "phase_seg1", "phase_seg2"
+  and "sjw":
+
+    $ ip link set canX type can tq 125 prop-seg 6 \
+                phase-seg1 7 phase-seg2 2 sjw 1
+
+  If the kernel option CONFIG_CAN_CALC_BITTIMING is enabled, CIA
+  recommended CAN bit-timing parameters will be calculated if the bit-
+  rate is specified with the argument "bitrate":
+
+    $ ip link set canX type can bitrate 125000
+
+  Note that this works fine for the most common CAN controllers with
+  standard bit-rates but may *fail* for exotic bit-rates or CAN system
+  clock frequencies. Disabling CONFIG_CAN_CALC_BITTIMING saves some
+  space and allows user-space tools to solely determine and set the
+  bit-timing parameters. The CAN controller specific bit-timing
+  constants can be used for that purpose. They are listed by the
+  following command:
+
+    $ ip -details link show can0
+    ...
+      sja1000: clock 8000000 tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
+
+  6.5.3 Starting and stopping the CAN network device
+
+  A CAN network device is started or stopped as usual with the command
+  "ifconfig canX up/down" or "ip link set canX up/down". Be aware that
+  you *must* define proper bit-timing parameters for real CAN devices
+  before you can start it to avoid error-prone default settings:
+
+    $ ip link set canX up type can bitrate 125000
+
+  A device may enter the "bus-off" state if too much errors occurred on
+  the CAN bus. Then no more messages are received or sent. An automatic
+  bus-off recovery can be enabled by setting the "restart-ms" to a
+  non-zero value, e.g.:
+
+    $ ip link set canX type can restart-ms 100
+
+  Alternatively, the application may realize the "bus-off" condition
+  by monitoring CAN error frames and do a restart when appropriate with
+  the command:
+
+    $ ip link set canX type can restart
+
+  Note that a restart will also create a CAN error frame (see also
+  can-sockets.txt, chapter 1.4).
+
+  1.6 Supported CAN hardware
+
+  Please check the "Kconfig" file in "drivers/net/can" to get an actual
+  list of the support CAN hardware. On the Socket CAN project website
+  (see overview.txt, chapter 5) there might be further drivers available,
+  also for older kernel versions.
+
