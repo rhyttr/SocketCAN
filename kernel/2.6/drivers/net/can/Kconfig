@@ -26,7 +26,7 @@ config CAN_SLCAN
 	  www.canusb.com / www.can232.com / www.mictronic.com / www.canhack.de
 
 	  Userspace tools to attach the SLCAN line discipline (slcan_attach,
-	  slcand) can be found in the can-utils at the SocketCAN SVN, see 
+	  slcand) can be found in the can-utils at the SocketCAN SVN, see
 	  http://developer.berlios.de/projects/socketcan for details.
 
 	  The slcan driver supports up to 10 CAN netdevices by default which
