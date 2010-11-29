@@ -163,7 +163,7 @@ static struct net_device_stats *slc_get_stats(struct net_device *dev)
 #endif
 
  /************************************************************************
-  *			SLCAN ENCAPSULATION FORMAT		  	 *
+  *			SLCAN ENCAPSULATION FORMAT			 *
   ************************************************************************/
 
 /*
@@ -198,7 +198,7 @@ static struct net_device_stats *slc_get_stats(struct net_device *dev)
  */
 
  /************************************************************************
-  *			STANDARD SLCAN DECAPSULATION		  	 *
+  *			STANDARD SLCAN DECAPSULATION			 *
   ************************************************************************/
 
 static int asc2nibble(char c)
@@ -328,7 +328,7 @@ static void slcan_unesc(struct slcan *sl, unsigned char s)
 }
 
  /************************************************************************
-  *			STANDARD SLCAN ENCAPSULATION		  	 *
+  *			STANDARD SLCAN ENCAPSULATION			 *
   ************************************************************************/
 
 /* Encapsulate one can_frame and stuff into a TTY queue. */
@@ -706,8 +706,8 @@ static struct slcan *slc_alloc(dev_t line)
 	sl = netdev_priv(dev);
 
 	/* Initialize channel control data */
-	sl->magic       = SLCAN_MAGIC;
-	sl->dev	      	= dev;
+	sl->magic = SLCAN_MAGIC;
+	sl->dev	= dev;
 	spin_lock_init(&sl->lock);
 	slcan_devs[i] = dev;
 
@@ -880,18 +880,18 @@ static struct tty_ldisc	slc_ldisc = {
 #else
 static struct tty_ldisc_ops slc_ldisc = {
 #endif
-	.owner 		= THIS_MODULE,
-	.magic 		= TTY_LDISC_MAGIC,
-	.name 		= "slcan",
-	.open 		= slcan_open,
-	.close	 	= slcan_close,
+	.owner		= THIS_MODULE,
+	.magic		= TTY_LDISC_MAGIC,
+	.name		= "slcan",
+	.open		= slcan_open,
+	.close		= slcan_close,
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31)
-	.hangup	 	= slcan_hangup,
+	.hangup		= slcan_hangup,
 #endif
 	.ioctl		= slcan_ioctl,
 	.receive_buf	= slcan_receive_buf,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-	.receive_room   = slcan_receive_room,
+	.receive_room	= slcan_receive_room,
 #endif
 	.write_wakeup	= slcan_write_wakeup,
 };
