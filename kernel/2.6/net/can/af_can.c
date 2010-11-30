@@ -198,11 +198,12 @@ static int can_create(struct socket *sock, int protocol)
 		goto errout;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	if (cp->capability >= 0 && !capable(cp->capability)) {
 		err = -EPERM;
 		goto errout;
 	}
-
+#endif
 	sock->ops = cp->ops;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)

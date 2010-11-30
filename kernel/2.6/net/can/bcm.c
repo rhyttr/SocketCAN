@@ -1729,7 +1729,9 @@ static struct proto bcm_proto __read_mostly = {
 static struct can_proto bcm_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	.capability = -1,
+#endif
 	.ops        = &bcm_ops,
 	.prot       = &bcm_proto,
 };

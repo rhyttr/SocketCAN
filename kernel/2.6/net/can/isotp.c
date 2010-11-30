@@ -1156,7 +1156,9 @@ static struct proto isotp_proto __read_mostly = {
 static struct can_proto isotp_can_proto __read_mostly = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_ISOTP,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
 	.capability = -1,
+#endif
 	.ops        = &isotp_ops,
 	.prot       = &isotp_proto,
 };

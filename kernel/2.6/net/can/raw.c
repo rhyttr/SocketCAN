@@ -791,7 +791,22 @@ static struct proto_ops raw_ops __read_mostly = {
 	.sendpage      = sock_no_sendpage,
 };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
+static struct proto raw_proto __read_mostly = {
+	.name       = "CAN_RAW",
+	.owner      = THIS_MODULE,
+	.obj_size   = sizeof(struct raw_sock),
+	.init       = raw_init,
+};
+
+static struct can_proto raw_can_proto __read_mostly = {
+	.type       = SOCK_RAW,
+	.protocol   = CAN_RAW,
+	.ops        = &raw_ops,
+	.prot       = &raw_proto,
+};
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 static struct proto raw_proto __read_mostly = {
 	.name       = "CAN_RAW",
 	.owner      = THIS_MODULE,
