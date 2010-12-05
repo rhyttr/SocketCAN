@@ -62,7 +62,7 @@
 #include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define CAN_GW_VERSION "20100412"
+#define CAN_GW_VERSION "20101205"
 static __initdata const char banner[] =
 	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
 
@@ -72,7 +72,6 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_ALIAS("can-gw");
 
 HLIST_HEAD(cgw_list);
-static DEFINE_SPINLOCK(cgw_list_lock);
 static struct notifier_block notifier;
 
 static struct kmem_cache *cgw_cache __read_mostly;
@@ -435,7 +434,7 @@ static int cgw_notifier(struct notifier_block *nb,
 		struct cgw_job *gwj = NULL;
 		struct hlist_node *n, *nx;
 
-		spin_lock(&cgw_list_lock);
+		ASSERT_RTNL();
 
 		hlist_for_each_entry_safe(gwj, n, nx, &cgw_list, list) {
 
@@ -445,8 +444,6 @@ static int cgw_notifier(struct notifier_block *nb,
 				kfree(gwj);
 			}
 		}
-
-		spin_unlock(&cgw_list_lock);
 	}
 
 	return NOTIFY_DONE;
@@ -829,14 +826,12 @@ static int cgw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh,
 	if (gwj->dst.dev->type != ARPHRD_CAN)
 		goto put_src_dst_out;
 		
-	spin_lock(&cgw_list_lock);
+	ASSERT_RTNL();
 
 	err = cgw_register_filter(gwj);
 	if (!err)
 		hlist_add_head_rcu(&gwj->list, &cgw_list);
 
-	spin_unlock(&cgw_list_lock);
-	
 put_src_dst_out:
 	dev_put(gwj->dst.dev);
 put_src_out:
@@ -853,15 +848,13 @@ static void cgw_remove_all_jobs(void)
 	struct cgw_job *gwj = NULL;
 	struct hlist_node *n, *nx;
 
-	spin_lock(&cgw_list_lock);
+	ASSERT_RTNL();
 
 	hlist_for_each_entry_safe(gwj, n, nx, &cgw_list, list) {
 		hlist_del(&gwj->list);
 		cgw_unregister_filter(gwj);
 		kfree(gwj);
 	}
-
-	spin_unlock(&cgw_list_lock);
 }
 
 static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
@@ -896,7 +889,7 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 
 	err = -EINVAL;
 
-	spin_lock(&cgw_list_lock);
+	ASSERT_RTNL();
 
 	/* remove only the first matching entry */
 	hlist_for_each_entry_safe(gwj, n, nx, &cgw_list, list) {
@@ -918,8 +911,6 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 		break;
 	}
 
-	spin_unlock(&cgw_list_lock);
-	
 	return err;
 }
 
@@ -956,7 +947,9 @@ static __exit void cgw_module_exit(void)
 
 	unregister_netdevice_notifier(&notifier);
 
+	rtnl_lock();
 	cgw_remove_all_jobs();
+	rtnl_unlock();
 
 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
 
