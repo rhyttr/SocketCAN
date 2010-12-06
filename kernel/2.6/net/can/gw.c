@@ -58,6 +58,7 @@
 #include <socketcan/can/gw.h>
 #include <net/rtnetlink.h>
 #include <net/net_namespace.h>
+#include <net/sock.h>
 
 #include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
@@ -76,7 +77,7 @@ static struct notifier_block notifier;
 
 static struct kmem_cache *cgw_cache __read_mostly;
 
-#define CGW_SK_MAGIC ((void *)(&notifier))
+static struct sock gw_dummy_sk;
 
 /* structure that contains the (on-the-fly) CAN frame modifications */
 struct cf_mod {
@@ -346,7 +347,7 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
 	int modidx = 0;
 
 	/* do not handle already routed frames */
-	if (skb->sk == CGW_SK_MAGIC)
+	if (skb->sk == &gw_dummy_sk)
 		return;
 
 	if (!(gwj->dst.dev->flags & IFF_UP)) {
@@ -371,7 +372,7 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
 	}
 
 	/* mark routed frames with a 'special' sk value */
-	nskb->sk = CGW_SK_MAGIC;
+	nskb->sk = &gw_dummy_sk;
 	nskb->dev = gwj->dst.dev;
 
 	/* pointer to modifiable CAN frame */
@@ -927,6 +928,11 @@ static __init int cgw_module_init(void)
 	/* set notifier */
 	notifier.notifier_call = cgw_notifier;
 	register_netdevice_notifier(&notifier);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
+	/* initialize struct for dev_pick_tx() */
+	sk_tx_queue_clear(&gw_dummy_sk);
+#endif
 
 	if (__rtnl_register(PF_CAN, RTM_GETROUTE, NULL, cgw_dump_jobs)) {
 		unregister_netdevice_notifier(&notifier);
