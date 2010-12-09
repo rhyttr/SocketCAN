@@ -63,7 +63,7 @@
 #include <socketcan/can/version.h> /* for RCSID. Removed by mkpatch script */
 RCSID("$Id$");
 
-#define CAN_GW_VERSION "20101205"
+#define CAN_GW_VERSION "20101209"
 static __initdata const char banner[] =
 	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
 
@@ -76,8 +76,6 @@ HLIST_HEAD(cgw_list);
 static struct notifier_block notifier;
 
 static struct kmem_cache *cgw_cache __read_mostly;
-
-static struct sock gw_dummy_sk;
 
 /* structure that contains the (on-the-fly) CAN frame modifications */
 struct cf_mod {
@@ -346,8 +344,8 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
 	struct sk_buff *nskb;
 	int modidx = 0;
 
-	/* do not handle already routed frames */
-	if (skb->sk == &gw_dummy_sk)
+	/* do not handle already routed frames - see comment below */
+	if (skb_mac_header_was_set(skb))
 		return;
 
 	if (!(gwj->dst.dev->flags & IFF_UP)) {
@@ -371,8 +369,15 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
 		return;
 	}
 
-	/* mark routed frames with a 'special' sk value */
-	nskb->sk = &gw_dummy_sk;
+	/*
+	 * Mark routed frames by setting some mac header length which is
+	 * not relevant for the CAN frames located in the skb->data section.
+	 *
+	 * As dev->header_ops is not set in CAN netdevices no one is ever
+	 * accessing the various header offsets in the CAN skbuffs anyway.
+	 * E.g. using the packet socket to read CAN frames is still working.
+	 */
+	skb_set_mac_header(nskb, 8);
 	nskb->dev = gwj->dst.dev;
 
 	/* pointer to modifiable CAN frame */
@@ -928,11 +933,6 @@ static __init int cgw_module_init(void)
 	/* set notifier */
 	notifier.notifier_call = cgw_notifier;
 	register_netdevice_notifier(&notifier);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
-	/* initialize struct for dev_pick_tx() */
-	sk_tx_queue_clear(&gw_dummy_sk);
-#endif
 
 	if (__rtnl_register(PF_CAN, RTM_GETROUTE, NULL, cgw_dump_jobs)) {
 		unregister_netdevice_notifier(&notifier);
