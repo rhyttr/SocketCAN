@@ -1126,7 +1126,7 @@ static int isotp_init(struct sock *sk)
 }
 
 
-static struct proto_ops isotp_ops __read_mostly = {
+static const struct proto_ops isotp_ops = {
 	.family        = PF_CAN,
 	.release       = isotp_release,
 	.bind          = isotp_bind,
@@ -1135,7 +1135,7 @@ static struct proto_ops isotp_ops __read_mostly = {
 	.accept        = sock_no_accept,
 	.getname       = isotp_getname,
 	.poll          = datagram_poll,
-	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
+	.ioctl         = can_ioctl,	/* use can_ioctl() from af_can.c */
 	.listen        = sock_no_listen,
 	.shutdown      = sock_no_shutdown,
 	.setsockopt    = isotp_setsockopt,

@@ -112,7 +112,7 @@ struct s_pstats   can_pstats;      /* receive list statistics */
  * af_can socket functions
  */
 
-static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk = sock->sk;
 
@@ -129,6 +129,7 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 #endif
 	}
 }
+EXPORT_SYMBOL(can_ioctl);
 
 static void can_sock_destruct(struct sock *sk)
 {
@@ -867,13 +868,9 @@ int can_proto_register(struct can_proto *cp)
 		printk(KERN_ERR "can: protocol %d already registered\n",
 		       proto);
 		err = -EBUSY;
-	} else {
+	} else
 		proto_tab[proto] = cp;
 
-		/* use generic ioctl function if not defined by module */
-		if (!cp->ops->ioctl)
-			cp->ops->ioctl = can_ioctl;
-	}
 	spin_unlock(&proto_tab_lock);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)

@@ -39,18 +39,18 @@
  * @prot:       pointer to struct proto structure.
  */
 struct can_proto {
-	int              type;
-	int              protocol;
+	int type;
+	int protocol;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
-	int              capability;
+	int capability;
 #endif
-	struct proto_ops *ops;
+	const struct proto_ops *ops;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	struct proto     *prot;
+	struct proto *prot;
 #else
-	struct module    *owner;
-	int              (*init)(struct sock *sk);
-	size_t           obj_size;
+	struct module *owner;
+	int (*init)(struct sock *sk);
+	size_t obj_size;
 #endif
 };
 
@@ -70,5 +70,6 @@ extern void can_rx_unregister(struct net_device *dev, canid_t can_id,
 			      void *data);
 
 extern int can_send(struct sk_buff *skb, int loop);
+extern int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
 
 #endif /* CAN_CORE_H */
