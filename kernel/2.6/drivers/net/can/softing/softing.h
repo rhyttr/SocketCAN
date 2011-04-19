@@ -27,7 +27,7 @@ struct softing_priv {
 	struct softing *card;
 	struct {
 		int pending;
-		/* variables wich hold the circular buffer */
+		/* variables which hold the circular buffer */
 		int echo_put;
 		int echo_get;
 	} tx;

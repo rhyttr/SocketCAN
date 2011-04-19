@@ -224,7 +224,7 @@ static int softing_dev_svc_once(struct softing *card)
 
 	cmd = *ptr++;
 	if (cmd == 0xff) {
-		/*not quite usefull, probably the card has got out */
+		/*not quite useful, probably the card has got out */
 		dev_alert(card->dev, "got cmd 0x%02x,"
 			" I suspect the card is lost\n", cmd);
 	}
