@@ -102,7 +102,7 @@ static kmem_cache_t *rcv_cache;
 
 /* table of registered CAN protocols */
 static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
-static DEFINE_SPINLOCK(proto_tab_lock);
+static DEFINE_MUTEX(proto_tab_lock);
 
 struct timer_list can_stattimer;   /* timer for statistics update */
 struct s_stats    can_stats;       /* packet statistics */
@@ -140,6 +140,24 @@ static void can_sock_destruct(struct sock *sk)
 #endif
 }
 
+static struct can_proto *can_try_module_get(int protocol)
+{
+	struct can_proto *cp;
+
+	rcu_read_lock();
+	cp = rcu_dereference(proto_tab[protocol]);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	if (cp && !try_module_get(cp->prot->owner))
+		cp = NULL;
+#else
+	if (cp && !try_module_get(cp->owner))
+		cp = NULL;
+#endif
+	rcu_read_unlock();
+
+	return cp;
+}
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
 static int can_create(struct net *net, struct socket *sock, int protocol, int kern)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
@@ -162,9 +180,12 @@ static int can_create(struct socket *sock, int protocol)
 		return -EAFNOSUPPORT;
 #endif
 
+	cp = can_try_module_get(protocol);
+
 #ifdef CONFIG_MODULES
-	/* try to load protocol module kernel is modular */
-	if (!proto_tab[protocol]) {
+	if (!cp) {
+		/* try to load protocol module if kernel is modular */
+
 		err = request_module("can-proto-%d", protocol);
 
 		/*
@@ -175,19 +196,10 @@ static int can_create(struct socket *sock, int protocol)
 		if (err && printk_ratelimit())
 			printk(KERN_ERR "can: request_module "
 			       "(can-proto-%d) failed.\n", protocol);
+
+		cp = can_try_module_get(protocol);
 	}
 #endif
-
-	spin_lock(&proto_tab_lock);
-	cp = proto_tab[protocol];
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	if (cp && !try_module_get(cp->prot->owner))
-		cp = NULL;
-#else
-	if (cp && !try_module_get(cp->owner))
-		cp = NULL;
-#endif
-	spin_unlock(&proto_tab_lock);
 
 	/* check for available protocol and correct usage */
 
@@ -195,7 +207,7 @@ static int can_create(struct socket *sock, int protocol)
 		return -EPROTONOSUPPORT;
 
 	if (cp->type != sock->type) {
-		err = -EPROTONOSUPPORT;
+		err = -EPROTOTYPE;
 		goto errout;
 	}
 
@@ -863,15 +875,16 @@ int can_proto_register(struct can_proto *cp)
 		return err;
 #endif
 
-	spin_lock(&proto_tab_lock);
+	mutex_lock(&proto_tab_lock);
+
 	if (proto_tab[proto]) {
 		printk(KERN_ERR "can: protocol %d already registered\n",
 		       proto);
 		err = -EBUSY;
 	} else
-		proto_tab[proto] = cp;
+		rcu_assign_pointer(proto_tab[proto], cp);
 
-	spin_unlock(&proto_tab_lock);
+	mutex_unlock(&proto_tab_lock);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	if (err < 0)
@@ -890,13 +903,12 @@ void can_proto_unregister(struct can_proto *cp)
 {
 	int proto = cp->protocol;
 
-	spin_lock(&proto_tab_lock);
-	if (!proto_tab[proto]) {
-		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
-		       proto);
-	}
-	proto_tab[proto] = NULL;
-	spin_unlock(&proto_tab_lock);
+	mutex_lock(&proto_tab_lock);
+	BUG_ON(proto_tab[proto] != cp);
+	rcu_assign_pointer(proto_tab[proto], NULL);
+	mutex_unlock(&proto_tab_lock);
+
+	synchronize_rcu();
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
 	proto_unregister(cp->prot);
