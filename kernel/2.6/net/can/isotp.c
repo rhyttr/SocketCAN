@@ -795,7 +795,12 @@ static int isotp_recvmsg(struct kiocb *iocb, struct socket *sock,
 static int isotp_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct isotp_sock *so = isotp_sk(sk);
+	struct isotp_sock *so;
+
+	if (!sk)
+		return 0;
+
+	so = isotp_sk(sk);
 
 	/* wait for complete transmission of current pdu */
 	wait_event_interruptible(so->wait, so->tx.state == ISOTP_IDLE);
