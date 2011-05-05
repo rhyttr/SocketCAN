@@ -1573,7 +1573,7 @@ static struct proto bcm_proto __read_mostly = {
 	.init       = bcm_init,
 };
 
-static struct can_proto bcm_can_proto __read_mostly = {
+static const struct can_proto bcm_can_proto = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
 	.capability = -1,
@@ -1581,7 +1581,7 @@ static struct can_proto bcm_can_proto __read_mostly = {
 	.prot       = &bcm_proto,
 };
 #else
-static struct can_proto bcm_can_proto __read_mostly = {
+static const struct can_proto bcm_can_proto = {
 	.type       = SOCK_DGRAM,
 	.protocol   = CAN_BCM,
 	.capability = -1,

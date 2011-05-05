@@ -101,7 +101,7 @@ static kmem_cache_t *rcv_cache;
 #endif
 
 /* table of registered CAN protocols */
-static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
+static const struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
 static DEFINE_MUTEX(proto_tab_lock);
 
 struct timer_list can_stattimer;   /* timer for statistics update */
@@ -140,9 +140,9 @@ static void can_sock_destruct(struct sock *sk)
 #endif
 }
 
-static struct can_proto *can_try_module_get(int protocol)
+static const struct can_proto *can_try_module_get(int protocol)
 {
-	struct can_proto *cp;
+	const struct can_proto *cp;
 
 	rcu_read_lock();
 	cp = rcu_dereference(proto_tab[protocol]);
@@ -167,7 +167,7 @@ static int can_create(struct socket *sock, int protocol)
 #endif
 {
 	struct sock *sk;
-	struct can_proto *cp;
+	const struct can_proto *cp;
 	int err = 0;
 
 	sock->state = SS_UNCONNECTED;
@@ -858,7 +858,7 @@ drop:
  *  -EBUSY  protocol already in use
  *  -ENOBUF if proto_register() fails
  */
-int can_proto_register(struct can_proto *cp)
+int can_proto_register(const struct can_proto *cp)
 {
 	int proto = cp->protocol;
 	int err = 0;
@@ -899,7 +899,7 @@ EXPORT_SYMBOL(can_proto_register);
  * can_proto_unregister - unregister CAN transport protocol
  * @cp: pointer to CAN protocol structure
  */
-void can_proto_unregister(struct can_proto *cp)
+void can_proto_unregister(const struct can_proto *cp)
 {
 	int proto = cp->protocol;
 
