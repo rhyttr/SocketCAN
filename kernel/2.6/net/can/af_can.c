@@ -140,7 +140,7 @@ static void can_sock_destruct(struct sock *sk)
 #endif
 }
 
-static const struct can_proto *can_try_module_get(int protocol)
+static const struct can_proto *can_get_proto(int protocol)
 {
 	const struct can_proto *cp;
 
@@ -156,6 +156,15 @@ static const struct can_proto *can_try_module_get(int protocol)
 	rcu_read_unlock();
 
 	return cp;
+}
+
+static inline void can_put_proto(const struct can_proto *cp)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
+	module_put(cp->prot->owner);
+#else
+	module_put(cp->owner);
+#endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33)
@@ -180,7 +189,7 @@ static int can_create(struct socket *sock, int protocol)
 		return -EAFNOSUPPORT;
 #endif
 
-	cp = can_try_module_get(protocol);
+	cp = can_get_proto(protocol);
 
 #ifdef CONFIG_MODULES
 	if (!cp) {
@@ -197,7 +206,7 @@ static int can_create(struct socket *sock, int protocol)
 			printk(KERN_ERR "can: request_module "
 			       "(can-proto-%d) failed.\n", protocol);
 
-		cp = can_try_module_get(protocol);
+		cp = can_get_proto(protocol);
 	}
 #endif
 
@@ -261,11 +270,7 @@ static int can_create(struct socket *sock, int protocol)
 	}
 
  errout:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)
-	module_put(cp->prot->owner);
-#else
-	module_put(cp->owner);
-#endif
+	can_put_proto(cp);
 	return err;
 }
 
