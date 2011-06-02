@@ -181,9 +181,15 @@ static int bcm_proc_show(struct seq_file *m, void *v)
 	struct bcm_sock *bo = bcm_sk(sk);
 	struct bcm_op *op;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
 	seq_printf(m, ">>> socket %p", sk->sk_socket);
 	seq_printf(m, " / sk %p", sk);
 	seq_printf(m, " / bo %p", bo);
+#else
+	seq_printf(m, ">>> socket %pK", sk->sk_socket);
+	seq_printf(m, " / sk %pK", sk);
+	seq_printf(m, " / bo %pK", bo);
+#endif
 	seq_printf(m, " / dropped %lu", bo->dropped_usr_msgs);
 	seq_printf(m, " / bound %s", bcm_proc_getifname(ifname, bo->ifindex));
 	seq_printf(m, " <<<\n");
