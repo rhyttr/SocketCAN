@@ -172,7 +172,7 @@ This file contains:
   data has to be performed right after a successful transmission. If
   the CAN network interface is not capable of performing the loopback for
   some reason the SocketCAN core can do this task as a fallback solution.
-  See can-drivers.txt, chapter 1.2 for details (recommended).
+  See can-drivers.txt, chapter D.2 for details (recommended).
 
   The loopback functionality is enabled by default to reflect standard
   networking behaviour for CAN applications. Due to some requests from

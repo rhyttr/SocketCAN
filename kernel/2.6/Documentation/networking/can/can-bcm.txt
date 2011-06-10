@@ -6,20 +6,20 @@ Part of the documentation for the socketCAN subsystem
 
 This file contains:
 
-  1 Broadcast Manager protocol sockets (SOCK_DGRAM)
-    1.1 Opening BCM sockets
-    1.2 BCM messages (struct bcm_msg_head)
-    1.3 TX_SETUP opcode
-    1.4 TX_DELETE opcode
-    1.5 TX_READ opcode
-    1.6 TX_SEND opcode
-    1.7 RX_SETUP opcode
-    1.8 RX_DELETE opcode
-    1.9 RX_READ opcode
+  B. Broadcast Manager protocol sockets (SOCK_DGRAM)
+    B.1 Opening BCM sockets
+    B.2 BCM messages (struct bcm_msg_head)
+    B.3 TX_SETUP opcode
+    B.4 TX_DELETE opcode
+    B.5 TX_READ opcode
+    B.6 TX_SEND opcode
+    B.7 RX_SETUP opcode
+    B.8 RX_DELETE opcode
+    B.9 RX_READ opcode
 
 ============================================================================
 
-1. Broadcast Manager protocol sockets (SOCK_DGRAM)
+B. Broadcast Manager protocol sockets (SOCK_DGRAM)
 --------------------------------------------------
   
   The Broadcast Manager (BCM) provides functions to send CAN frames
@@ -46,7 +46,7 @@ This file contains:
   - Frequency reduction of messages (throttle function) to the user
     application
 
-  1.1 Opening BCM sockets
+  B.1 Opening BCM sockets
   
   To use Broadcast-Manager include the file "bcm.h".
   A socket for Broadcast-Manager is created with:
@@ -69,7 +69,7 @@ This file contains:
   Every single instance of Broadcast-Manager is able to manage any number of
   filter and/or send requests.
 
-  1.2 BCM messages (struct bcm_msg_head)
+  B.2 BCM messages (struct bcm_msg_head)
   
   All messages from the (user) process to Broadcast-Manager have the same
   structure. It consists of a message header with the command (opcode),
@@ -161,16 +161,16 @@ This file contains:
         generated when the (cyclic) receive restarts. This will happen even
         if the user data have not changed
 
-  1.3 TX_SETUP opcode
-  1.4 TX_DELETE opcode
+  B.3 TX_SETUP opcode
+  B.4 TX_DELETE opcode
 
   This opcode will delete the entry for transmission of the CAN frame with
   the specified can_id CAN identifier. The message length for the command
   TX_DELETE is sizeof(bcm_msg_head) (only the header).
 
-  1.5 TX_READ opcode
-  1.6 TX_SEND opcode
-  1.7 RX_SETUP opcode
-  1.8 RX_DELETE opcode
-  1.9 RX_READ opcode
+  B.5 TX_READ opcode
+  B.6 TX_SEND opcode
+  B.7 RX_SETUP opcode
+  B.8 RX_DELETE opcode
+  B.9 RX_READ opcode
 

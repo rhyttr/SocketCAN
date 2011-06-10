@@ -9,12 +9,12 @@ Part of the documentation for the socketCAN subsystem
 
 This file contains:
 
-  1 How to use Socket CAN
-    1.1 Timestamps
+  S. How to use Socket CAN
+    S.1 Timestamps
 
 ============================================================================
 
-1. How to use Socket CAN
+S. How to use Socket CAN
 ------------------------
 
   Like TCP/IP, you first need to open a socket for communicating over a
@@ -146,7 +146,7 @@ This file contains:
     nbytes = sendto(s, &frame, sizeof(struct can_frame),
                     0, (struct sockaddr*)&addr, sizeof(addr));
 
-  1.1 Timestamps
+  S.1 Timestamps
   
   For applications in the CAN environment it is often of interest an
   accurate timestamp of the instant a message from CAN bus has been received.

@@ -6,20 +6,20 @@ Part of the documentation for the socketCAN subsystem
 
 This file contains:
 
-  1 CAN network drivers
-    1.1 general settings
-    1.2 local loopback of sent frames
-    1.3 CAN controller hardware filters
-    1.4 The virtual CAN driver (vcan)
-    1.5 The CAN network device driver interface
-      1.5.1 Netlink interface to set/get devices properties
-      1.5.2 Setting the CAN bit-timing
-      1.5.3 Starting and stopping the CAN network device
-    1.6 supported CAN hardware
+  D. CAN network drivers
+    D.1 general settings
+    D.2 local loopback of sent frames
+    D.3 CAN controller hardware filters
+    D.4 The virtual CAN driver (vcan)
+    D.5 The CAN network device driver interface
+      D.5.1 Netlink interface to set/get devices properties
+      D.5.2 Setting the CAN bit-timing
+      D.5.3 Starting and stopping the CAN network device
+    D.6 supported CAN hardware
 
 ============================================================================
 
-1. CAN network drivers
+D. CAN network drivers
 ----------------------
 
   Writing a CAN network device driver is much easier than writing a
@@ -32,7 +32,7 @@ This file contains:
   See e.g. at Documentation/networking/netdevices.txt . The differences
   for writing CAN network device driver are described below:
 
-  1.1 general settings
+  D.1 general settings
 
     dev->type  = ARPHRD_CAN; /* the netdevice hardware type */
     dev->flags = IFF_NOARP;  /* CAN has no arp */
@@ -42,9 +42,9 @@ This file contains:
   The struct can_frame is the payload of each socket buffer in the
   protocol family PF_CAN.
 
-  1.2 local loopback of sent frames
+  D.2 local loopback of sent frames
 
-  As described in can-sockets.txt (chapter 1.2) the CAN network device
+  As described in overview.txt (chapter 3.2) the CAN network device
   driver should support a local loopback functionality similar to the
   local echo e.g. of tty devices. In this case the driver flag IFF_ECHO
   has to be set to prevent the PF_CAN core from locally echoing sent
@@ -52,7 +52,7 @@ This file contains:
 
     dev->flags = (IFF_NOARP | IFF_ECHO);
 
-  1.3 CAN controller hardware filters
+  D.3 CAN controller hardware filters
 
   To reduce the interrupt load on deep embedded systems some CAN
   controllers support the filtering of CAN IDs or ranges of CAN IDs.
@@ -68,7 +68,7 @@ This file contains:
   @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
   load without any problems ...
 
-  1.4 The virtual CAN driver (vcan)
+  D.4 The virtual CAN driver (vcan)
 
   Similar to the network loopback devices, vcan offers a virtual local
   CAN interface. A full qualified address on CAN consists of
@@ -96,7 +96,7 @@ This file contains:
   - Remove a (virtual CAN) network interface 'vcan42':
        $ ip link del vcan42
 
-  1.5 The CAN network device driver interface
+  D.5 The CAN network device driver interface
 
   The CAN network device driver interface provides a generic interface
   to setup, configure and monitor CAN network devices. The user can then
@@ -108,7 +108,7 @@ This file contains:
   should use. Please have a look to the SJA1000 or MSCAN driver to
   understand how to use them. The name of the module is can-dev.ko.
 
-  1.5.1 Netlink interface to set/get devices properties
+  D.5.1 Netlink interface to set/get devices properties
 
   The CAN device must be configured via netlink interface. The supported
   netlink message types are defined and briefly described in
@@ -203,7 +203,7 @@ This file contains:
     bus-off state. RX overrun errors are listed in the "overrun"
     field of the standard network statistics.
 
-  1.5.2 Setting the CAN bit-timing
+  D.5.2 Setting the CAN bit-timing
 
   The CAN bit-timing parameters can always be defined in a hardware
   independent format as proposed in the Bosch CAN 2.0 specification
@@ -254,12 +254,12 @@ This file contains:
     $ ip link set canX type can restart
 
   Note that a restart will also create a CAN error frame (see also
-  can-sockets.txt, chapter 1.4).
+  overview.txt, chapter 3.4).
 
-  1.6 Supported CAN hardware
+  D.6 Supported CAN hardware
 
   Please check the "Kconfig" file in "drivers/net/can" to get an actual
   list of the support CAN hardware. On the Socket CAN project website
-  (see overview.txt, chapter 5) there might be further drivers available,
+  (see overview.txt, chapter 4) there might be further drivers available,
   also for older kernel versions.
 

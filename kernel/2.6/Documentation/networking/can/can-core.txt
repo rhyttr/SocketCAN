@@ -6,14 +6,14 @@ Part of the documentation for the socketCAN subsystem
 
 This file contains:
 
-  1 Socket CAN core module
-    1.1 can.ko module params
-    1.2 procfs content
-    1.3 writing own CAN protocol modules
+  C. Socket CAN core module
+    C.1 can.ko module params
+    C.2 procfs content
+    C.3 writing own CAN protocol modules
 
 ============================================================================
 
-1. Socket CAN core module
+C. Socket CAN core module
 -------------------------
 
   The Socket CAN core module implements the protocol family
@@ -21,7 +21,7 @@ This file contains:
   runtime. The core module provides an interface for CAN protocol
   modules to subscribe needed CAN IDs (see overview.txt, chapter 3.1).
 
-  1.1 can.ko module params
+  C.1 can.ko module params
 
   - stats_timer: To calculate the Socket CAN core statistics
     (e.g. current/maximum frames per second) this 1 second timer is
@@ -30,7 +30,7 @@ This file contains:
 
   - debug: (removed since SocketCAN SVN r546)
 
-  1.2 procfs content
+  C.2 procfs content
 
   As described in overview.txt, chapter 3.1 the Socket CAN core uses
   several filter lists to deliver received CAN frames to CAN protocol
@@ -63,7 +63,7 @@ This file contains:
     reset_stats - manual statistic reset
     version     - prints the Socket CAN core version and the ABI version
 
-  1.3 writing own CAN protocol modules
+  C.3 writing own CAN protocol modules
 
   To implement a new protocol in the protocol family PF_CAN a new
   protocol has to be defined in include/linux/can.h .
