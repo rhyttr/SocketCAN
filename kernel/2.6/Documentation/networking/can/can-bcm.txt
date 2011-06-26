@@ -48,8 +48,10 @@ B. Broadcast Manager protocol sockets (SOCK_DGRAM)
 
   B.1 Opening BCM sockets
   
-  To use Broadcast-Manager include the file "bcm.h".
-  A socket for Broadcast-Manager is created with:
+  To use the referenced definitions for CAN_BCM sockets, include
+  <linux/can/bcm.h>.
+
+  A socket for the Broadcast-Manager is created with:
 
     s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
 
@@ -62,7 +64,7 @@ B. Broadcast Manager protocol sockets (SOCK_DGRAM)
 
     connect(s, (struct sockaddr *)&addr, sizeof(addr));
   
-  If a process must operate on multiple CAN buses, it must open several
+  If a process must operate on multiple CAN buses, it can open several
   sockets. It is also possible for a process to open multiple sockets
   on a single CAN-bus, if it makes sense for the application programmer
   to structure different data flows.
@@ -82,7 +84,7 @@ B. Broadcast Manager protocol sockets (SOCK_DGRAM)
         int count;                    /* run 'count' times ival1 then ival2 */
         struct timeval ival1, ival2;  /* intervals */
         canid_t can_id;               /* 32 Bit SFF/EFF. MSB set at EFF */
-        int nframes;                  /* number of can_frame's in the next field */
+        int nframes;                  /* num of can_frame's in the next field */
         struct can_frame frames[0];
     };
 
@@ -135,7 +137,8 @@ B. Broadcast Manager protocol sockets (SOCK_DGRAM)
 
    SETTIMER: set the value of ival1, ival2 and count
    STARTTIMER: start the timer with the actual value of ival1, ival2 and count.
-        Starting the timer leads simultaneously to the transmission of a can_frame
+        Starting the timer leads simultaneously to the transmission of a
+        can_frame
    TX_COUNTEVT: create the message TX_EXPIRED when count is reached
    TX_ANNOUNCE: a change of data by the process is emitted with a new frame,
         regardless of the timer status
