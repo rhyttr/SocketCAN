@@ -49,7 +49,7 @@ endif
 config CAN_DEV
 	tristate "Platform CAN drivers with Netlink support"
 	depends on CAN
-	default Y
+	default y
 	---help---
 	  Enables the common framework for platform CAN drivers with Netlink
 	  support. This is the standard library for CAN drivers.
@@ -68,7 +68,7 @@ config CAN_DEV_SYSFS
 config CAN_CALC_BITTIMING
 	bool "CAN bit-timing calculation"
 	depends on CAN_DEV
-	default Y
+	default y
 	---help---
 	  If enabled, CAN bit-timing parameters will be calculated for the
 	  bit-rate specified via Netlink argument "bitrate" when the device
